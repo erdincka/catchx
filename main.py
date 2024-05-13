@@ -91,11 +91,7 @@ def home():
             ui.label("Using volume:")
             ui.label(DEMO["volume"])
 
-        with (
-            ui.stepper()
-            .props("vertical header-nav")
-            .classes("w-full") as stepper
-        ):
+        with ui.stepper().props("vertical header-nav").classes("w-full") as stepper:
             for step in DEMO["steps"]:
                 with ui.step(step["id"], title=step["name"].title()).props(
                     f"active-icon=play_arrow caption=\"using {step['runner']}\""
