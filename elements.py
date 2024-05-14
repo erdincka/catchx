@@ -1,7 +1,5 @@
 from nicegui import app, ui
 
-import ezshow
-
 def get_echart():
     return ui.echart(
         {
@@ -66,13 +64,14 @@ def metrics_chart(metric_name, metric_chart):
 
     def add_metric(service_name, chart_name):
         t = service_name.split(".")
-        module_name = getattr(ezshow, t[0])
-        function_name = t[1]
-        function_param = t[2]
-        func = getattr(module_name, function_name)
+        # module_name = getattr(__import__(__name__), t[0])
+        # function_name = t[1]
+        # function_param = t[2]
+        # func = getattr(module_name, function_name)
+        func = getattr(__import__(t[0]), t[1])
 
         # collect the metrics
-        metric = func(function_param)
+        metric = func(t[2])
         if metric:
             chart_name.options["xAxis"]["data"].append(metric["time"])
             chart_name.options["title"]["text"] = metric["name"].title()

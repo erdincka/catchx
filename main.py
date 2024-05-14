@@ -5,6 +5,7 @@ import importlib_resources
 import requests
 from nicegui import app, ui, binding
 
+from elements import get_echart, metrics_chart
 from functions import *
 
 
@@ -28,13 +29,13 @@ async def home():
     app.storage.user["busy"] = False
 
     # and log window
-    app.storage.user["showlog"] = True
+    app.storage.user["showlog"] = False
 
     # and ui counters
     app.storage.user["ui"] = {}
 
     # Header
-    with ui.header(elevated=True).style('background-color: #3874c8').classes('items-center justify-between'):
+    with ui.header(elevated=True).style('background-color: #3874c8').classes('items-center justify-between uppercase'):
         ui.label(f"{APP_NAME}: {TITLE}")
         ui.space()
 
@@ -78,13 +79,14 @@ async def home():
         "Fraud Detection using Data Fabric",
         icon="credit_score",
         caption="React to every transaction in realtime ",
-    ).classes("w-full").classes("text-bold") as main:
+    ).classes("w-full").classes("text-bold") as home:
         with ui.stepper().props("vertical header-nav").classes("w-full") as stepper:
             for step in DEMO["steps"]:
                 with ui.step(name=step["name"].title()):
                     ui.markdown(step["description"]).classes("font-normal")
                     for code in step.get("codes", []):
-                        ui.code(inspect.getsource(code)).classes("w-full text-wrap")
+                        t = code.split('.')
+                        ui.code(inspect.getsource(getattr(__import__(t[0]), t[1]))).classes("w-full text-wrap")
                     if step["runner"] == "rest":
                         ui.label(
                             f"https://{os.environ['MAPR_IP']}:8443{step['runner_target']}"
@@ -167,7 +169,12 @@ async def home():
                             step, "id", backward=lambda x: x != 1
                         )  # don't show for the first step
 
-    main.bind_value(app.storage.general.get("ui", {}), "demo")
+    home.bind_value(app.storage.general.get("ui", {}), "demo")
+
+    with ui.row().classes("w-full"):
+        for svc in DEMO['services']:
+            svc_chart = get_echart()
+            metrics_chart(svc, svc_chart)
 
     with ui.footer() as footer:
         with ui.row().classes("w-full items-center"):

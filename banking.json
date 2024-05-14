@@ -1,11 +1,12 @@
 {
   "name": "banking",
-  "description": "Here we would like to process transaction messages coming from different sources to detect fraud. For that, we would like to capture these messages as they arrive, process and apply our ML model to detect if that specific transaction is fradualent or not.  \n\nWe will be using Data Fabric Event Store pub/sub mechanism to submit transaction data into a topic, and another app/process that is consuming these transaction messages and generating a transaction profile and put this profile into Data Fabric Binary Table for quick referral. Finally the microservice that is checking all previous and related transactions with the profile placed in this table will respond to our app via topic creating a bi-directional messaging pipeline. \n\nOur pipeline here supports Ezmeral Data Fabric converged platform to store and serve data in both streaming and operational database engines.",
+  "description": "In this demo we will be looking at the stream processing capabilities of Ezmeral Data Fabric for an end to end fraud detection pipeline. We will be using various utilities, such as REST API and Python mapr-stream and maprdb libraries to produce and consume transactions. For that, we would like to capture these messages as they arrive, process and apply our ML model to detect if that specific transaction is fradualent or not.  \n\nWe will be using Data Fabric Event Store pub/sub mechanism to submit transaction data into a topic, and another app/process that is consuming these transaction messages and generating a transaction profile and put this profile into Data Fabric Binary Table for quick referral. Finally the microservice that is checking all previous and related transactions with the profile placed in this table will respond to our app via topic creating a bi-directional messaging pipeline. \n\nOur pipeline here supports Ezmeral Data Fabric converged platform to store and serve data in both streaming and operational database engines.",
   "diagram": "banking.jpg",
   "volume": "/apps/banking",
   "stream": "activity",
+  "topic": "transactions",
   "table": "profiles",
-  "link": "https://github.com/HPEEzmeral/ezua-tutorials",
+  "link": "https://github.com/erdincka/catchx",
   "services": ["apprunner.topic_stats.transactions", "apprunner.consumer_stats.transactions"],
   "steps":[
     {
@@ -13,33 +14,31 @@
       "name": "create the volume",
       "description": "We will start with creating a volume to place all app content. This will hold our data and provides an isolation for different apps and users. Volumes are also the primary construct to define data placement and distribution, replication/mirroring capabilities. It is easy to create a volume using REST API. \n\n!! If you get a warning that volume already exists, you can ignore it (forgot to clean up after previous run?). \n\nLet's create the volume by sending this POST request to Data Fabric REST API:",
       "runner": "rest",
-      "runner_target": "/rest/volume/create?name=banking&path=/apps/banking&tieringenable=true"
+      "runner_target": "/rest/volume/create?name=banking&path=/apps/banking&tieringenable=true&replication=1&minreplication=1&nsreplication=1&nsminreplication=1"
     },
     {
       "id": 2,
       "name": "create the stream",
       "description": "Lets start with creating a stream for our application to send messages. The messages will be sent to their respective topics, and topics will be automatically created if they don't exist. This behaviour can be changed with stream settings, but we are not interested in that now. If needed, we can also create a topic manually using the same method (or any other available management interface, such as CLI & GUI). \n\nLet's submit this request to create the stream (don't worry if stream already exists, as a leftover from previous run):",
       "runner": "rest",
-      "runner_target": "/rest/stream/create?path=/apps/banking/activity&ttl=86400&compression=lz4"
+      "runner_target": "/rest/stream/create?path=/apps/banking/activity&ttl=86400&compression=lz4&produceperm=p&consumeperm=p&topicperm=p"
     },
     {
       "id": 3,
       "name": "create transactions",
-      "description": "Now we would like to push some transactions into the topic. We will use the `faker` library to generate random transactions and use Kafka REST interface to push these transactions into the `transactions` topic in our stream. It is preferred to use native clients and libraries, ie, Java, C, Python clients, in production for performance and scalability. \n\nYou can see below sample code for both REST API and Python library but we will be using only the REST API for its simplicity. For performance and flexibility, language-native APIs and libraries would be preferred in real-world.",
+      "description": "Now we would like to push some transactions into the topic. We will use the `faker` library to generate random transactions and use Python Kafka library to push these transactions into the `transactions` topic in our stream. \n\nYou can see below sample code for generated messages and how they are published to the topic.",
       "runner": "app",
       "runner_target": "send_transactions",
-      "runner_parameters": ["transactions"],
       "count": 20,
-      "codes": ["restrunner.kafkapost", "apprunner.kafka_publish"]
+      "codes": ["functions.send_transactions", "streams.produce"]
     },
     {
       "id": 4,
       "name": "process transactions",
-      "description": "We will capture the messages using Kafka REST interface and fake a transformation to strip relevant information from the messages. It is possible to do the same processing using any other client/library that is available for other programming languages. And an example code is provided below. \n\nEach message we will consume will correspond to a transaction and should be transformed to a format that is suitable for our fraud detection ML model. For low-latency access, we will use certain fields in the messages and push them into a JSON DocumentDB so our ML model can perform fast querying with filters and selects for specific accounts and timeframes, rather than trying to read all messages or transactions. \n\nIn a real-world scenario, we would run this process as a service across multiple instances to increase the throughput and reduce processing/response times. In our simple scenario, it is acceptable to process messages that are available right now in the topic and we are not concerned about future transactions now. \n\nLet's run the consumer code as shown below to process these messages.",
+      "description": "We will capture the messages using Python Kafka library and record the relevant data (or metadata) into a JSON table. \n\nEach message we will consume will correspond to a transaction and should be transformed to a format that is suitable for our fraud detection ML model. For low-latency access, we will use certain fields in the messages and push them into a JSON DocumentDB so our ML model can perform fast querying with filters and selects for specific accounts and timeframes, rather than trying to read all messages or transactions. \n\nIn a real-world scenario, we would run this process as a service across multiple instances to increase the throughput and reduce processing/response times. In our simple scenario, it is acceptable to process messages that are available right now in the topic and we are not concerned about future transactions now. \n\nLet's run the consumer code as shown below to process these messages.",
       "runner": "app",
       "runner_target": "process_transactions",
-      "runner_parameters": ["transactions"],
-      "codes": ["apprunner.stream_consume", "apprunner.kafka_consume"]
+      "codes": ["functions.send_transactions", "streams.consume"]
     },
     {
       "id": 5,
@@ -52,12 +51,12 @@
     {
       "id": 6,
       "name": "fraud detection for new transactions",
-      "description": "A backend service would process the transaction history and build patterns to identify if a give transaction is fradulent or not. We assume you already have your [Fraud Detection Model](https://github.com/HPEEzmeral/ezua-tutorials/tree/release-1.2.0/demos/fraud-detection), so we can use that service to inference every incoming transaction to check if they match these trained patterns or not.\n\n Again, for simplicity, we will simply return a random result from that inferencing rather than actually asking an AI model to detect our transaction validity.",
+      "description": "A backend service would process the transaction history and build patterns to identify if a give transaction is fradulent or not. We assume you already have your [Fraud Detection Model](https://github.com/HPEEzmeral/ezua-tutorials/tree/release-1.2.0/demos/fraud-detection), so we can use that service to inference every incoming transaction to check if they match these trained patterns or not.\n\n Again, for simplicity, we will select a transaction where the IBAN 'CHECK DIGITS' matches the selected counter rather than actually asking an AI model to detect our transaction validity. \n\nWe demonstrate the use of query strings on OJAI document search function here.",
       "runner": "app",
       "runner_target": "detect_fraud",
       "runner_parameters": [],
-      "codes": ["demos.banking.runners.detect_fraud"],
-      "count": 5
+      "codes": ["functions.detect_fraud", "tables.search_documents"],
+      "count": 33
     },
     {
       "id": 98,

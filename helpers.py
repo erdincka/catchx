@@ -1,3 +1,4 @@
+import datetime
 import json
 import logging
 import re
@@ -9,6 +10,7 @@ APP_NAME = "catchX"
 
 DEMO = json.loads(importlib_resources.files().joinpath("banking.json").read_text())
 
+MAX_POLL_TIME = 5
 
 class LogElementHandler(logging.Handler):
     """A logging handler that emits messages to a log element."""
@@ -34,3 +36,12 @@ class LogElementHandler(logging.Handler):
         except Exception:
             self.handleError(record)
 
+
+def dt_from_iso(timestring):
+    """
+    Convert ISO formatted timestamp to standard one
+    """
+    # Workaround since received timestring with " AM"/" PM" suffix is not parsed properly
+    isPM = " PM" in timestring
+    dt = datetime.datetime.strptime(timestring.replace(" AM", "").replace(" PM", ""), "%Y-%m-%dT%H:%M:%S.%f%z")
+    return dt + datetime.timedelta(hours=12) if isPM else dt

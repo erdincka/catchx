@@ -26,10 +26,10 @@ def get(path: str, *args, **kwargs):
     """
 
     REST_URL = f"https://{HOST}:8443{path}"
-    AUTH_CREDENTIALS = (app.storage.general.get("username", ""), app.storage.general.get("password", ""))
+
     try:
         response = requests.get(url=REST_URL, auth=AUTH_CREDENTIALS, verify=False, *args, **kwargs)
-        # logger.debug("GET RESPONSE: %s", response.text)
+        logger.debug("GET RESPONSE: %s", response.text)
         response.raise_for_status()
         return response
 
@@ -46,10 +46,10 @@ def post(path: str, *args, **kwargs):
     """
 
     REST_URL = f"https://{HOST}:8443{path}"
-    # logger.debug("POST URL: %s", REST_URL)
+    logger.debug("POST URL: %s", REST_URL)
     try:
         response = requests.post(url=REST_URL, auth=AUTH_CREDENTIALS, verify=False, *args, **kwargs)
-        # logger.debug("POSTRESPONSE: %s", response.text)
+        logger.debug("POSTRESPONSE: %s", response.text)
         response.raise_for_status()
         return response
 
@@ -64,11 +64,6 @@ def putfile(file: str, destfolder: str, *args, **kwargs):
     PUT request to Admin REST API at /files.
     args and kwargs for requests.put.
     """
-
-    AUTH_CREDENTIALS = (
-        app.storage.general.get("username", ""),
-        app.storage.general.get("password", ""),
-    )
 
     basedir = importlib_resources.files("app")
 
@@ -104,11 +99,6 @@ def getfile(filepath: str, *args, **kwargs):
     args and kwargs for requests.get.
     """
 
-    AUTH_CREDENTIALS = (
-        app.storage.general.get("username", ""),
-        app.storage.general.get("password", ""),
-    )
-
     REST_URL = f"https://{HOST}:8443/files{filepath}"
 
     try:
@@ -136,14 +126,10 @@ def dagget(path: str, *args, **kwargs):
     """
 
     REST_URL = f"https://{HOST}:8243{path}"
-    AUTH_CREDENTIALS = (
-        app.storage.general.get("username", ""),
-        app.storage.general.get("password", ""),
-    )
-    # logger.debug("DAG GET %s", REST_URL)
+    logger.debug("DAG GET %s", REST_URL)
     try:
         response = requests.get(url=REST_URL, auth=AUTH_CREDENTIALS, verify=False, *args, **kwargs)
-        # logger.debug("DAG GET RESPONSE: %s", response)
+        logger.debug("DAG GET RESPONSE: %s", response)
         response.raise_for_status()
         return response
 
@@ -160,14 +146,11 @@ def dagput(path: str, data=None, *args, **kwargs):
     """
 
     REST_URL = f"https://{HOST}:8243{path}"
-    AUTH_CREDENTIALS = (
-        app.storage.general.get("username", ""),
-        app.storage.general.get("password", ""),
-    )
-    # logger.debug("DAG PUT: %s", REST_URL)
+
+    logger.debug("DAG PUT: %s", REST_URL)
     try:
         response = requests.put(url=REST_URL, auth=AUTH_CREDENTIALS, verify=False, data=data, *args, **kwargs)
-        # logger.debug("DAG PUT RESPONSE: %s", response.text if response.text != "" else "OK")
+        logger.debug("DAG PUT RESPONSE: %s", response.text if response.text != "" else "OK")
         response.raise_for_status()
         return response
 
@@ -190,11 +173,8 @@ def dagpost(path: str, json_obj=None, *args, **kwargs):
         return None
 
     REST_URL = f"https://{HOST}:8243{path}"
-    AUTH_CREDENTIALS = (
-        app.storage.general.get("username", ""),
-        app.storage.general.get("password", ""),
-    )
-    # logger.debug("DAGPOSTDATA: %s", type(json_obj))
+
+    logger.debug("DAGPOSTDATA: %s", type(json_obj))
 
     try:
         response = requests.post(
@@ -206,7 +186,7 @@ def dagpost(path: str, json_obj=None, *args, **kwargs):
             **kwargs,
             # headers={"Content-Type: application/json"},
         )
-        # logger.debug("DAG POST RESPONSE: %s", response)
+        logger.debug("DAG POST RESPONSE: %s", response)
         response.raise_for_status()
         return response
 
@@ -223,11 +203,8 @@ def kafkaget(path: str, *args, **kwargs):
     """
 
     REST_URL = f"https://{HOST}:8082{path}"
-    AUTH_CREDENTIALS = (
-        app.storage.general.get("username", ""),
-        app.storage.general.get("password", ""),
-    )
-    # logger.debug("KAFKA GET %s", REST_URL)
+
+    logger.debug("KAFKA GET %s", REST_URL)
     try:
         response = requests.get(
             url=REST_URL,
@@ -240,12 +217,11 @@ def kafkaget(path: str, *args, **kwargs):
             *args,
             **kwargs,
         )
-        # logger.debug("KAFKA GET RESPONSE: %s", response.text)
+        logger.debug("KAFKA GET RESPONSE: %s", response.text)
         response.raise_for_status()
         return response
 
     except Exception as error:
-        # print(f"KAFKA GET ERROR {error}")
         logger.warning("KAFKA GET ERROR %s", error)
         return None
 
@@ -257,11 +233,8 @@ def kafkaput(path: str, data=None, *args, **kwargs):
     """
 
     REST_URL = f"https://{HOST}:8082{path}"
-    AUTH_CREDENTIALS = (
-        app.storage.general.get("username", ""),
-        app.storage.general.get("password", ""),
-    )
-    # logger.debug("KAFKA PUT: %s", REST_URL)
+
+    logger.debug("KAFKA PUT: %s", REST_URL)
     try:
         response = requests.put(
             url=REST_URL,
@@ -272,7 +245,7 @@ def kafkaput(path: str, data=None, *args, **kwargs):
             *args,
             **kwargs,
         )
-        # logger.debug("KAFKA PUT RESPONSE: %s", response)
+        logger.debug("KAFKA PUT RESPONSE: %s", response)
         response.raise_for_status()
         return response
 
@@ -288,10 +261,7 @@ def kafkapost(path: str, data=None, *args, **kwargs):
     """
 
     REST_URL = f"https://{HOST}:8082{path}"
-    AUTH_CREDENTIALS = (
-        app.storage.general.get("username", ""),
-        app.storage.general.get("password", ""),
-    )
+
     logger.debug("KAFKA POST DATA: %s", data)
 
     try:
@@ -325,10 +295,6 @@ def kafkadelete(path: str, *args, **kwargs):
     """
 
     REST_URL = f"https://{HOST}:8082{path}"
-    AUTH_CREDENTIALS = (
-        app.storage.general.get("username", ""),
-        app.storage.general.get("password", ""),
-    )
 
     try:
         response = requests.delete(
@@ -339,8 +305,8 @@ def kafkadelete(path: str, *args, **kwargs):
             *args,
             **kwargs,
         )
-        # logger.debug("KAFKA DELETE REQUEST: %s", response.request)
-        # logger.debug("KAFKA DELETE RESPONSE FOR %s: %s", REST_URL, response.text)
+        logger.debug("KAFKA DELETE REQUEST: %s", response.request)
+        logger.debug("KAFKA DELETE RESPONSE FOR %s: %s", REST_URL, response.text)
         response.raise_for_status()
         return response
 

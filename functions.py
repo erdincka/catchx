@@ -1,10 +1,14 @@
 import inspect
 import logging
-from urllib.parse import urlparse
+import os
+import timeit
+from faker import Faker
 from nicegui import app, run, ui
 
 from helpers import *
-import restrunner, runners
+import restrunner
+from streams import consume, produce
+from tables import search_documents, upsert_document
 
 logger = logging.getLogger()
 
@@ -76,7 +80,7 @@ async def run_step(step, pager: ui.stepper):
     #             ui.notify(message=response.text, html=True, type="warning")
 
     elif step["runner"] == "app":
-        func = getattr(runners, step["runner_target"])
+        func = getattr(__import__(__name__), step["runner_target"])
 
         if "count" in step.keys():
             app.storage.general["ui"]["counting"] = 0
@@ -94,18 +98,18 @@ async def run_step(step, pager: ui.stepper):
 
             if inspect.isgeneratorfunction(func):
                 for response in await run.io_bound(
-                    func, step["runner_parameters"], count
+                    func, step.get("runner_parameters", None), count
                 ):
-                    ui.notify(response)
+                    logger.info(response)
             else:
-                await run.io_bound(func, step["runner_parameters"], count)
+                await run.io_bound(func, step.get("runner_parameters", None), count)
 
         else:
             if inspect.isgeneratorfunction(func):
                 for response in await run.io_bound(
                     func, step.get("runner_parameters", None)
                 ):
-                    ui.notify(response)
+                    logger.info(response)
 
             else:
                 await run.io_bound(func, step.get("runner_parameters", None))
@@ -120,6 +124,85 @@ async def run_step(step, pager: ui.stepper):
 
     app.storage.user["busy"] = False
 
+
+def send_transactions(params: list, count: int):
+    # params not used
+    fake = Faker("en_US")
+    transactions = []
+
+    for i in range(count):
+        transactions.append(
+            {
+                "id": i + 1,
+                "sender_account": fake.iban(),
+                "receiver_account": fake.iban(),
+                "amount": round(fake.pyint(0, 10_000), 2),
+                "currency": "GBP",  # fake.currency_code(),
+                "transaction_date": fake.past_datetime(start_date="-12M").timestamp(),
+            }
+        )
+
+    # logger.debug("Creating monitoring table")
+    stream_path = f"{DEMO['volume']}/{DEMO['stream']}"
+
+    logger.info("Sending %s messages to %s:%s", len(transactions), stream_path, DEMO['topic'])
+
+    tic = timeit.default_timer()
+
+    for msg in transactions:
+        produce(stream_path, DEMO["topic"], json.dumps(msg))
+
+    logger.info("It took %i seconds", timeit.default_timer() - tic)
+
+
+def process_transactions(params: list):
+    # params not used
+    stream_path = f"{DEMO['volume']}/{DEMO['stream']}"
+    table_path = f"{DEMO['volume']}/{DEMO['table']}"
+
+    count = 0
+
+    tic = timeit.default_timer()
+
+    for record in consume(stream=stream_path, topic=DEMO['topic']):
+        message = json.loads(record)
+
+        profile = {
+            "_id": str(message["transaction_date"]),
+            "sender": message["sender_account"],
+            "receiver": message["receiver_account"],
+        }
+
+        logger.debug("Update DB with %s", profile)
+
+        if upsert_document(host=os.environ["MAPR_IP"], table=table_path, json_dict=profile):
+            count += 1
+
+    logger.info(
+        f"Processed %s transactions in %i seconds", count, timeit.default_timer() - tic
+    )
+
+
+def detect_fraud(params: list, count: int):
+    # params is not used
+    table_path = f"{DEMO['volume']}/{DEMO['table']}"
+
+    # just a simulation of query to the profiles table, 
+    # if any doc is found with the number as their CHECK DIGITS in IBAN, we consider it as fraud!
+    whereClause = {
+        "$or":[
+            {"$like":{"sender":f"GB{count}%"}},
+            {"$like":{"receiver":f"GB{count}%"}}
+        ]
+    }
+
+    for doc in search_documents(os.environ['MAPR_IP'], table_path, whereClause):
+
+        logger.debug("DB GET RESPONSE: %s", doc)
+
+        app.storage.general["counting"] = app.storage.general.get("counting", 0) + 1
+        yield f"Fraud txn from {doc['sender']} to {doc['receiver']}"
+        
 
 def toggle_log():
     app.storage.user["showlog"] = not app.storage.user["showlog"]
@@ -139,65 +222,65 @@ def gracefully_fail(exc: Exception):
     app.storage.user["busy"] = False
 
 
-async def stream_consumer(stream: str, topic: str):
-    app.storage.user["busy"] = True
+# async def stream_consumer(stream: str, topic: str):
+#     app.storage.user["busy"] = True
 
-    topic_path = f"{stream}:{topic}"
+#     topic_path = f"{stream}:{topic}"
 
-    result = []
+#     result = []
 
-    try:
-        # Create consumer instance
-        response = await run.io_bound(
-            restrunner.kafkapost,
-            host=app.storage.general["hq"],
-            path=f"/consumers/{topic}_cg",
-            data={
-                "name": f"{topic}_ci",
-                "format": "json",
-                "auto.offset.reset": "earliest",
-                # "fetch.max.wait.ms": 1000,
-                # "consumer.request.timeout.ms": "500",
-            },
-        )
+#     try:
+#         # Create consumer instance
+#         response = await run.io_bound(
+#             restrunner.kafkapost,
+#             host=app.storage.general["hq"],
+#             path=f"/consumers/{topic}_cg",
+#             data={
+#                 "name": f"{topic}_ci",
+#                 "format": "json",
+#                 "auto.offset.reset": "earliest",
+#                 # "fetch.max.wait.ms": 1000,
+#                 # "consumer.request.timeout.ms": "500",
+#             },
+#         )
 
-        if response is None:
-            return result
+#         if response is None:
+#             return result
 
-        ci = response.json()
-        ci_path = urlparse(ci["base_uri"]).path
+#         ci = response.json()
+#         ci_path = urlparse(ci["base_uri"]).path
 
-        # subscribe to consumer
-        await run.io_bound(
-            restrunner.kafkapost,
-            host=app.storage.general["hq"],
-            path=f"{ci_path}/subscription",
-            data={"topics": [topic_path]},
-        )
-        # No content in response
+#         # subscribe to consumer
+#         await run.io_bound(
+#             restrunner.kafkapost,
+#             host=app.storage.general["hq"],
+#             path=f"{ci_path}/subscription",
+#             data={"topics": [topic_path]},
+#         )
+#         # No content in response
 
-        # get records
-        records = await run.io_bound(
-            restrunner.kafkaget,
-            host=app.storage.general["hq"],
-            path=f"{ci_path}/records",
-        )
-        if records and records.ok:
-            for message in records.json():
-                # logger.debug("CONSUMER GOT MESSAGE: %s", message)
-                result.append(message["value"])
+#         # get records
+#         records = await run.io_bound(
+#             restrunner.kafkaget,
+#             host=app.storage.general["hq"],
+#             path=f"{ci_path}/records",
+#         )
+#         if records and records.ok:
+#             for message in records.json():
+#                 # logger.debug("CONSUMER GOT MESSAGE: %s", message)
+#                 result.append(message["value"])
 
-    except Exception as error:
-        logger.warning("STREAM CONSUMER ERROR %s", error)
+#     except Exception as error:
+#         logger.warning("STREAM CONSUMER ERROR %s", error)
 
-    finally:
-        # Unsubscribe from consumer instance
-        await run.io_bound(
-            restrunner.kafkadelete,
-            host=app.storage.general["hq"],
-            path=f"/consumers/{topic}_cg/instances/{topic}_ci",
-        )
+#     finally:
+#         # Unsubscribe from consumer instance
+#         await run.io_bound(
+#             restrunner.kafkadelete,
+#             host=app.storage.general["hq"],
+#             path=f"/consumers/{topic}_cg/instances/{topic}_ci",
+#         )
 
-        app.storage.user["busy"] = False
+#         app.storage.user["busy"] = False
 
-        return result
+#         return result
