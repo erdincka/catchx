@@ -10,7 +10,7 @@ from restrunner import *
 from functions import *
 
 
-logger = logging.getLogger("banking")
+logger = logging.getLogger()
 
 
 def send_transactions(params: list, count: int):
@@ -32,7 +32,7 @@ def send_transactions(params: list, count: int):
         )
 
     # logger.debug("Creating monitoring table")
-    stream_path = f"{VOLUME_PATH}/{STREAM}"
+    stream_path = f"{DEMO['volume']}/{DEMO['stream']}"
 
     logger.info("Sending %s messages to %s:%s", len(transactions), stream_path, topic)
 
@@ -49,8 +49,8 @@ def send_transactions(params: list, count: int):
 
 def process_transactions(params: list):
     topic = params[0]
-    stream_path = f"{VOLUME_PATH}/{STREAM}"
-    table_path = f"{VOLUME_PATH}/{TABLE}"
+    stream_path = f"{DEMO['volume']}/{DEMO['stream']}"
+    table_path = f"{DEMO['volume']}/{DEMO['table']}"
 
     count = 0
 
@@ -88,7 +88,7 @@ def process_transactions(params: list):
 
 
 def send_to_profileDB(json_obj: str):
-    table_path = f"{VOLUME_PATH}/{TABLE}"
+    table_path = f"{DEMO['volume']}/{DEMO['table']}"
 
     # logger.debug("Writing %s to %s", json_obj['_id'], table_path)
 
@@ -99,7 +99,7 @@ def send_to_profileDB(json_obj: str):
 
 
 def detect_fraud(params: list, count: int):
-    table_path = f"{VOLUME_PATH}/{TABLE}"
+    table_path = f"{DEMO['volume']}/{DEMO['table']}"
 
     response = restrunner.dagget(
         f"/api/v2/table/{quote(table_path, safe='')}?limit={count}"

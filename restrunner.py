@@ -1,22 +1,31 @@
 import json
 import logging
+import os
 import pathlib
 import importlib_resources
 import requests
 
 from nicegui import app
 
-logger = logging.getLogger(f"restrunner")
+from helpers import DEMO
+
+logger = logging.getLogger()
+
+HOST = os.environ["MAPR_IP"]
+AUTH_CREDENTIALS = (
+    os.environ["MAPR_USER"],
+    os.environ["MAPR_PASS"],
+)
 
 
 # Admin API GET call
-def get(host: str, path: str, *args, **kwargs):
+def get(path: str, *args, **kwargs):
     """
     GET request to Admin REST API
     args and kwargs for requests.get.
     """
 
-    REST_URL = f"https://{host}:8443{path}"
+    REST_URL = f"https://{HOST}:8443{path}"
     AUTH_CREDENTIALS = (app.storage.general.get("username", ""), app.storage.general.get("password", ""))
     try:
         response = requests.get(url=REST_URL, auth=AUTH_CREDENTIALS, verify=False, *args, **kwargs)
@@ -30,17 +39,13 @@ def get(host: str, path: str, *args, **kwargs):
 
 
 # Admin API POST call
-def post(host: str, path: str, *args, **kwargs):
+def post(path: str, *args, **kwargs):
     """
     POST request to Admin REST API
     args and kwargs for requests.post.
     """
 
-    REST_URL = f"https://{host}:8443{path}"
-    AUTH_CREDENTIALS = (
-        app.storage.general.get("username", ""),
-        app.storage.general.get("password", ""),
-    )
+    REST_URL = f"https://{HOST}:8443{path}"
     # logger.debug("POST URL: %s", REST_URL)
     try:
         response = requests.post(url=REST_URL, auth=AUTH_CREDENTIALS, verify=False, *args, **kwargs)
@@ -54,7 +59,7 @@ def post(host: str, path: str, *args, **kwargs):
 
 
 # Save file to destination folder
-def putfile(host: str, file: str, destfolder: str, *args, **kwargs):
+def putfile(file: str, destfolder: str, *args, **kwargs):
     """
     PUT request to Admin REST API at /files.
     args and kwargs for requests.put.
@@ -69,9 +74,9 @@ def putfile(host: str, file: str, destfolder: str, *args, **kwargs):
 
     filepath = basedir.joinpath(file)
     filename = pathlib.Path(filepath).name
-    destination = f"{VOLUME_PATH}/{destfolder}/{filename}"
+    destination = f"{DEMO['volume']}/{destfolder}/{filename}"
 
-    REST_URL = f"https://{host}:8443/files{destination}"
+    REST_URL = f"https://{HOST}:8443/files{destination}"
 
     try:
         with open(filepath, "rb") as f:
@@ -93,7 +98,7 @@ def putfile(host: str, file: str, destfolder: str, *args, **kwargs):
 
 
 # Get file from destination
-def getfile(host: str, filepath: str, *args, **kwargs):
+def getfile(filepath: str, *args, **kwargs):
     """
     GET request to Admin REST API at /files.
     args and kwargs for requests.get.
@@ -104,7 +109,7 @@ def getfile(host: str, filepath: str, *args, **kwargs):
         app.storage.general.get("password", ""),
     )
 
-    REST_URL = f"https://{host}:8443/files{filepath}"
+    REST_URL = f"https://{HOST}:8443/files{filepath}"
 
     try:
         response = requests.get(
@@ -124,13 +129,13 @@ def getfile(host: str, filepath: str, *args, **kwargs):
 
 
 # JSON DB (OJAI) call
-def dagget(host: str, path: str, *args, **kwargs):
+def dagget(path: str, *args, **kwargs):
     """
     GET request to Data Access Gateway API
     args and kwargs for request.get.
     """
 
-    REST_URL = f"https://{host}:8243{path}"
+    REST_URL = f"https://{HOST}:8243{path}"
     AUTH_CREDENTIALS = (
         app.storage.general.get("username", ""),
         app.storage.general.get("password", ""),
@@ -148,13 +153,13 @@ def dagget(host: str, path: str, *args, **kwargs):
 
 
 # JSON DB (OJAI) call
-def dagput(host: str, path: str, data=None, *args, **kwargs):
+def dagput(path: str, data=None, *args, **kwargs):
     """
     PUT request to Data Access Gateway API
     args and kwargs for requests.put.
     """
 
-    REST_URL = f"https://{host}:8243{path}"
+    REST_URL = f"https://{HOST}:8243{path}"
     AUTH_CREDENTIALS = (
         app.storage.general.get("username", ""),
         app.storage.general.get("password", ""),
@@ -175,16 +180,16 @@ def dagput(host: str, path: str, data=None, *args, **kwargs):
         return None
 
 
-def dagpost(host: str, path: str, json_obj=None, *args, **kwargs):
+def dagpost(path: str, json_obj=None, *args, **kwargs):
     """
     POST request to Data Access Gateway API
     args and kwargs for requests.post.
     """
 
-    if not host:
+    if not HOST:
         return None
 
-    REST_URL = f"https://{host}:8243{path}"
+    REST_URL = f"https://{HOST}:8243{path}"
     AUTH_CREDENTIALS = (
         app.storage.general.get("username", ""),
         app.storage.general.get("password", ""),
@@ -211,13 +216,13 @@ def dagpost(host: str, path: str, json_obj=None, *args, **kwargs):
 
 
 # Kafka REST calls
-def kafkaget(host: str, path: str, *args, **kwargs):
+def kafkaget(path: str, *args, **kwargs):
     """
     GET request to Kafka REST API
     args and kwargs for requests.get.
     """
 
-    REST_URL = f"https://{host}:8082{path}"
+    REST_URL = f"https://{HOST}:8082{path}"
     AUTH_CREDENTIALS = (
         app.storage.general.get("username", ""),
         app.storage.general.get("password", ""),
@@ -245,13 +250,13 @@ def kafkaget(host: str, path: str, *args, **kwargs):
         return None
 
 
-def kafkaput(host: str, path: str, data=None, *args, **kwargs):
+def kafkaput(path: str, data=None, *args, **kwargs):
     """
     PUT request to Kafka REST API
     args and kwargs for requests.put.
     """
 
-    REST_URL = f"https://{host}:8082{path}"
+    REST_URL = f"https://{HOST}:8082{path}"
     AUTH_CREDENTIALS = (
         app.storage.general.get("username", ""),
         app.storage.general.get("password", ""),
@@ -276,13 +281,13 @@ def kafkaput(host: str, path: str, data=None, *args, **kwargs):
         return None
 
 
-def kafkapost(host: str, path: str, data=None, *args, **kwargs):
+def kafkapost(path: str, data=None, *args, **kwargs):
     """
     POST request to Kafka REST API
     args and kwargs for requests.post.
     """
 
-    REST_URL = f"https://{host}:8082{path}"
+    REST_URL = f"https://{HOST}:8082{path}"
     AUTH_CREDENTIALS = (
         app.storage.general.get("username", ""),
         app.storage.general.get("password", ""),
@@ -313,13 +318,13 @@ def kafkapost(host: str, path: str, data=None, *args, **kwargs):
         return None
 
 
-def kafkadelete(host: str, path: str, *args, **kwargs):
+def kafkadelete(path: str, *args, **kwargs):
     """
     DELETE request to Kafka REST API
     args and kwargs for requests.delete.
     """
 
-    REST_URL = f"https://{host}:8082{path}"
+    REST_URL = f"https://{HOST}:8082{path}"
     AUTH_CREDENTIALS = (
         app.storage.general.get("username", ""),
         app.storage.general.get("password", ""),
@@ -348,16 +353,3 @@ def kafkadelete(host: str, path: str, *args, **kwargs):
         logger.warning("KAFKA DELETE ERROR %s", error)
         return None
 
-
-# Not used - basic auth used instead
-# def get_session():
-#     REST_URL = f"https://{app.storage.general['target']}:8443/"
-#     AUTH_CREDENTIALS = (
-#         app.storage.general["username"],
-#         app.storage.general["password"],
-#     )
-#     try:
-#         return requests.get(url=REST_URL, auth=AUTH_CREDENTIALS, verify=False)
-
-#     except Exception as error:
-#         return error

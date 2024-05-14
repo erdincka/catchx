@@ -1,88 +1,122 @@
-import json
+import inspect
 import logging
-from urllib.parse import quote, urlparse
+from urllib.parse import urlparse
 from nicegui import app, run, ui
 
-import restrunner
+from helpers import *
+import restrunner, runners
 
-logger = logging.getLogger("functions")
-
-APP_NAME = "catchX"
-
-# DEMO = {
-#     "name": "banking",
-#     "description": "Here we would like to process transaction messages coming from different sources to detect fraud. For that, we would like to capture these messages as they arrive, process and apply our ML model to detect if that specific transaction is fradualent or not.  \n\nWe will be using Data Fabric Event Store pub/sub mechanism to submit transaction data into a topic, and another app/process that is consuming these transaction messages and generating a transaction profile and put this profile into Data Fabric Binary Table for quick referral. Finally the microservice that is checking all previous and related transactions with the profile placed in this table will respond to our app via topic creating a bi-directional messaging pipeline. \n\nOur pipeline here supports Ezmeral Data Fabric converged platform to store and serve data in both streaming and operational database engines.",
-#     "image": "banking.jpg",
-#     "link": "https://github.com/ezua-tutorials/df-banking-demo",
-# }
-
-DEMO = ""
-# with open(importlib_resources.files("app").joinpath("banking.json"), "r") as f:
-with open("banking.json", "r") as f:
-    DEMO = json.load(f)
+logger = logging.getLogger()
 
 
-class LogElementHandler(logging.Handler):
-    """A logging handler that emits messages to a log element."""
-
-    def __init__(self, element: ui.log, level: int = logging.NOTSET) -> None:
-        self.element = element
-        super().__init__(level)
-
-    def emit(self, record: logging.LogRecord) -> None:
-        # change log format for UI
-        self.setFormatter(
-            logging.Formatter(
-                "%(asctime)s %(levelname)s: %(message)s",
-                datefmt="%H:%M:%S",
-            )
-        )
-        try:
-            msg = self.format(record)
-            self.element.push(msg)
-        except Exception:
-            self.handleError(record)
-
-
-async def prepare():
-    volume_path = DEMO["volume"]
-    table_path = f"{volume_path}/{DEMO['table']}"
-    stream_path = f"{volume_path}/{DEMO['stream']}"
-
+async def run_step(step, pager: ui.stepper):
     app.storage.user["busy"] = True
 
-    host = app.storage.general["host"]
+    if step["runner"] == "rest":
+        url = str(step["runner_target"])
 
-    logger.info("[ %s ] Create volume %s", host, volume_path)
-    response = await run.io_bound(
-        restrunner.post,
-        host=host,
-        path=f"/rest/volume/create?name={DEMO['name']}&path={DEMO['volume']}&replication=1&minreplication=1&nsreplication=1&nsminreplication=1",
-    )
-    if response:
-        logger.debug(response.text)
+        if step.get("use_demo_input", None):
+            op = step["use_demo_input"]
 
-    logger.info("[ %s ] Create table %s", host, table_path)
-    table_path = quote(f'{DEMO["volume"]}/{DEMO["table"]}', safe='')
-    response = await run.io_bound(
-        restrunner.dagput,
-        host=host,
-        path=f"/api/v2/table/{table_path}",
-    )
-    if response and response.ok:
-        logger.debug(response.text if len(response.text) > 0 else "%s created", DEMO['volume'])
+            if op == "append":
+                url += app.storage.user[f"input__{DEMO['name'].replace(' ', '_')}"]
 
-    logger.info("[ %s ] Create stream %s", host, stream_path)
-    stream_path = quote(stream_path, safe='')
-    response = await run.io_bound(
-        restrunner.post,
-        host=host,
-        path=f"/rest/stream/create?path={stream_path}&ttl=86400&compression=lz4",
-    )
-    if response:
-        logger.debug(response.text)
+            elif op == "replace":
+                url = url.replace(
+                    "PLACEHOLDER",
+                    app.storage.user[f"input__{DEMO['name'].replace(' ', '_')}"],
+                )
+                logger.debug("URL %s", url)
 
-    logger.info("Ready for demo")
+            elif op == "prepend":
+                url = app.storage.user[f"input__{DEMO['name'].replace(' ', '_')}"] + url
+
+            else:
+                logger.warning("Unknown input operation %s", op)
+
+        response = await run.io_bound(restrunner.post, url)
+
+        if response is None:
+            ui.notify("No response", type="negative")
+
+        elif response.ok:
+            resjson = response.json()
+            logger.debug("DEBUG RESTRUNNER RETURN %s", resjson)
+            # I took the lazy approach here since different rest calls have different return formats (except the 'status')
+            ui.notify(
+                resjson, type="positive" if resjson["status"] == "OK" else "warning"
+            )
+
+            if resjson["status"] == "OK":
+                pager.next()
+
+        else:  # http error returned
+            logger.warning("REST HTTP ERROR %s", response.text)
+            ui.notify(message=response.text, html=True, type="warning")
+
+    # elif step["runner"] == "restfile":
+    #     for response in await run.io_bound(
+    #         restrunner.postfile, DEMOS, step["runner_target"]
+    #     ):
+    #         if isinstance(response, Exception):
+    #             ui.notify(response, type="negative")
+    #         elif response.ok:
+    #             try:
+    #                 # logger.debug("DEBUG: RESPONSE FROM RESTRUNNER: %s", response)
+    #                 if response.status_code == 201:
+    #                     ui.notify("Folder created")
+    #                 else:
+    #                     resjson = response.json()
+    #                     ui.notify(resjson)
+    #             except Exception as error:
+    #                 logger.debug("RESTFILE ERROR: %s", error)
+
+    #             pager.next()
+    #         else:  # http error returned
+    #             ui.notify(message=response.text, html=True, type="warning")
+
+    elif step["runner"] == "app":
+        func = getattr(runners, step["runner_target"])
+
+        if "count" in step.keys():
+            app.storage.general["ui"]["counting"] = 0
+            # keep user selected count in sync
+            count = app.storage.user[
+                f"count__{DEMO['name'].replace(' ', '_')}__{step['id']}"
+            ]
+
+            # add progressbar if 'count'ing
+            ui.linear_progress().bind_value_from(
+                app.storage.general["ui"],
+                "counting",
+                backward=lambda x: f"{100 * int(x/count)} %",
+            )
+
+            if inspect.isgeneratorfunction(func):
+                for response in await run.io_bound(
+                    func, step["runner_parameters"], count
+                ):
+                    ui.notify(response)
+            else:
+                await run.io_bound(func, step["runner_parameters"], count)
+
+        else:
+            if inspect.isgeneratorfunction(func):
+                for response in await run.io_bound(
+                    func, step.get("runner_parameters", None)
+                ):
+                    ui.notify(response)
+
+            else:
+                await run.io_bound(func, step.get("runner_parameters", None))
+
+        # pager.next()
+
+    else:
+        ui.notify(
+            f"Would run {step['runner_target']} using {step['runner']} but it is not here yet!"
+        )
+        pager.next()
 
     app.storage.user["busy"] = False
 
@@ -91,9 +125,17 @@ def toggle_log():
     app.storage.user["showlog"] = not app.storage.user["showlog"]
 
 
+def toggle_debug(val: bool):
+    if val:
+        logger.setLevel(logging.DEBUG)
+    else:
+        logger.setLevel(logging.INFO)
+
+
+# Handle exceptions without UI failure
 def gracefully_fail(exc: Exception):
-    print("gracefully dying...")
-    logger.debug("Exception %s", exc)
+    print("gracefully failing...")
+    logger.exception(exc)
     app.storage.user["busy"] = False
 
 

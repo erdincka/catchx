@@ -7,7 +7,7 @@ import json
 
 import restrunner
 
-logger = logging.getLogger("apprunner")
+logger = logging.getLogger()
 
 
 def push_to_monitorDB(stats_json_str: str):
