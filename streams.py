@@ -5,6 +5,7 @@ from helpers import MAX_POLL_TIME
 
 logger = logging.getLogger()
 
+
 def produce(stream: str, topic: str, message: str):
     from confluent_kafka import Producer
 
@@ -28,7 +29,7 @@ def consume(stream: str, topic: str):
     from confluent_kafka import Consumer, KafkaError
 
     consumer = Consumer(
-        {"group.id": "demo_consumer_group", "default.topic.config": {"auto.offset.reset": "earliest"}}
+        {"group.id": "ezdemo_cg", "default.topic.config": {"auto.offset.reset": "earliest"}}
     )
 
     consumer.subscribe([f"{stream}:{topic}"])

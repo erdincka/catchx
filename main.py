@@ -1,8 +1,6 @@
 import inspect
 import logging
 import os
-import sys
-import importlib_resources
 
 import requests
 from nicegui import app, ui, binding
@@ -11,11 +9,31 @@ from elements import get_echart, update_metrics
 from functions import *
 
 
+TITLE = "Data Fabric End to End Data Pipeline"
+STORAGE_SECRET = "ezmer@1r0cks"
+
+# catch-all exceptions
+app.on_exception(gracefully_fail)
+
+# Set up logging and third party errors
 logging.basicConfig(level=logging.INFO,
                 format="%(asctime)s:%(levelname)s:%(module)s (%(funcName)s): %(message)s",
                 datefmt='%H:%M:%S')
 
 logger = logging.getLogger()
+# INSECURE REQUESTS ARE OK in Lab
+requests.packages.urllib3.disable_warnings()
+urllib_logger = logging.getLogger("urllib3.connectionpool")
+urllib_logger.setLevel(logging.WARNING)
+
+requests_log = logging.getLogger("requests.packages.urllib3")
+requests_log.setLevel(logging.WARNING)
+
+watcher_logger = logging.getLogger("watchfiles.main")
+watcher_logger.setLevel(logging.FATAL)
+
+faker_log = logging.getLogger("faker.factory")
+faker_log.setLevel(logging.FATAL)
 
 # https://sam.hooke.me/note/2023/10/nicegui-binding-propagation-warning/
 binding.MAX_PROPAGATION_TIME = 0.05
@@ -33,8 +51,9 @@ async def home():
     # and log window
     app.storage.user["showlog"] = False
 
-    # and ui counters
-    app.storage.user["ui"] = {}
+    # reset the cluster info
+    if "clusters" not in app.storage.general:
+        app.storage.general["clusters"] = []
 
     # Header
     with ui.header(elevated=True).style('background-color: #3874c8').classes('items-center justify-between uppercase'):
@@ -42,7 +61,7 @@ async def home():
         ui.space()
 
         # Env
-        ui.label("Cluster:")
+        ui.label().classes("uppercase").bind_text_from(app.storage.general, "cluster")
         ui.link(target=f"https://{os.environ['MAPR_USER']}:{os.environ['MAPR_PASS']}@{os.environ['MAPR_IP']}:8443/", new_tab=True).bind_text_from(os.environ, "MAPR_CLUSTER").classes("text-sky-300 hover:text-blue-600")
         ui.space()
         ui.label("Volume:")
@@ -56,6 +75,11 @@ async def home():
         ui.space()
 
         ui.switch(on_change=toggle_debug).bind_value(app.storage.user, "debugging").tooltip("Debug")
+
+    with ui.row().classes("w-full"):
+        ui.upload(label="Client files", on_upload=upload_client_files, multiple=True, auto_upload=True, max_files=2).props("accept='application/x-tar,application/x-gzip' hide-upload-btn")
+        ui.button("Configure client", on_click=lambda: run_command("/opt/mapr/server/configure.sh -R"))
+        ui.button("Test command", on_click=lambda: run_command("env"))
 
     # Documentation / Intro
     with ui.expansion(
@@ -214,27 +238,6 @@ async def home():
         logger.addHandler(LogElementHandler(log, level=logging.INFO))
 
 
-TITLE = "Data Fabric End to End Data Pipeline"
-STORAGE_SECRET = "ezmer@1r0cks"
-
-# enable pyspark from /opt/mapr
-sys.path.insert(1, "/opt/mapr/spark/spark-3.3.3/python/lib/pyspark.zip")
-sys.path.insert(1, "/opt/mapr/spark/spark-3.3.3/python/lib/py4j-0.10.9.5-src.zip")
-
-# INSECURE REQUESTS ARE OK in Lab
-requests.packages.urllib3.disable_warnings()
-urllib_logger = logging.getLogger("urllib3.connectionpool")
-urllib_logger.setLevel(logging.WARNING)
-
-requests_log = logging.getLogger("requests.packages.urllib3")
-requests_log.setLevel(logging.WARNING)
-
-watcher_logger = logging.getLogger("watchfiles.main")
-watcher_logger.setLevel(logging.FATAL)
-
-faker_log = logging.getLogger("faker.factory")
-faker_log.setLevel(logging.FATAL)
-
 if __name__ in {"__main__", "__mp_main__"}:
     ui.run(
         title=TITLE,
@@ -244,4 +247,3 @@ if __name__ in {"__main__", "__mp_main__"}:
         port=3000,
     )
 
-app.on_exception(gracefully_fail)

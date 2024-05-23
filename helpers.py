@@ -1,12 +1,15 @@
+import asyncio
 import datetime
 import json
 import logging
+import os
 import re
+import tarfile
 from time import gmtime, strftime
 import uuid
 
 import importlib_resources
-from nicegui import ui
+from nicegui import ui, events, app
 
 APP_NAME = "catchX"
 
@@ -51,4 +54,77 @@ def dt_from_iso(timestring):
 
 def get_uuid_key():
     return '{0}_{1}'.format(strftime("%Y%m%d%H%M%S",gmtime()),uuid.uuid4())
+
+
+# def is_configured():
+#     """
+#     Check if all client configuration files in place
+#     """
+#     files = ["/opt/mapr/conf/mapr-clusters.conf", "/opt/mapr/conf/ssl_truststore", "/opt/mapr/conf/ssl_truststore.pem", "/root/jwt_access", "/root/jwt_refresh"]
+#     return all([os.path.isfile(f) for f in files])
+
+
+def upload_client_files(e: events.UploadEventArguments):
+    # possibly a security issue to use uploaded file names directly - don't care in demo/lab environment
+    try:
+        filename = e.name
+        with open(f"/tmp/{filename}", "wb") as f:
+            f.write(e.content.read())
+        
+        with tarfile.open(f"/tmp/{filename}", "r") as tf:
+            if "config" in filename:
+                tf.extractall(path="/opt/mapr")
+                get_clusters()
+
+            elif "jwt_tokens" in filename:
+                tf.extractall(path="/root")
+            else:
+                ui.notify(f"Unknown filename: {filename}", type="warning")
+                return
+
+            ui.notify(f"{filename} extracted: {','.join(tf.getnames())}", type="positive")
+
+    except Exception as error:
+        ui.notify(error, type="negative")
+
+
+def get_clusters():
+    with open("/opt/mapr/conf/mapr-clusters.conf", "r") as conf:
+        # reset the clusters
+        app.storage.general["clusters"] = {}
+        for line in conf.readlines():
+            t = line.split(' ')
+            # dict { 'value1': 'name1' } formatted cluster list, compatible to ui.select options
+            cls = { t[2].split(":")[0] : t[0] }
+            app.storage.general["clusters"].update(cls)
+
+
+async def run_command(command: str) -> None:
+    """Run a command in the background and display the output in the pre-created dialog."""
+    with ui.dialog().props("full-width v-model='cmd") as dialog, ui.card().classes("grow relative"):
+        ui.button(icon="close", on_click=dialog.close).props("flat round dense").classes("absolute right-4 top-4")
+        result = ui.log().classes("w-full").style("white-space: pre-wrap")
+
+    dialog.open()
+    result.content = ''
+
+    process = await asyncio.create_subprocess_shell(
+        command,
+        stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.STDOUT,
+        cwd=os.path.dirname(os.path.abspath(__file__))
+    )
+
+    # stdout, stderr = await process.communicate()
+
+    # if stdout:
+    #     result.push(stdout.decode())
+    # if stderr:
+    #     result.push(stderr.decode())
+
+    # NOTE we need to read the output in chunks, otherwise the process will block
+    while True:
+        new = await process.stdout.read(4096)
+        if not new:
+            break
+        result.push(new.decode())
 

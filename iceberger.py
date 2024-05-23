@@ -62,7 +62,7 @@ def stock_producer():
                 table = catalog.create_table(
                     f'{schemaname}.{tablename}',
                     schema=df.schema,
-                    location=s3location,
+                    location=warehouse_path,
                 )
             except:
                 print("Table exists, append " + tablename)    
