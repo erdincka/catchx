@@ -25,12 +25,11 @@
     },
     {
       "id": 3,
-      "name": "create transactions",
-      "description": "Now we would like to push some transactions into the topic. We will use the `faker` library to generate random transactions and use Python Kafka library to push these transactions into the `transactions` topic in our stream. \n\nYou can see below sample code for generated messages and how they are published to the topic.",
-      "runner": "app",
-      "runner_target": "send_transactions",
-      "count": 20,
-      "codes": ["functions.send_transactions", "streams.produce"]
+      "name": "Start Ingestion",
+      "description": "Now we would like to push transactions into the topic. We will use the `faker` library to generate random transactions and use Python Kafka library to push these transactions into the `transactions` topic in our stream. \n\nYou can see below sample code for generated messages and how they are published to the topic.",
+      "runner": "service",
+      "runner_target": "data_generator_service",
+      "codes": ["functions.data_generator_service", "streams.produce"]
     },
     {
       "id": 4,
@@ -38,7 +37,7 @@
       "description": "We will capture the messages using Python Kafka library and record the relevant data (or metadata) into a JSON table. \n\nEach message we will consume will correspond to a transaction and should be transformed to a format that is suitable for our fraud detection ML model. For low-latency access, we will use certain fields in the messages and push them into a JSON DocumentDB so our ML model can perform fast querying with filters and selects for specific accounts and timeframes, rather than trying to read all messages or transactions. \n\nIn a real-world scenario, we would run this process as a service across multiple instances to increase the throughput and reduce processing/response times. In our simple scenario, it is acceptable to process messages that are available right now in the topic and we are not concerned about future transactions now. \n\nLet's run the consumer code as shown below to process these messages.",
       "runner": "app",
       "runner_target": "process_transactions",
-      "codes": ["functions.send_transactions", "streams.consume"]
+      "codes": ["functions.process_transactions", "streams.consume"]
     },
     {
       "id": 5,

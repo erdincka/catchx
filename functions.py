@@ -1,6 +1,8 @@
+import asyncio
 import inspect
 import logging
 import os
+import random
 import timeit
 from faker import Faker
 from nicegui import app, run, ui
@@ -11,6 +13,8 @@ from streams import consume, produce
 from tables import search_documents, upsert_document
 
 logger = logging.getLogger()
+
+fake = Faker("en_US")
 
 
 async def run_step(step, pager: ui.stepper):
@@ -116,6 +120,10 @@ async def run_step(step, pager: ui.stepper):
 
         # pager.next()
 
+    elif step["runner"] == "service":
+
+        app.storage.user["busy"] = False
+
     else:
         ui.notify(
             f"Would run {step['runner_target']} using {step['runner']} but it is not here yet!"
@@ -125,38 +133,39 @@ async def run_step(step, pager: ui.stepper):
     app.storage.user["busy"] = False
 
 
-def send_transactions(params: list, count: int):
-    # params not used
-    fake = Faker("en_US")
-    transactions = []
+def fake_transaction():
+    return {
+        "id": datetime.datetime.timestamp(datetime.datetime.now()),
+        "sender_account": fake.iban(),
+        "receiver_account": fake.iban(),
+        "amount": round(fake.pyint(0, 10_000), 2),
+        "currency": "GBP",  # fake.currency_code(),
+        "transaction_date": fake.past_datetime(start_date="-12M").timestamp(),
+        "merchant": random.randrange(10**11, 10**12)
+    }
 
-    for i in range(count):
-        transactions.append(
-            {
-                "id": i + 1,
-                "sender_account": fake.iban(),
-                "receiver_account": fake.iban(),
-                "amount": round(fake.pyint(0, 10_000), 2),
-                "currency": "GBP",  # fake.currency_code(),
-                "transaction_date": fake.past_datetime(start_date="-12M").timestamp(),
-            }
-        )
 
-    # logger.debug("Creating monitoring table")
+def publish_transaction(txn: dict):
     stream_path = f"{DEMO['volume']}/{DEMO['stream']}"
 
-    logger.info("Sending %s messages to %s:%s", len(transactions), stream_path, DEMO['topic'])
-
-    tic = timeit.default_timer()
-
-    for msg in transactions:
-        produce(stream_path, DEMO["topic"], json.dumps(msg))
-
-    logger.info("It took %i seconds", timeit.default_timer() - tic)
+    if produce(stream_path, DEMO["topic"], json.dumps(txn)):
+        logger.debug("Sent %s", txn["id"])
+    else:
+        logger.warning("Failed to send message to %s", DEMO['topic'])
 
 
-def process_transactions(params: list):
-    # params not used
+async def transaction_feed_service():
+    app.storage.general["txn_feed_svc"] = True
+
+    while True:
+        if app.storage.general.get("txn_feed_svc", False):
+            await run.io_bound(publish_transaction, fake_transaction())
+
+        # add delay
+        await asyncio.sleep(5)
+
+
+def process_transactions(_: list):
     stream_path = f"{DEMO['volume']}/{DEMO['stream']}"
     table_path = f"{DEMO['volume']}/{DEMO['table']}"
 

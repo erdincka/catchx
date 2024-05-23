@@ -1,5 +1,6 @@
 import logging
 import os
+import sys
 import importlib_resources
 
 import requests
@@ -10,7 +11,7 @@ from functions import *
 
 
 logging.basicConfig(level=logging.INFO,
-                format="%(asctime)s:%(levelname)s:%(funcName)s: %(message)s",
+                format="%(asctime)s:%(name)s:%(levelname)s:%(module)s (%(funcName)s): %(message)s",
                 datefmt='%H:%M:%S')
 
 logger = logging.getLogger()
@@ -75,101 +76,107 @@ async def home():
 
     ui.separator()
 
-    with ui.expansion(
-        "Fraud Detection using Data Fabric",
-        icon="credit_score",
-        caption="React to every transaction in realtime ",
-    ).classes("w-full").classes("text-bold") as home:
-        with ui.stepper().props("vertical header-nav").classes("w-full") as stepper:
-            for step in DEMO["steps"]:
-                with ui.step(name=step["name"].title()):
-                    ui.markdown(step["description"]).classes("font-normal")
-                    for code in step.get("codes", []):
-                        t = code.split('.')
-                        ui.code(inspect.getsource(getattr(__import__(t[0]), t[1]))).classes("w-full text-wrap")
-                    if step["runner"] == "rest":
-                        ui.label(
-                            f"https://{os.environ['MAPR_IP']}:8443{step['runner_target']}"
-                        )
-                    elif step['runner'] in ['app', 'noop']:
+    # with ui.expansion(
+    #     "Fraud Detection using Data Fabric",
+    #     icon="credit_score",
+    #     caption="React to every transaction in realtime ",
+    # ).classes("w-full").classes("text-bold") as home:
+    #     with ui.stepper().props("vertical header-nav").classes("w-full") as stepper:
+    #         for step in DEMO["steps"]:
+    #             with ui.step(name=step["name"].title()):
+    #                 ui.markdown(step["description"]).classes("font-normal")
+    #                 for code in step.get("codes", []):
+    #                     t = code.split('.')
+    #                     ui.code(inspect.getsource(getattr(__import__(t[0]), t[1]))).classes("w-full text-wrap")
+    #                 if step["runner"] == "rest":
+    #                     ui.label(
+    #                         f"https://{os.environ['MAPR_IP']}:8443{step['runner_target']}"
+    #                     )
 
-                        if step['runner'] != "noop":
-                            # Display function params if 'count' is provided
-                            if 'count' in step.keys():
-                                ui.label().bind_text_from(
-                                    app.storage.user,
-                                    f"count__{DEMO['name'].replace(' ', '_')}__{step['id']}",
-                                    # format message to show function(param, count) format
-                                    backward=lambda x, y=step.get(
-                                        "runner_parameters", None
-                                    ), p=step["runner_target"]: f"Will be running: {p}( {y}, {x} )"
-                                )
-                            else:
-                                ui.label(f"Will be running: {step['runner_target']} ( {step.get('runner_parameters', None)} )" )
+    #                 elif step['runner'] in ['app', 'noop']:
+    #                     if step['runner'] != "noop":
+    #                         # Display function params if 'count' is provided
+    #                         if 'count' in step.keys():
+    #                             ui.label().bind_text_from(
+    #                                 app.storage.user,
+    #                                 f"count__{DEMO['name'].replace(' ', '_')}__{step['id']}",
+    #                                 # format message to show function(param, count) format
+    #                                 backward=lambda x, y=step.get(
+    #                                     "runner_parameters", None
+    #                                 ), p=step["runner_target"]: f"Will be running: {p}({y}, {x})"
+    #                             )
+    #                         else:
+    #                             ui.label(f"Will be running: {step['runner_target']} ({step.get('runner_parameters', None)} )")
 
-                        # Insert count slider if step wants one
-                        if step.get("count", None):
-                            with ui.row().classes("w-full"):
-                                slider = (
-                                    ui.slider(
-                                        min=0,
-                                        max=3 * step["count"],
-                                        step=1,
-                                        value=step["count"],
-                                        # saving selection in user storage, with demo name (spaces substituted with _), step id and parameter
-                                    )
-                                    .bind_value_to(
-                                        app.storage.user,
-                                        f"count__{DEMO['name'].replace(' ', '_')}__{step['id']}",
-                                    )
-                                    .classes("w-5/6 self-center")
-                                )
-                                ui.label().bind_text_from(
-                                    slider, "value"
-                                ).classes("self-center")
+    #                     # Insert count slider if step wants one
+    #                     if step.get("count", None):
+    #                         with ui.row().classes("w-full"):
+    #                             slider = (
+    #                                 ui.slider(
+    #                                     min=0,
+    #                                     max=3 * step["count"],
+    #                                     step=1,
+    #                                     value=step["count"],
+    #                                     # saving selection in user storage, with demo name (spaces substituted with _), step id and parameter
+    #                                 )
+    #                                 .bind_value_to(
+    #                                     app.storage.user,
+    #                                     f"count__{DEMO['name'].replace(' ', '_')}__{step['id']}",
+    #                                 )
+    #                                 .classes("w-5/6 self-center")
+    #                             )
+    #                             ui.label().bind_text_from(
+    #                                 slider, "value"
+    #                             ).classes("self-center")
 
-                        # Get input if step wants one
-                        if step.get("input", None):
-                            ui.input(
-                                step["input"],
-                                placeholder="We need this input to proceed",
-                            ).bind_value_to(
-                                app.storage.user,
-                                # saving selection in user storage, with demo name (spaces substituted with _), step id and parameter
-                                f"input__{DEMO['name'].replace(' ', '_')}__{step['id']}",
-                            ).classes(
-                                "w-full"
-                            )
+    #                     # Get input if step wants one
+    #                     if step.get("input", None):
+    #                         ui.input(
+    #                             step["input"],
+    #                             placeholder="We need this input to proceed",
+    #                         ).bind_value_to(
+    #                             app.storage.user,
+    #                             # saving selection in user storage, with demo name (spaces substituted with _), step id and parameter
+    #                             f"input__{DEMO['name'].replace(' ', '_')}__{step['id']}",
+    #                         ).classes(
+    #                             "w-full"
+    #                         )
 
-                    with ui.stepper_navigation():
-                        ui.button(
-                            "Run",
-                            icon="play_arrow",
-                            on_click=lambda step=step, pager=stepper: run_step(
-                                    step, pager
-                                ),
-                        ).bind_enabled_from(
-                            app.storage.user,
-                            "busy",
-                            backward=lambda x: not x,
-                        ).bind_visibility_from(
-                            step, "runner", backward=lambda x: x != "noop"
-                        )
-                        ui.button(
-                            "Next",
-                            icon="fast_forward",
-                            on_click=stepper.next,
-                            color="secondary"
-                        ).props("flat")
-                        ui.button(
-                            "Back",
-                            icon="fast_rewind",
-                            on_click=stepper.previous,
-                        ).props("flat").bind_visibility_from(
-                            step, "id", backward=lambda x: x != 1
-                        )  # don't show for the first step
 
-    home.bind_value(app.storage.general.get("ui", {}), "demo")
+    #                 with ui.stepper_navigation():
+    #                     ui.button(
+    #                         "Run",
+    #                         icon="play_arrow",
+    #                         on_click=lambda step=step, pager=stepper: run_step(
+    #                                 step, pager
+    #                             ),
+    #                     ).bind_enabled_from(
+    #                         app.storage.user,
+    #                         "busy",
+    #                         backward=lambda x: not x,
+    #                     ).bind_visibility_from(
+    #                         step, "runner", backward=lambda x: x != "noop"
+    #                     )
+    #                     ui.button(
+    #                         "Next",
+    #                         icon="fast_forward",
+    #                         on_click=stepper.next,
+    #                         color="secondary"
+    #                     ).props("flat")
+    #                     ui.button(
+    #                         "Back",
+    #                         icon="fast_rewind",
+    #                         on_click=stepper.previous,
+    #                     ).props("flat").bind_visibility_from(
+    #                         step, "id", backward=lambda x: x != 1
+    #                     )  # don't show for the first step
+
+    # home.bind_value(app.storage.general.get("ui", {}), "demo")
+
+    # Services
+    ui.button("Start transaction feed", on_click=transaction_feed_service)
+    ui.switch().bind_value(app.storage.general, "txn_feed_svc").bind_text_from(app.storage.general, "txn_feed_svc", backward=lambda x: "Running" if x else "Stopped")
+
 
     with ui.row().classes("w-full"):
         for svc in DEMO['services']:
@@ -198,6 +205,10 @@ async def home():
 
 TITLE = "Data Fabric End to End Data Pipeline"
 STORAGE_SECRET = "ezmer@1r0cks"
+
+# enable pyspark from /opt/mapr
+sys.path.insert(1, "/opt/mapr/spark/spark-3.3.3/python/lib/pyspark.zip")
+sys.path.insert(1, "/opt/mapr/spark/spark-3.3.3/python/lib/py4j-0.10.9.5-src.zip")
 
 # INSECURE REQUESTS ARE OK in Lab
 requests.packages.urllib3.disable_warnings()
