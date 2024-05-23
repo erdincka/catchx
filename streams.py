@@ -1,19 +1,18 @@
 import logging
-from time import sleep
 
 from helpers import MAX_POLL_TIME
 
 
 logger = logging.getLogger()
 
-def produce(stream: str, topic: str, record: str):
+def produce(stream: str, topic: str, message: str):
     from confluent_kafka import Producer
 
     p = Producer({"streams.producer.default.stream": stream})
 
     try:
-        # logger.debug("pushing message: %s", record)
-        p.produce(topic, record.encode("utf-8"))
+        logger.debug("sending message: %s", message)
+        p.produce(topic, message.encode("utf-8"))
 
     except Exception as error:
         logger.warning(error)

@@ -1,3 +1,4 @@
+import inspect
 import logging
 import os
 import sys
@@ -6,12 +7,12 @@ import importlib_resources
 import requests
 from nicegui import app, ui, binding
 
-from elements import get_echart, metrics_chart
+from elements import get_echart, update_metrics
 from functions import *
 
 
 logging.basicConfig(level=logging.INFO,
-                format="%(asctime)s:%(name)s:%(levelname)s:%(module)s (%(funcName)s): %(message)s",
+                format="%(asctime)s:%(levelname)s:%(module)s (%(funcName)s): %(message)s",
                 datefmt='%H:%M:%S')
 
 logger = logging.getLogger()
@@ -173,15 +174,25 @@ async def home():
 
     # home.bind_value(app.storage.general.get("ui", {}), "demo")
 
-    # Services
-    ui.button("Start transaction feed", on_click=transaction_feed_service)
-    ui.switch().bind_value(app.storage.general, "txn_feed_svc").bind_text_from(app.storage.general, "txn_feed_svc", backward=lambda x: "Running" if x else "Stopped")
-
-
-    with ui.row().classes("w-full"):
-        for svc in DEMO['services']:
-            svc_chart = get_echart()
-            metrics_chart(svc, svc_chart)
+    with ui.row().classes("w-full flex flex-nowrap"):
+        with ui.list().props("bordered").classes("w-2/3"):
+            with ui.expansion("Data Ingestion", caption="Streaming and batch data ingestion", group="flow", value=True):
+                ui.code(inspect.getsource(produce))
+                ui.separator()
+                with ui.row():
+                    ui.button(on_click=transaction_feed_service).bind_text_from(app.storage.general, "txn_feed_svc", backward=lambda x: "Stop" if x else "Stream").props("flat")
+                    ui.space()
+                    ui.button("Batch", on_click=customer_data_ingestion).props("flat")
+            with ui.expansion("ETL", caption="Realtime processing for incoming data", group="flow"):
+                ui.code(inspect.getsource(consume))
+                ui.separator()
+                with ui.row():
+                    ui.button(on_click=transaction_subscribe_service).bind_text_from(app.storage.general, "txn_feed_svc", backward=lambda x: "Stop" if x else "Stream").props("flat")
+        
+        with ui.card().classes("flex-grow shrink"):
+            for svc in DEMO['services']:
+                svc_chart = get_echart()
+                update_metrics(svc, svc_chart)
 
     with ui.footer() as footer:
         with ui.row().classes("w-full items-center"):

@@ -7,7 +7,7 @@ def get_echart():
                 "trigger": "axis",
             },
             "title": {"left": 10, "text": ""},
-            "legend": {"right": "center"},
+            # "legend": {"right": "center"},
             "xAxis": {
                 "type": "category",
                 "boundaryGap": False,
@@ -60,14 +60,22 @@ def get_echart():
     )
 
 
-def metrics_chart(metric_name, metric_chart):
+def update_metrics(metric_name, metric_chart):
+    timer = ui.timer(
+        interval=3.0,
+        # Using lambda below so we capture the function name for individual steps
+        callback=lambda service=metric_name, chart=metric_chart: add_metric(
+            service, chart
+        ),
+        active=True,
+    )
+
+    # ui.switch(
+    #     " -> ".join(metric_name.split(".")[1:]).title().replace("_", " ")
+    # ).bind_value(timer, "active")
 
     def add_metric(service_name, chart_name):
         t = service_name.split(".")
-        # module_name = getattr(__import__(__name__), t[0])
-        # function_name = t[1]
-        # function_param = t[2]
-        # func = getattr(module_name, function_name)
         func = getattr(__import__(t[0]), t[1])
 
         # collect the metrics
@@ -86,15 +94,3 @@ def metrics_chart(metric_name, metric_chart):
                         chart_series["yAxisIndex"] = 1
                     chart_series["data"].append(int(serie[key]))
             chart_name.update()
-
-    timer = ui.timer(
-        interval=3.0,
-        # Using lambda below so we capture the function name for individual steps
-        callback=lambda service=metric_name, chart=metric_chart: add_metric(
-            service, chart
-        ),
-        active=False,
-    )
-    ui.switch(
-        " -> ".join(metric_name.split(".")[1:]).title().replace("_", " ")
-    ).bind_value(timer, "active")

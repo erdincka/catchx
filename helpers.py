@@ -2,6 +2,8 @@ import datetime
 import json
 import logging
 import re
+from time import gmtime, strftime
+import uuid
 
 import importlib_resources
 from nicegui import ui
@@ -45,3 +47,8 @@ def dt_from_iso(timestring):
     isPM = " PM" in timestring
     dt = datetime.datetime.strptime(timestring.replace(" AM", "").replace(" PM", ""), "%Y-%m-%dT%H:%M:%S.%f%z")
     return dt + datetime.timedelta(hours=12) if isPM else dt
+
+
+def get_uuid_key():
+    return '{0}_{1}'.format(strftime("%Y%m%d%H%M%S",gmtime()),uuid.uuid4())
+

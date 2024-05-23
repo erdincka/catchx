@@ -1,14 +1,12 @@
 import asyncio
-import inspect
 import logging
 import os
 import random
 import timeit
 from faker import Faker
-from nicegui import app, run, ui
+from nicegui import app, run
 
 from helpers import *
-import restrunner
 from streams import consume, produce
 from tables import search_documents, upsert_document
 
@@ -17,120 +15,120 @@ logger = logging.getLogger()
 fake = Faker("en_US")
 
 
-async def run_step(step, pager: ui.stepper):
-    app.storage.user["busy"] = True
+# async def run_step(step, pager: ui.stepper):
+#     app.storage.user["busy"] = True
 
-    if step["runner"] == "rest":
-        url = str(step["runner_target"])
+#     if step["runner"] == "rest":
+#         url = str(step["runner_target"])
 
-        if step.get("use_demo_input", None):
-            op = step["use_demo_input"]
+#         if step.get("use_demo_input", None):
+#             op = step["use_demo_input"]
 
-            if op == "append":
-                url += app.storage.user[f"input__{DEMO['name'].replace(' ', '_')}"]
+#             if op == "append":
+#                 url += app.storage.user[f"input__{DEMO['name'].replace(' ', '_')}"]
 
-            elif op == "replace":
-                url = url.replace(
-                    "PLACEHOLDER",
-                    app.storage.user[f"input__{DEMO['name'].replace(' ', '_')}"],
-                )
-                logger.debug("URL %s", url)
+#             elif op == "replace":
+#                 url = url.replace(
+#                     "PLACEHOLDER",
+#                     app.storage.user[f"input__{DEMO['name'].replace(' ', '_')}"],
+#                 )
+#                 logger.debug("URL %s", url)
 
-            elif op == "prepend":
-                url = app.storage.user[f"input__{DEMO['name'].replace(' ', '_')}"] + url
+#             elif op == "prepend":
+#                 url = app.storage.user[f"input__{DEMO['name'].replace(' ', '_')}"] + url
 
-            else:
-                logger.warning("Unknown input operation %s", op)
+#             else:
+#                 logger.warning("Unknown input operation %s", op)
 
-        response = await run.io_bound(restrunner.post, url)
+#         response = await run.io_bound(restrunner.post, url)
 
-        if response is None:
-            ui.notify("No response", type="negative")
+#         if response is None:
+#             ui.notify("No response", type="negative")
 
-        elif response.ok:
-            resjson = response.json()
-            logger.debug("DEBUG RESTRUNNER RETURN %s", resjson)
-            # I took the lazy approach here since different rest calls have different return formats (except the 'status')
-            ui.notify(
-                resjson, type="positive" if resjson["status"] == "OK" else "warning"
-            )
+#         elif response.ok:
+#             resjson = response.json()
+#             logger.debug("DEBUG RESTRUNNER RETURN %s", resjson)
+#             # I took the lazy approach here since different rest calls have different return formats (except the 'status')
+#             ui.notify(
+#                 resjson, type="positive" if resjson["status"] == "OK" else "warning"
+#             )
 
-            if resjson["status"] == "OK":
-                pager.next()
+#             if resjson["status"] == "OK":
+#                 pager.next()
 
-        else:  # http error returned
-            logger.warning("REST HTTP ERROR %s", response.text)
-            ui.notify(message=response.text, html=True, type="warning")
+#         else:  # http error returned
+#             logger.warning("REST HTTP ERROR %s", response.text)
+#             ui.notify(message=response.text, html=True, type="warning")
 
-    # elif step["runner"] == "restfile":
-    #     for response in await run.io_bound(
-    #         restrunner.postfile, DEMOS, step["runner_target"]
-    #     ):
-    #         if isinstance(response, Exception):
-    #             ui.notify(response, type="negative")
-    #         elif response.ok:
-    #             try:
-    #                 # logger.debug("DEBUG: RESPONSE FROM RESTRUNNER: %s", response)
-    #                 if response.status_code == 201:
-    #                     ui.notify("Folder created")
-    #                 else:
-    #                     resjson = response.json()
-    #                     ui.notify(resjson)
-    #             except Exception as error:
-    #                 logger.debug("RESTFILE ERROR: %s", error)
+#     # elif step["runner"] == "restfile":
+#     #     for response in await run.io_bound(
+#     #         restrunner.postfile, DEMOS, step["runner_target"]
+#     #     ):
+#     #         if isinstance(response, Exception):
+#     #             ui.notify(response, type="negative")
+#     #         elif response.ok:
+#     #             try:
+#     #                 # logger.debug("DEBUG: RESPONSE FROM RESTRUNNER: %s", response)
+#     #                 if response.status_code == 201:
+#     #                     ui.notify("Folder created")
+#     #                 else:
+#     #                     resjson = response.json()
+#     #                     ui.notify(resjson)
+#     #             except Exception as error:
+#     #                 logger.debug("RESTFILE ERROR: %s", error)
 
-    #             pager.next()
-    #         else:  # http error returned
-    #             ui.notify(message=response.text, html=True, type="warning")
+#     #             pager.next()
+#     #         else:  # http error returned
+#     #             ui.notify(message=response.text, html=True, type="warning")
 
-    elif step["runner"] == "app":
-        func = getattr(__import__(__name__), step["runner_target"])
+#     elif step["runner"] == "app":
+#         func = getattr(__import__(__name__), step["runner_target"])
 
-        if "count" in step.keys():
-            app.storage.general["ui"]["counting"] = 0
-            # keep user selected count in sync
-            count = app.storage.user[
-                f"count__{DEMO['name'].replace(' ', '_')}__{step['id']}"
-            ]
+#         if "count" in step.keys():
+#             app.storage.general["ui"]["counting"] = 0
+#             # keep user selected count in sync
+#             count = app.storage.user[
+#                 f"count__{DEMO['name'].replace(' ', '_')}__{step['id']}"
+#             ]
 
-            # add progressbar if 'count'ing
-            ui.linear_progress().bind_value_from(
-                app.storage.general["ui"],
-                "counting",
-                backward=lambda x: f"{100 * int(x/count)} %",
-            )
+#             # add progressbar if 'count'ing
+#             ui.linear_progress().bind_value_from(
+#                 app.storage.general["ui"],
+#                 "counting",
+#                 backward=lambda x: f"{100 * int(x/count)} %",
+#             )
 
-            if inspect.isgeneratorfunction(func):
-                for response in await run.io_bound(
-                    func, step.get("runner_parameters", None), count
-                ):
-                    logger.info(response)
-            else:
-                await run.io_bound(func, step.get("runner_parameters", None), count)
+#             if inspect.isgeneratorfunction(func):
+#                 for response in await run.io_bound(
+#                     func, step.get("runner_parameters", None), count
+#                 ):
+#                     logger.info(response)
+#             else:
+#                 await run.io_bound(func, step.get("runner_parameters", None), count)
 
-        else:
-            if inspect.isgeneratorfunction(func):
-                for response in await run.io_bound(
-                    func, step.get("runner_parameters", None)
-                ):
-                    logger.info(response)
+#         else:
+#             if inspect.isgeneratorfunction(func):
+#                 for response in await run.io_bound(
+#                     func, step.get("runner_parameters", None)
+#                 ):
+#                     logger.info(response)
 
-            else:
-                await run.io_bound(func, step.get("runner_parameters", None))
+#             else:
+#                 await run.io_bound(func, step.get("runner_parameters", None))
 
-        # pager.next()
+#         # pager.next()
 
-    elif step["runner"] == "service":
+#     elif step["runner"] == "service":
 
-        app.storage.user["busy"] = False
+#         app.storage.user["busy"] = False
 
-    else:
-        ui.notify(
-            f"Would run {step['runner_target']} using {step['runner']} but it is not here yet!"
-        )
-        pager.next()
+#     else:
+#         ui.notify(
+#             f"Would run {step['runner_target']} using {step['runner']} but it is not here yet!"
+#         )
+#         pager.next()
 
-    app.storage.user["busy"] = False
+#     app.storage.user["busy"] = False
 
 
 def fake_transaction():
@@ -155,19 +153,50 @@ def publish_transaction(txn: dict):
 
 
 async def transaction_feed_service():
-    app.storage.general["txn_feed_svc"] = True
 
-    while True:
-        if app.storage.general.get("txn_feed_svc", False):
+    if not app.storage.general.get("txn_feed_svc", False):
+        # enable
+        app.storage.general["txn_feed_svc"] = True
+        # start
+        while app.storage.general["txn_feed_svc"]:
             await run.io_bound(publish_transaction, fake_transaction())
+            # add delay
+            await asyncio.sleep(0.5)
 
-        # add delay
-        await asyncio.sleep(5)
+    else:
+        # disable
+        app.storage.general["txn_feed_svc"] = False
 
 
-def process_transactions(_: list):
+async def transaction_subscribe_service():
+
     stream_path = f"{DEMO['volume']}/{DEMO['stream']}"
-    table_path = f"{DEMO['volume']}/{DEMO['table']}"
+    
+    if not app.storage.general.get("txn_subs_svc", False):
+        # enable
+        app.storage.general["txn_subs_svc"] = True
+        # start
+        while app.storage.general["txn_subs_svc"]:
+            for record in await run.io_bound(consume, stream=stream_path, topic=DEMO['topic']):
+                message = json.loads(record)
+                
+                profile = {
+                    "_id": str(message["transaction_date"]),
+                    "sender": message["sender_account"],
+                    "receiver": message["receiver_account"],
+                }
+
+    else:
+        # disable
+        app.storage.general["txn_subs_svc"] = False
+
+
+async def customer_data_ingestion():
+    await run.io_bound(print, "will run airflow")
+
+
+def process_transactions():
+    stream_path = f"{DEMO['volume']}/{DEMO['stream']}"
 
     count = 0
 
@@ -182,10 +211,11 @@ def process_transactions(_: list):
             "receiver": message["receiver_account"],
         }
 
-        logger.debug("Update DB with %s", profile)
+        # logger.debug("Update DB with %s", profile)
 
-        if upsert_document(host=os.environ["MAPR_IP"], table=table_path, json_dict=profile):
-            count += 1
+        # table_path = f"{DEMO['volume']}/{DEMO['table']}"
+        # if upsert_document(host=os.environ["MAPR_IP"], table=table_path, json_dict=profile):
+        #     count += 1
 
     logger.info(
         f"Processed %s transactions in %i seconds", count, timeit.default_timer() - tic
