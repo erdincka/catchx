@@ -15,7 +15,8 @@ APP_NAME = "catchX"
 
 DEMO = json.loads(importlib_resources.files().joinpath("banking.json").read_text())
 
-MAX_POLL_TIME = 5
+MAX_POLL_TIME = 5.0
+MON_REFRESH_INTERVAL = 1.0
 
 class LogElementHandler(logging.Handler):
     """A logging handler that emits messages to a log element."""
@@ -138,19 +139,30 @@ def cluster_info():
 
 
 def configure_cluster():
-    with ui.dialog() as dialog, ui.card().classes("grow relative place-items-center"):
+    with ui.dialog().props("position=right full-height") as dialog, ui.card().classes("relative"):
         # with close button
         ui.button(icon="close", on_click=dialog.close).props("flat round dense").classes("absolute right-4 top-4")
 
-        with ui.card_section():
-            ui.upload(label="Upload client files (config.tar and/or jwt_tokens.tar.gz)", on_upload=upload_client_files, multiple=True, auto_upload=True, max_files=2).props("accept='application/x-tar,application/x-gzip' hide-upload-btn").classes("w-full")
+        with ui.card_section().classes("mt-4"):
+            ui.label("Client files (config.tar and/or jwt_tokens.tar.gz)").classes("text-lg")
+            ui.upload(label="Upload", on_upload=upload_client_files, multiple=True, auto_upload=True, max_files=2).props("accept='application/x-tar,application/x-gzip' hide-upload-btn").classes("w-full")
 
+        ui.separator()
         with ui.card_section():
+            ui.label("Cluster").classes("text-lg")
             ui.toggle(app.storage.general["clusters"]).bind_value(app.storage.general, "cluster")
 
+        ui.separator()
+        with ui.card_section():
+            ui.label("User credentials, required for REST API and monitoring").classes("text-lg")
+            ui.input("Username").bind_value(app.storage.general, "MAPR_USER")
+            ui.input("Password").bind_value(app.storage.general, "MAPR_PASS")
+
+        ui.separator()
         with ui.card_actions():
-                ui.button("Configure client", on_click=lambda: run_command("/opt/mapr/server/configure.sh -R"))
-                ui.button("Test", on_click=lambda: run_command(f"ls -l /mapr/{app.storage.general['clusters'].get(app.storage.general.get('cluster', ''), '')}"))
+            ui.label("Setup").classes("text-lg")
+            ui.button("configure.sh", on_click=lambda: run_command("/opt/mapr/server/configure.sh -R"))
+            ui.button("List", on_click=lambda: run_command(f"ls -l /mapr/{app.storage.general['clusters'].get(app.storage.general.get('cluster', ''), '')}"))
 
     dialog.open()
 

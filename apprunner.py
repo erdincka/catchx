@@ -220,7 +220,7 @@ logger = logging.getLogger()
 def topic_stats(topic: str):
     stream_path = f"{DEMO['endpoints']['volume']}/{DEMO['endpoints']['stream']}"
 
-    if app.storage.general.get("cluster", False) is False:
+    if app.storage.general.get("cluster", None) is None:
         logger.debug("Cluster not configured, skipping.")
         return
     
@@ -228,9 +228,9 @@ def topic_stats(topic: str):
         response = restrunner.get(host=app.storage.general["cluster"],
             path=f"/rest/stream/topic/info?path={stream_path}&topic={topic}"
         )
-        if not response:
+        if response is None:
             # possibly not connected or topic not populated yet, just ignore it
-            logger.debug(f"Failed to get topic stats for {topic}: {response}")
+            logger.debug(f"Failed to get topic stats for {topic}")
 
         else:
             metrics = response.json()
@@ -279,7 +279,7 @@ def topic_stats(topic: str):
 def consumer_stats(topic: str):
     stream_path = f"{DEMO['endpoints']['volume']}/{DEMO['endpoints']['stream']}"
 
-    if app.storage.general.get("cluster", False) is False:
+    if app.storage.general.get("cluster", None) is None:
         logger.debug("Cluster not configured, skipping.")
         return
     
@@ -287,8 +287,10 @@ def consumer_stats(topic: str):
         response = restrunner.get(host=app.storage.general["cluster"],
             path=f"/rest/stream/cursor/list?path={stream_path}&topic={topic}"
         )
-        if isinstance(response, Exception):
-            logger.debug(f"Failed to get consumer stats for {topic}: {response}")
+
+        if response is None:
+            # possibly not connected or topic not populated yet, just ignore it
+            logger.debug(f"Failed to get consumer stats for {topic}")
         else:
             metrics = response.json()
 

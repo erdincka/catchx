@@ -1,3 +1,4 @@
+import asyncio
 from nicegui import app, ui
 
 def get_echart():
@@ -39,19 +40,16 @@ def get_echart():
                 },
                 {
                     "type": "line",
-                    "symbol": "triangle",
                     "smooth": True,
                     "data": [],
                 },
                 {
                     "type": "line",
-                    "symbol": "roundRect",
                     "smooth": True,
                     "data": [],
                 },
                 {
                     "type": "line",
-                    "symbol": "pin",
                     "smooth": True,
                     "data": [],
                 },
@@ -60,37 +58,19 @@ def get_echart():
     )
 
 
-def update_metrics(metric_name, metric_chart):
-    timer = ui.timer(
-        interval=3.0,
-        # Using lambda below so we capture the function name for individual steps
-        callback=lambda service=metric_name, chart=metric_chart: add_metric(
-            service, chart
-        ),
-        active=True,
-    )
+def add_measurement(metric, chart):
+    if metric:
+        chart.options["xAxis"]["data"].append(metric["time"])
+        chart.options["title"]["text"] = metric["name"].title()
 
-    # ui.switch(
-    #     " -> ".join(metric_name.split(".")[1:]).title().replace("_", " ")
-    # ).bind_value(timer, "active")
+        for idx, serie in enumerate(metric["values"]):
+            chart_series = chart.options["series"][idx]
+            for key in serie.keys():
+                if not chart_series.get("name", None):
+                    chart_series["name"] = key
+                # if name ends with (s), place it onto second yAxis
+                if "(s)" in key:
+                    chart_series["yAxisIndex"] = 1
+                chart_series["data"].append(int(serie[key]))
+        chart.update()
 
-    def add_metric(service_name, chart_name):
-        t = service_name.split(".")
-        func = getattr(__import__(t[0]), t[1])
-
-        # collect the metrics
-        metric = func(t[2])
-        if metric:
-            chart_name.options["xAxis"]["data"].append(metric["time"])
-            chart_name.options["title"]["text"] = metric["name"].title()
-
-            for idx, serie in enumerate(metric["values"]):
-                chart_series = chart_name.options["series"][idx]
-                for key in serie.keys():
-                    if not chart_series.get("name", None):
-                        chart_series["name"] = key
-                    # if name ends with (s), place it onto second yAxis
-                    if "(s)" in key:
-                        chart_series["yAxisIndex"] = 1
-                    chart_series["data"].append(int(serie[key]))
-            chart_name.update()

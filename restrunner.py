@@ -11,11 +11,6 @@ from helpers import DEMO
 
 logger = logging.getLogger()
 
-AUTH_CREDENTIALS = (
-    os.environ["MAPR_USER"],
-    os.environ["MAPR_PASS"],
-)
-
 
 # Admin API GET call
 def get(host: str, path: str, *args, **kwargs):
@@ -27,8 +22,8 @@ def get(host: str, path: str, *args, **kwargs):
     REST_URL = f"https://{host}:8443{path}"
 
     try:
-        response = requests.get(url=REST_URL, auth=AUTH_CREDENTIALS, verify=False, *args, **kwargs)
-        logger.debug("GET RESPONSE: %s", response.text)
+        response = requests.get(url=REST_URL, auth=(app.storage.general["MAPR_USER"], app.storage.general["MAPR_PASS"]), verify=False, *args, **kwargs)
+        # logger.debug("GET RESPONSE: %s", response.text)
         response.raise_for_status()
         return response
 
@@ -48,7 +43,7 @@ def post(host: str, path: str, *args, **kwargs):
     REST_URL = f"https://{host}:8443{path}"
     logger.debug("POST URL: %s", REST_URL)
     try:
-        response = requests.post(url=REST_URL, auth=AUTH_CREDENTIALS, verify=False, *args, **kwargs)
+        response = requests.post(url=REST_URL, auth=(app.storage.general["MAPR_USER"], app.storage.general["MAPR_PASS"]), verify=False, *args, **kwargs)
         logger.debug("POSTRESPONSE: %s", response.text)
         response.raise_for_status()
         return response
@@ -77,7 +72,7 @@ def putfile(host: str, file: str, destfolder: str, *args, **kwargs):
         with open(filepath, "rb") as f:
             response = requests.put(
                 url=REST_URL,
-                auth=AUTH_CREDENTIALS,
+                auth=(app.storage.general["MAPR_USER"], app.storage.general["MAPR_PASS"]),
                 verify=False,
                 data=f,
                 timeout=5,
@@ -104,7 +99,7 @@ def getfile(host: str, filepath: str, *args, **kwargs):
     try:
         response = requests.get(
             url=REST_URL,
-            auth=AUTH_CREDENTIALS,
+            auth=(app.storage.general["MAPR_USER"], app.storage.general["MAPR_PASS"]),
             verify=False,
             timeout=5,
             *args,
@@ -128,7 +123,7 @@ def dagget(host: str, path: str, *args, **kwargs):
     REST_URL = f"https://{host}:8243{path}"
     logger.debug("DAG GET %s", REST_URL)
     try:
-        response = requests.get(url=REST_URL, auth=AUTH_CREDENTIALS, verify=False, *args, **kwargs)
+        response = requests.get(url=REST_URL, auth=(app.storage.general["MAPR_USER"], app.storage.general["MAPR_PASS"]), verify=False, *args, **kwargs)
         logger.debug("DAG GET RESPONSE: %s", response)
         response.raise_for_status()
         return response
@@ -149,7 +144,7 @@ def dagput(host: str, path: str, data=None, *args, **kwargs):
 
     logger.debug("DAG PUT: %s", REST_URL)
     try:
-        response = requests.put(url=REST_URL, auth=AUTH_CREDENTIALS, verify=False, data=data, *args, **kwargs)
+        response = requests.put(url=REST_URL, auth=(app.storage.general["MAPR_USER"], app.storage.general["MAPR_PASS"]), verify=False, data=data, *args, **kwargs)
         logger.debug("DAG PUT RESPONSE: %s", response.text if response.text != "" else "OK")
         response.raise_for_status()
         return response
@@ -176,7 +171,7 @@ def dagpost(host: str, path: str, json_obj=None, *args, **kwargs):
     try:
         response = requests.post(
             url=REST_URL,
-            auth=AUTH_CREDENTIALS,
+            auth=(app.storage.general["MAPR_USER"], app.storage.general["MAPR_PASS"]),
             verify=False,
             json=json_obj,
             *args,
@@ -205,7 +200,7 @@ def kafkaget(host: str, path: str, *args, **kwargs):
     try:
         response = requests.get(
             url=REST_URL,
-            auth=AUTH_CREDENTIALS,
+            auth=(app.storage.general["MAPR_USER"], app.storage.general["MAPR_PASS"]),
             verify=False,
             headers={
                 "Content-Type": "application/vnd.kafka.json.v2+json",
@@ -235,7 +230,7 @@ def kafkaput(host: str, path: str, data=None, *args, **kwargs):
     try:
         response = requests.put(
             url=REST_URL,
-            auth=AUTH_CREDENTIALS,
+            auth=(app.storage.general["MAPR_USER"], app.storage.general["MAPR_PASS"]),
             verify=False,
             data=json.dumps({"records": [{"value": data}]}),
             headers={"Content-Type": "application/vnd.kafka.json.v2+json"},
@@ -264,7 +259,7 @@ def kafkapost(host: str, path: str, data=None, *args, **kwargs):
     try:
         response = requests.post(
             url=REST_URL,
-            auth=AUTH_CREDENTIALS,
+            auth=(app.storage.general["MAPR_USER"], app.storage.general["MAPR_PASS"]),
             verify=False,
             data=json.dumps(data),
             headers={ "Content-Type": "application/vnd.kafka.json.v2+json" },
@@ -296,7 +291,7 @@ def kafkadelete(host: str, path: str, *args, **kwargs):
     try:
         response = requests.delete(
             url=REST_URL,
-            auth=AUTH_CREDENTIALS,
+            auth=(app.storage.general["MAPR_USER"], app.storage.general["MAPR_PASS"]),
             verify=False,
             headers={"Content-Type": "application/vnd.kafka.v2+json"},
             *args,

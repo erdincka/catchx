@@ -1,6 +1,7 @@
 import logging
-import os
 from mapr.ojai.storage.ConnectionFactory import ConnectionFactory
+
+from nicegui import app 
 
 logger = logging.getLogger()
 
@@ -17,7 +18,7 @@ def get_connection(host: str):
     domain = get_cert_domain()
 
     # Create a connection to data access server
-    connection_str = f"{host}:5678?auth=basic;user={os.environ['MAPR_USER']};password={os.environ['MAPR_PASS']};" \
+    connection_str = f"{host}:5678?auth=basic;user={app.storage.general['MAPR_USER']};password={app.storage.general['MAPR_PASS']};" \
             "ssl=true;" \
             "sslCA=/opt/mapr/conf/ssl_truststore.pem;" \
             f"sslTargetNameOverride=client.{domain}"
