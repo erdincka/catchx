@@ -74,7 +74,8 @@ def upload_client_files(e: events.UploadEventArguments):
         with tarfile.open(f"/tmp/{filename}", "r") as tf:
             if "config" in filename:
                 tf.extractall(path="/opt/mapr")
-                get_clusters()
+                # Refresh cluster list in UI
+                update_clusters()
 
             elif "jwt_tokens" in filename:
                 tf.extractall(path="/root")
@@ -88,7 +89,7 @@ def upload_client_files(e: events.UploadEventArguments):
         ui.notify(error, type="negative")
 
 
-def get_clusters():
+def update_clusters():
     with open("/opt/mapr/conf/mapr-clusters.conf", "r") as conf:
         # reset the clusters
         app.storage.general["clusters"] = {}
@@ -97,7 +98,7 @@ def get_clusters():
             # dict { 'value1': 'name1' } formatted cluster list, compatible to ui.select options
             cls = { t[2].split(":")[0] : t[0] }
             app.storage.general["clusters"].update(cls)
-
+    
 
 async def run_command(command: str) -> None:
     """Run a command in the background and display the output in the pre-created dialog."""
@@ -127,4 +128,30 @@ async def run_command(command: str) -> None:
         if not new:
             break
         result.push(new.decode())
+
+    result.push(f"Finished: {command}")
+
+def cluster_info():
+    with ui.row().classes("place-items-center"):
+        ui.button("Using Cluster:", on_click=configure_cluster).props("flat")
+        ui.link(target=f"https://{app.storage.general.get('cluster', 'localhost')}:8443/", new_tab=True).bind_text_from(app.storage.general, "cluster", backward=lambda x: app.storage.general["clusters"][x] if x else "None").classes("text-white hover:text-blue-600")
+
+
+def configure_cluster():
+    with ui.dialog() as dialog, ui.card().classes("grow relative place-items-center"):
+        # with close button
+        ui.button(icon="close", on_click=dialog.close).props("flat round dense").classes("absolute right-4 top-4")
+
+        with ui.card_section():
+            ui.upload(label="Upload client files (config.tar and/or jwt_tokens.tar.gz)", on_upload=upload_client_files, multiple=True, auto_upload=True, max_files=2).props("accept='application/x-tar,application/x-gzip' hide-upload-btn").classes("w-full")
+
+        with ui.card_section():
+            ui.toggle(app.storage.general["clusters"]).bind_value(app.storage.general, "cluster")
+
+        with ui.card_actions():
+                ui.button("Configure client", on_click=lambda: run_command("/opt/mapr/server/configure.sh -R"))
+                ui.button("Test", on_click=lambda: run_command(f"ls -l /mapr/{app.storage.general['clusters'].get(app.storage.general.get('cluster', ''), '')}"))
+
+    dialog.open()
+
 

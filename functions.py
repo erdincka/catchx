@@ -1,6 +1,5 @@
 import asyncio
 import logging
-import os
 import random
 import timeit
 from faker import Faker
@@ -144,12 +143,12 @@ def fake_transaction():
 
 
 def publish_transaction(txn: dict):
-    stream_path = f"{DEMO['volume']}/{DEMO['stream']}"
+    stream_path = f"{DEMO['endpoints']['volume']}/{DEMO['endpoints']['stream']}"
 
-    if produce(stream_path, DEMO["topic"], json.dumps(txn)):
+    if produce(stream_path, DEMO['endpoints']['topic'], json.dumps(txn)):
         logger.debug("Sent %s", txn["id"])
     else:
-        logger.warning("Failed to send message to %s", DEMO['topic'])
+        logger.warning("Failed to send message to %s", DEMO['endpoints']['topic'])
 
 
 async def transaction_feed_service():
@@ -170,14 +169,14 @@ async def transaction_feed_service():
 
 async def transaction_subscribe_service():
 
-    stream_path = f"{DEMO['volume']}/{DEMO['stream']}"
+    stream_path = f"{DEMO['endpoints']['volume']}/{DEMO['endpoints']['stream']}"
     
     if not app.storage.general.get("txn_subs_svc", False):
         # enable
         app.storage.general["txn_subs_svc"] = True
         # start
         while app.storage.general["txn_subs_svc"]:
-            for record in await run.io_bound(consume, stream=stream_path, topic=DEMO['topic']):
+            for record in await run.io_bound(consume, stream=stream_path, topic=DEMO['endpoints']['topic']):
                 message = json.loads(record)
                 
                 profile = {
@@ -196,13 +195,13 @@ async def customer_data_ingestion():
 
 
 def process_transactions():
-    stream_path = f"{DEMO['volume']}/{DEMO['stream']}"
+    stream_path = f"{DEMO['endpoints']['volume']}/{DEMO['endpoints']['stream']}"
 
     count = 0
 
     tic = timeit.default_timer()
 
-    for record in consume(stream=stream_path, topic=DEMO['topic']):
+    for record in consume(stream=stream_path, topic=DEMO['endpoints']['topic']):
         message = json.loads(record)
 
         profile = {
@@ -213,7 +212,7 @@ def process_transactions():
 
         # logger.debug("Update DB with %s", profile)
 
-        # table_path = f"{DEMO['volume']}/{DEMO['table']}"
+        # table_path = f"{DEMO['endpoints']['volume']}/{DEMO['endpoints']['table']}"
         # if upsert_document(host=os.environ["MAPR_IP"], table=table_path, json_dict=profile):
         #     count += 1
 
@@ -224,7 +223,7 @@ def process_transactions():
 
 def detect_fraud(params: list, count: int):
     # params is not used
-    table_path = f"{DEMO['volume']}/{DEMO['table']}"
+    table_path = f"{DEMO['endpoints']['volume']}/{DEMO['endpoints']['table']}"
 
     # just a simulation of query to the profiles table, 
     # if any doc is found with the number as their CHECK DIGITS in IBAN, we consider it as fraud!
@@ -235,7 +234,7 @@ def detect_fraud(params: list, count: int):
         ]
     }
 
-    for doc in search_documents(os.environ['MAPR_IP'], table_path, whereClause):
+    for doc in search_documents(app.storage.general.get('MAPR_IP', 'localhost'), table_path, whereClause):
 
         logger.debug("DB GET RESPONSE: %s", doc)
 

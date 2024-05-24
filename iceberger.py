@@ -19,7 +19,7 @@ logger = logging.getLogger()
 def stock_producer():
     producer = KafkaProducer(key_serializer=str.encode, value_serializer=lambda v: json.dumps(v).encode('ascii'),bootstrap_servers='kafka:9092',retries=3)
 
-    tablename = DEMO['table']
+    tablename = DEMO['endpoints']['table']
     schemaname = "transactions" 
     local_data_dir = "/tmp/stocks/"
 

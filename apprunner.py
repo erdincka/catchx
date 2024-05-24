@@ -218,14 +218,19 @@ logger = logging.getLogger()
 
 
 def topic_stats(topic: str):
-    stream_path = f"{DEMO['volume']}/{DEMO['stream']}"
+    stream_path = f"{DEMO['endpoints']['volume']}/{DEMO['endpoints']['stream']}"
 
+    if app.storage.general.get("cluster", False) is False:
+        logger.debug("Cluster not configured, skipping.")
+        return
+    
     try:
-        response = restrunner.get(
-            f"/rest/stream/topic/info?path={stream_path}&topic={topic}"
+        response = restrunner.get(host=app.storage.general["cluster"],
+            path=f"/rest/stream/topic/info?path={stream_path}&topic={topic}"
         )
         if not response:
-            logger.warning(f"Failed to get topic stats for {topic}: {response}")
+            # possibly not connected or topic not populated yet, just ignore it
+            logger.debug(f"Failed to get topic stats for {topic}: {response}")
 
         else:
             metrics = response.json()
@@ -272,14 +277,18 @@ def topic_stats(topic: str):
 
 
 def consumer_stats(topic: str):
-    stream_path = f"{DEMO['volume']}/{DEMO['stream']}"
+    stream_path = f"{DEMO['endpoints']['volume']}/{DEMO['endpoints']['stream']}"
 
+    if app.storage.general.get("cluster", False) is False:
+        logger.debug("Cluster not configured, skipping.")
+        return
+    
     try:
-        response = restrunner.get(
-            f"/rest/stream/cursor/list?path={stream_path}&topic={topic}"
+        response = restrunner.get(host=app.storage.general["cluster"],
+            path=f"/rest/stream/cursor/list?path={stream_path}&topic={topic}"
         )
         if isinstance(response, Exception):
-            logger.warning(f"Failed to get consumer stats for {topic}: {response}")
+            logger.debug(f"Failed to get consumer stats for {topic}: {response}")
         else:
             metrics = response.json()
 
@@ -315,7 +324,8 @@ def consumer_stats(topic: str):
                 logger.warn("Consumer stat query error %s", metrics["errors"])
 
     except Exception as error:
-        logger.warning("Consumer stat request error %s", error)
+        # possibly not connected or topic not populated yet, just ignore it
+        logger.debug("Consumer stat request error %s", error)
 
 
 # Dummy function for informational steps

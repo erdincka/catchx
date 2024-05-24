@@ -9,7 +9,7 @@ from elements import get_echart, update_metrics
 from functions import *
 
 
-TITLE = "Data Fabric End to End Data Pipeline"
+TITLE = "Data Pipeline for Fraud"
 STORAGE_SECRET = "ezmer@1r0cks"
 
 # catch-all exceptions
@@ -41,9 +41,8 @@ binding.MAX_PROPAGATION_TIME = 0.05
 
 @ui.page("/")
 async def home():
-    # Keep app view between runs
-    if "ui" not in app.storage.general:
-        app.storage.general["ui"] = {}
+    # Reset service
+    app.storage.general["txn_feed_svc"] = False
 
     # and previous run state if it was hang
     app.storage.user["busy"] = False
@@ -53,40 +52,22 @@ async def home():
 
     # reset the cluster info
     if "clusters" not in app.storage.general:
-        app.storage.general["clusters"] = []
+        app.storage.general["clusters"] = {}
 
     # Header
     with ui.header(elevated=True).style('background-color: #3874c8').classes('items-center justify-between uppercase'):
         ui.label(f"{APP_NAME}: {TITLE}")
         ui.space()
-
-        # Env
-        ui.label().classes("uppercase").bind_text_from(app.storage.general, "cluster")
-        ui.link(target=f"https://{os.environ['MAPR_USER']}:{os.environ['MAPR_PASS']}@{os.environ['MAPR_IP']}:8443/", new_tab=True).bind_text_from(os.environ, "MAPR_CLUSTER").classes("text-sky-300 hover:text-blue-600")
+        cluster_info()
         ui.space()
-        ui.label("Volume:")
-        ui.label(DEMO["volume"])
-        ui.space()
-        ui.label("Stream:")
-        ui.label(DEMO["stream"])
-        ui.space()
-        ui.label("Table:")
-        ui.label(DEMO["table"])
-        ui.space()
-
         ui.switch(on_change=toggle_debug).bind_value(app.storage.user, "debugging").tooltip("Debug")
 
-    with ui.row().classes("w-full"):
-        ui.upload(label="Client files", on_upload=upload_client_files, multiple=True, auto_upload=True, max_files=2).props("accept='application/x-tar,application/x-gzip' hide-upload-btn")
-        ui.button("Configure client", on_click=lambda: run_command("/opt/mapr/server/configure.sh -R"))
-        ui.button("Test command", on_click=lambda: run_command("env"))
-
     # Documentation / Intro
-    with ui.expansion(
+    with ui.expansion( 
         TITLE,
         icon="info",
         caption="End to end pipeline processing using Ezmeral Data Fabric",
-    ).classes("w-full").classes("text-bold") as info:
+    ).classes("w-full").classes("text-bold").bind_value(app.storage.general.get("ui", {}), "info"):
         ui.markdown(DEMO["description"]).classes("font-normal")
         ui.image(importlib_resources.files("main").joinpath(DEMO["diagram"])).classes(
             "object-scale-down g-10"
@@ -96,8 +77,6 @@ async def home():
             target=DEMO.get("link", ""),
             new_tab=True,
         ).bind_visibility_from(DEMO, "link", backward=lambda x: x is not None)
-
-    info.bind_value(app.storage.general.get("ui", {}), "info")
 
     ui.separator()
 
@@ -201,14 +180,14 @@ async def home():
     with ui.row().classes("w-full flex flex-nowrap"):
         with ui.list().props("bordered").classes("w-2/3"):
             with ui.expansion("Data Ingestion", caption="Streaming and batch data ingestion", group="flow", value=True):
-                ui.code(inspect.getsource(produce))
+                ui.code(inspect.getsource(produce)).classes("w-full")
                 ui.separator()
                 with ui.row():
                     ui.button(on_click=transaction_feed_service).bind_text_from(app.storage.general, "txn_feed_svc", backward=lambda x: "Stop" if x else "Stream").props("flat")
                     ui.space()
                     ui.button("Batch", on_click=customer_data_ingestion).props("flat")
             with ui.expansion("ETL", caption="Realtime processing for incoming data", group="flow"):
-                ui.code(inspect.getsource(consume))
+                ui.code(inspect.getsource(consume)).classes("w-full")
                 ui.separator()
                 with ui.row():
                     ui.button(on_click=transaction_subscribe_service).bind_text_from(app.storage.general, "txn_feed_svc", backward=lambda x: "Stop" if x else "Stream").props("flat")
@@ -222,13 +201,22 @@ async def home():
         with ui.row().classes("w-full items-center"):
             ui.button(icon="menu", on_click=toggle_log).props("flat text-color=white")
             ui.label("Log")
+
             ui.space()
+
+            # Show endpoints
+            ui.label(" | ".join([f"{k.upper()}: {v}" for k,v in DEMO["endpoints"].items()])).classes("tracking-wide")
+
+            ui.space()
+
             ui.spinner("ios", size="2em", color="red").bind_visibility_from(
                 app.storage.user, "busy"
             ).tooltip("Busy")
+
             ui.icon("check_circle", size="2em", color="green").bind_visibility_from(
                 app.storage.user, "busy", lambda x: not x
             ).tooltip("Ready")
+
         log = (
             ui.log()
             .classes("w-full h-48 bg-neutral-300/30")

@@ -11,7 +11,6 @@ from helpers import DEMO
 
 logger = logging.getLogger()
 
-HOST = os.environ["MAPR_IP"]
 AUTH_CREDENTIALS = (
     os.environ["MAPR_USER"],
     os.environ["MAPR_PASS"],
@@ -19,13 +18,13 @@ AUTH_CREDENTIALS = (
 
 
 # Admin API GET call
-def get(path: str, *args, **kwargs):
+def get(host: str, path: str, *args, **kwargs):
     """
     GET request to Admin REST API
     args and kwargs for requests.get.
     """
 
-    REST_URL = f"https://{HOST}:8443{path}"
+    REST_URL = f"https://{host}:8443{path}"
 
     try:
         response = requests.get(url=REST_URL, auth=AUTH_CREDENTIALS, verify=False, *args, **kwargs)
@@ -34,18 +33,19 @@ def get(path: str, *args, **kwargs):
         return response
 
     except Exception as error:
-        logger.warning("GET ERROR %s", error)
+        # possibly not configured or incorrect configuration, just ignore it
+        logger.debug("GET ERROR %s", error)
         return None
 
 
 # Admin API POST call
-def post(path: str, *args, **kwargs):
+def post(host: str, path: str, *args, **kwargs):
     """
     POST request to Admin REST API
     args and kwargs for requests.post.
     """
 
-    REST_URL = f"https://{HOST}:8443{path}"
+    REST_URL = f"https://{host}:8443{path}"
     logger.debug("POST URL: %s", REST_URL)
     try:
         response = requests.post(url=REST_URL, auth=AUTH_CREDENTIALS, verify=False, *args, **kwargs)
@@ -59,7 +59,7 @@ def post(path: str, *args, **kwargs):
 
 
 # Save file to destination folder
-def putfile(file: str, destfolder: str, *args, **kwargs):
+def putfile(host: str, file: str, destfolder: str, *args, **kwargs):
     """
     PUT request to Admin REST API at /files.
     args and kwargs for requests.put.
@@ -69,9 +69,9 @@ def putfile(file: str, destfolder: str, *args, **kwargs):
 
     filepath = basedir.joinpath(file)
     filename = pathlib.Path(filepath).name
-    destination = f"{DEMO['volume']}/{destfolder}/{filename}"
+    destination = f"{DEMO['endpoints']['volume']}/{destfolder}/{filename}"
 
-    REST_URL = f"https://{HOST}:8443/files{destination}"
+    REST_URL = f"https://{host}:8443/files{destination}"
 
     try:
         with open(filepath, "rb") as f:
@@ -93,13 +93,13 @@ def putfile(file: str, destfolder: str, *args, **kwargs):
 
 
 # Get file from destination
-def getfile(filepath: str, *args, **kwargs):
+def getfile(host: str, filepath: str, *args, **kwargs):
     """
     GET request to Admin REST API at /files.
     args and kwargs for requests.get.
     """
 
-    REST_URL = f"https://{HOST}:8443/files{filepath}"
+    REST_URL = f"https://{host}:8443/files{filepath}"
 
     try:
         response = requests.get(
@@ -119,13 +119,13 @@ def getfile(filepath: str, *args, **kwargs):
 
 
 # JSON DB (OJAI) call
-def dagget(path: str, *args, **kwargs):
+def dagget(host: str, path: str, *args, **kwargs):
     """
     GET request to Data Access Gateway API
     args and kwargs for request.get.
     """
 
-    REST_URL = f"https://{HOST}:8243{path}"
+    REST_URL = f"https://{host}:8243{path}"
     logger.debug("DAG GET %s", REST_URL)
     try:
         response = requests.get(url=REST_URL, auth=AUTH_CREDENTIALS, verify=False, *args, **kwargs)
@@ -139,13 +139,13 @@ def dagget(path: str, *args, **kwargs):
 
 
 # JSON DB (OJAI) call
-def dagput(path: str, data=None, *args, **kwargs):
+def dagput(host: str, path: str, data=None, *args, **kwargs):
     """
     PUT request to Data Access Gateway API
     args and kwargs for requests.put.
     """
 
-    REST_URL = f"https://{HOST}:8243{path}"
+    REST_URL = f"https://{host}:8243{path}"
 
     logger.debug("DAG PUT: %s", REST_URL)
     try:
@@ -163,16 +163,13 @@ def dagput(path: str, data=None, *args, **kwargs):
         return None
 
 
-def dagpost(path: str, json_obj=None, *args, **kwargs):
+def dagpost(host: str, path: str, json_obj=None, *args, **kwargs):
     """
     POST request to Data Access Gateway API
     args and kwargs for requests.post.
     """
 
-    if not HOST:
-        return None
-
-    REST_URL = f"https://{HOST}:8243{path}"
+    REST_URL = f"https://{host}:8243{path}"
 
     logger.debug("DAGPOSTDATA: %s", type(json_obj))
 
@@ -196,13 +193,13 @@ def dagpost(path: str, json_obj=None, *args, **kwargs):
 
 
 # Kafka REST calls
-def kafkaget(path: str, *args, **kwargs):
+def kafkaget(host: str, path: str, *args, **kwargs):
     """
     GET request to Kafka REST API
     args and kwargs for requests.get.
     """
 
-    REST_URL = f"https://{HOST}:8082{path}"
+    REST_URL = f"https://{host}:8082{path}"
 
     logger.debug("KAFKA GET %s", REST_URL)
     try:
@@ -226,13 +223,13 @@ def kafkaget(path: str, *args, **kwargs):
         return None
 
 
-def kafkaput(path: str, data=None, *args, **kwargs):
+def kafkaput(host: str, path: str, data=None, *args, **kwargs):
     """
     PUT request to Kafka REST API
     args and kwargs for requests.put.
     """
 
-    REST_URL = f"https://{HOST}:8082{path}"
+    REST_URL = f"https://{host}:8082{path}"
 
     logger.debug("KAFKA PUT: %s", REST_URL)
     try:
@@ -254,13 +251,13 @@ def kafkaput(path: str, data=None, *args, **kwargs):
         return None
 
 
-def kafkapost(path: str, data=None, *args, **kwargs):
+def kafkapost(host: str, path: str, data=None, *args, **kwargs):
     """
     POST request to Kafka REST API
     args and kwargs for requests.post.
     """
 
-    REST_URL = f"https://{HOST}:8082{path}"
+    REST_URL = f"https://{host}:8082{path}"
 
     logger.debug("KAFKA POST DATA: %s", data)
 
@@ -288,13 +285,13 @@ def kafkapost(path: str, data=None, *args, **kwargs):
         return None
 
 
-def kafkadelete(path: str, *args, **kwargs):
+def kafkadelete(host: str, path: str, *args, **kwargs):
     """
     DELETE request to Kafka REST API
     args and kwargs for requests.delete.
     """
 
-    REST_URL = f"https://{HOST}:8082{path}"
+    REST_URL = f"https://{host}:8082{path}"
 
     try:
         response = requests.delete(
