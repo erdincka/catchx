@@ -1,16 +1,17 @@
-import asyncio
-from nicegui import app, ui
+from nicegui import ui
 
 def get_echart():
     return ui.echart(
         {
             "tooltip": {
                 "trigger": "axis",
+                "order": 'nameDesc',
             },
             "title": {"left": 10, "text": ""},
             # "legend": {"right": "center"},
             "xAxis": {
                 "type": "category",
+                "nameLocation": "middle",
                 "boundaryGap": False,
                 "axisLine": {"onZero": True},
                 "data": [],
@@ -35,21 +36,28 @@ def get_echart():
             "series": [  # manually set max series to display (TODO: find a pythonic way)
                 {
                     "type": "line",
+                    "showSymbol": False,
+                    "smooth": True,
+                    "data": [],
+                    "emphasis": {
+                        "focus": 'series'
+                    },
+                },
+                {
+                    "type": "line",
+                    "showSymbol": False,
                     "smooth": True,
                     "data": [],
                 },
                 {
                     "type": "line",
+                    "showSymbol": False,
                     "smooth": True,
                     "data": [],
                 },
                 {
                     "type": "line",
-                    "smooth": True,
-                    "data": [],
-                },
-                {
-                    "type": "line",
+                    "showSymbol": False,
                     "smooth": True,
                     "data": [],
                 },

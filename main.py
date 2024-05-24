@@ -55,7 +55,7 @@ async def home():
         app.storage.general["clusters"] = {}
 
     # reset monitor refresh
-    app.storage.user["refresh_interval"] = MON_REFRESH_INTERVAL
+    # app.storage.user["refresh_interval"] = MON_REFRESH_INTERVAL
 
     # If user is not set, get from environment
     if "MAPR_USER" not in app.storage.general:
@@ -63,10 +63,14 @@ async def home():
         app.storage.general["MAPR_PASS"] = os.environ.get("MAPR_PASS", "")
 
     # Header
-    with ui.header(elevated=True).style('background-color: #3874c8').classes('items-center justify-between uppercase'):
+    with ui.header(elevated=True).classes('items-center justify-between uppercase'):
         ui.label(f"{APP_NAME}: {TITLE}")
         ui.space()
-        cluster_info()
+
+        with ui.row().classes("place-items-center"):
+            ui.button("Cluster", on_click=configure_cluster).props("outline color=white")
+            ui.link(target=f"https://{app.storage.general.get('cluster', 'localhost')}:8443/", new_tab=True).bind_text_from(app.storage.general, "cluster", backward=lambda x: app.storage.general["clusters"][x] if x else "None").classes("text-white hover:text-blue-600")
+
         ui.space()
         ui.switch(on_change=toggle_debug).bind_value(app.storage.user, "debugging").tooltip("Debug")
 
@@ -104,10 +108,18 @@ async def home():
                 with ui.row():
                     ui.button("Consume", on_click=ingest_transactions).props("flat")
         
+        # Monitoring charts
         with ui.card().classes("flex-grow shrink"):
-            ui.slider(min=0, max=30).bind_value(app.storage.user, "refresh_interval").props("label label-always switch-label-side")
+
+            refresh_interval = ui.slider(min=1, max=30, value=3.0).props("label label-always switch-label-side")
             ui.space()
-            monitoring_pane()
+        
+            topic_chart = get_echart()
+            consumer_chart = get_echart()
+
+            ui.timer(refresh_interval.value, lambda: add_measurement(topic_stats(DEMO["endpoints"]["topic"]), topic_chart))
+            ui.timer(refresh_interval.value, lambda: add_measurement(consumer_stats(DEMO["endpoints"]["topic"]), consumer_chart))
+
 
     with ui.footer() as footer:
         with ui.row().classes("w-full items-center"):

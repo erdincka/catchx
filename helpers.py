@@ -132,11 +132,6 @@ async def run_command(command: str) -> None:
 
     result.push(f"Finished: {command}")
 
-def cluster_info():
-    with ui.row().classes("place-items-center"):
-        ui.button("Using Cluster:", on_click=configure_cluster).props("flat")
-        ui.link(target=f"https://{app.storage.general.get('cluster', 'localhost')}:8443/", new_tab=True).bind_text_from(app.storage.general, "cluster", backward=lambda x: app.storage.general["clusters"][x] if x else "None").classes("text-white hover:text-blue-600")
-
 
 def configure_cluster():
     with ui.dialog().props("position=right full-height") as dialog, ui.card().classes("relative"):

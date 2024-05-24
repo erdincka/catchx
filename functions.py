@@ -100,11 +100,6 @@ def detect_fraud(params: list, count: int):
         yield f"Fraud txn from {doc['sender']} to {doc['receiver']}"
         
 
-def monitoring_pane():
-    add_measurement(topic_stats(DEMO["endpoints"]["topic"]), get_echart())
-    add_measurement(consumer_stats(DEMO["endpoints"]["topic"]), get_echart())
-
-
 def toggle_log():
     app.storage.user["showlog"] = not app.storage.user["showlog"]
 
