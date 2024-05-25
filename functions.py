@@ -1,12 +1,10 @@
 import asyncio
 import logging
 import random
-import timeit
 from faker import Faker
 from nicegui import app, run
+from nicegui.events import ValueChangeEventArguments
 
-from apprunner import consumer_stats, topic_stats
-from elements import add_measurement, get_echart
 from helpers import *
 from streams import consume, produce
 from tables import search_documents, upsert_document
@@ -46,7 +44,7 @@ async def transaction_feed_service():
         while app.storage.general["txn_feed_svc"]:
             await run.io_bound(publish_transaction, fake_transaction())
             # add delay
-            await asyncio.sleep(0.5)
+            await asyncio.sleep(0.05)
 
     else:
         # disable
@@ -56,13 +54,13 @@ async def transaction_feed_service():
 async def ingest_transactions():
 
     stream_path = f"{DEMO['endpoints']['volume']}/{DEMO['endpoints']['stream']}"
-
+    
     for record in await run.io_bound(consume, stream=stream_path, topic=DEMO['endpoints']['topic']):
         message = json.loads(record)
         
         logger.debug("Write into iceberg %s", message)
         # iceberger.write(message)
-
+    
 
 async def refine_transaction(message: dict):
     profile = {
@@ -104,8 +102,9 @@ def toggle_log():
     app.storage.user["showlog"] = not app.storage.user["showlog"]
 
 
-def toggle_debug(val: bool):
-    if val:
+def toggle_debug(arg: ValueChangeEventArguments):
+    print(f"debug set to {arg.value}")
+    if arg.value:
         logger.setLevel(logging.DEBUG)
     else:
         logger.setLevel(logging.INFO)
@@ -118,65 +117,116 @@ def gracefully_fail(exc: Exception):
     app.storage.user["busy"] = False
 
 
-# async def stream_consumer(stream: str, topic: str):
-#     app.storage.user["busy"] = True
+def topic_stats(topic: str):
+    stream_path = f"{DEMO['endpoints']['volume']}/{DEMO['endpoints']['stream']}"
 
-#     topic_path = f"{stream}:{topic}"
+    if app.storage.general.get("cluster", None) is None:
+        logger.debug("Cluster not configured, skipping.")
+        return
+    
+    try:
+        response = restrunner.get(host=app.storage.general["cluster"],
+            path=f"/rest/stream/topic/info?path={stream_path}&topic={topic}"
+        )
+        if response is None or response.status_code != 200:
+            # possibly not connected or topic not populated yet, just ignore
+            logger.debug(f"Failed to get topic stats for {topic}")
 
-#     result = []
+        else:
+            metrics = response.json()
+            if not metrics["status"] == "ERROR":
+                logger.debug("TOPIC STAT %s", metrics)
 
-#     try:
-#         # Create consumer instance
-#         response = await run.io_bound(
-#             restrunner.kafkapost,
-#             host=app.storage.general["hq"],
-#             path=f"/consumers/{topic}_cg",
-#             data={
-#                 "name": f"{topic}_ci",
-#                 "format": "json",
-#                 "auto.offset.reset": "earliest",
-#                 # "fetch.max.wait.ms": 1000,
-#                 # "consumer.request.timeout.ms": "500",
-#             },
-#         )
+                series = []
+                for m in metrics["data"]:
+                    series.append(
+                        {"publishedMsgs": m["maxoffset"] + 1}
+                    )  # interestingly, maxoffset starts from -1
+                    series.append(
+                        {"consumedMsgs": m["minoffsetacrossconsumers"]}
+                    )  # this metric starts at 0
+                    series.append(
+                        {
+                            "latestAgo(s)": (
+                                datetime.now().astimezone()
+                                - dt_from_iso(m["maxtimestamp"])
+                            ).total_seconds()
+                        }
+                    )
+                    series.append(
+                        {
+                            "consumerLag(s)": (
+                                dt_from_iso(m["maxtimestamp"])
+                                - dt_from_iso(m["mintimestampacrossconsumers"])
+                            ).total_seconds()
+                        }
+                    )
+                # logger.info("Metrics %s", series)
+                return {
+                    "name": topic,
+                    "time": datetime.fromtimestamp(
+                        metrics["timestamp"] / (10**3)
+                    ).strftime("%H:%M:%S"),
+                    "values": series,
+                }
+            else:
+                logger.warn("Topic stat query error %s", metrics["errors"])
 
-#         if response is None:
-#             return result
+    except Exception as error:
+        logger.warning("Topic stat request error %s", error)
 
-#         ci = response.json()
-#         ci_path = urlparse(ci["base_uri"]).path
 
-#         # subscribe to consumer
-#         await run.io_bound(
-#             restrunner.kafkapost,
-#             host=app.storage.general["hq"],
-#             path=f"{ci_path}/subscription",
-#             data={"topics": [topic_path]},
-#         )
-#         # No content in response
+def consumer_stats(topic: str):
+    stream_path = f"{DEMO['endpoints']['volume']}/{DEMO['endpoints']['stream']}"
 
-#         # get records
-#         records = await run.io_bound(
-#             restrunner.kafkaget,
-#             host=app.storage.general["hq"],
-#             path=f"{ci_path}/records",
-#         )
-#         if records and records.ok:
-#             for message in records.json():
-#                 # logger.debug("CONSUMER GOT MESSAGE: %s", message)
-#                 result.append(message["value"])
+    if app.storage.general.get("cluster", None) is None:
+        logger.debug("Cluster not configured, skipping.")
+        return
+    
+    try:
+        response = restrunner.get(host=app.storage.general["cluster"],
+            path=f"/rest/stream/cursor/list?path={stream_path}&topic={topic}"
+        )
 
-#     except Exception as error:
-#         logger.warning("STREAM CONSUMER ERROR %s", error)
+        if response is None:
+            # possibly not connected or topic not populated yet, just ignore
+            logger.debug(f"Failed to get consumer stats for {topic}")
 
-#     finally:
-#         # Unsubscribe from consumer instance
-#         await run.io_bound(
-#             restrunner.kafkadelete,
-#             host=app.storage.general["hq"],
-#             path=f"/consumers/{topic}_cg/instances/{topic}_ci",
-#         )
+        else:
+            metrics = response.json()
 
-#         app.storage.user["busy"] = False
+            if not metrics["status"] == "ERROR":
+                logger.debug("CONSUMER STAT %s", metrics)
+                series = []
+                for m in metrics["data"]:
+                    series.append(
+                        {
+                            f"{m['consumergroup']}_{m['partitionid']}_lag(s)": float(
+                                m["consumerlagmillis"]
+                            )
+                            / 1000
+                        }
+                    )
+                    series.append(
+                        {
+                            f"{m['consumergroup']}_{m['partitionid']}_offsetBehind": int(
+                                m["produceroffset"]
+                            ) + 1 # starting from -1 !!!
+                            - int(m["committedoffset"])
+                        }
+                    )
+                # logger.info("Metrics %s", series)
+                return {
+                    "name": "Consumer",
+                    "time": datetime.fromtimestamp(
+                        metrics["timestamp"] / (10**3)
+                    ).strftime("%H:%M:%S"),
+                    "values": series,
+                }
+            else:
+                logger.warn("Consumer stat query error %s", metrics["errors"])
 
-#         return result
+    except Exception as error:
+        # possibly not connected or topic not populated yet, just ignore it
+        logger.debug("Consumer stat request error %s", error)
+

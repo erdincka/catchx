@@ -1,15 +1,10 @@
 import inspect
-import logging
-import os
-
-import requests
 from nicegui import app, ui, binding
 
+from elements import *
 from functions import *
+from page import *
 
-
-TITLE = "Data Pipeline for Fraud"
-STORAGE_SECRET = "ezmer@1r0cks"
 
 # catch-all exceptions
 app.on_exception(gracefully_fail)
@@ -22,7 +17,6 @@ logging.basicConfig(level=logging.INFO,
 logger = logging.getLogger()
 
 # INSECURE REQUESTS ARE OK in Lab
-requests.packages.urllib3.disable_warnings()
 urllib_logger = logging.getLogger("urllib3.connectionpool")
 urllib_logger.setLevel(logging.WARNING)
 
@@ -63,16 +57,7 @@ async def home():
         app.storage.general["MAPR_PASS"] = os.environ.get("MAPR_PASS", "")
 
     # Header
-    with ui.header(elevated=True).classes('items-center justify-between uppercase'):
-        ui.label(f"{APP_NAME}: {TITLE}")
-        ui.space()
-
-        with ui.row().classes("place-items-center"):
-            ui.button("Cluster", on_click=configure_cluster).props("outline color=white")
-            ui.link(target=f"https://{app.storage.general.get('cluster', 'localhost')}:8443/", new_tab=True).bind_text_from(app.storage.general, "cluster", backward=lambda x: app.storage.general["clusters"][x] if x else "None").classes("text-white hover:text-blue-600")
-
-        ui.space()
-        ui.switch(on_change=toggle_debug).bind_value(app.storage.user, "debugging").tooltip("Debug")
+    header()
 
     # Documentation / Intro
     with ui.expansion( 
@@ -94,61 +79,34 @@ async def home():
 
     with ui.row().classes("w-full flex flex-nowrap"):
         with ui.list().props("bordered").classes("w-2/3"):
+
             with ui.expansion("Data Ingestion", caption="Streaming and batch data ingestion", group="flow", value=True):
+                ui.code(inspect.getsource(fake_transaction)).classes("w-full")
+                ui.code(inspect.getsource(publish_transaction)).classes("w-full")
                 ui.code(inspect.getsource(produce)).classes("w-full")
                 ui.separator()
                 with ui.row():
-                    ui.button(on_click=transaction_feed_service).bind_text_from(app.storage.general, "txn_feed_svc", backward=lambda x: "Stop" if x else "Stream").props("flat")
+                    ui.button(on_click=transaction_feed_service).bind_text_from(app.storage.general, "txn_feed_svc", backward=lambda x: "Stop" if x else "Stream").props("outline")
                     ui.space()
-                    ui.button("Batch", on_click=customer_data_ingestion).props("flat")
+                    ui.button("Batch", on_click=customer_data_ingestion).props("outline")
+            
             with ui.expansion("ETL", caption="Realtime processing for incoming data", group="flow"):
                 ui.code(inspect.getsource(ingest_transactions)).classes("w-full")
                 ui.code(inspect.getsource(consume)).classes("w-full")
                 ui.separator()
                 with ui.row():
-                    ui.button("Consume", on_click=ingest_transactions).props("flat")
-        
+                    ui.button("Consume", on_click=ingest_transactions).props("outline")
+
         # Monitoring charts
         with ui.card().classes("flex-grow shrink"):
-
-            refresh_interval = ui.slider(min=1, max=30, value=3.0).props("label label-always switch-label-side")
-            ui.space()
-        
             topic_chart = get_echart()
             consumer_chart = get_echart()
 
-            ui.timer(refresh_interval.value, lambda: add_measurement(topic_stats(DEMO["endpoints"]["topic"]), topic_chart))
-            ui.timer(refresh_interval.value, lambda: add_measurement(consumer_stats(DEMO["endpoints"]["topic"]), consumer_chart))
+            ui.timer(MON_REFRESH_INTERVAL, lambda: add_measurement(topic_stats(DEMO["endpoints"]["topic"]), topic_chart))
+            ui.timer(MON_REFRESH_INTERVAL, lambda: add_measurement(consumer_stats(DEMO["endpoints"]["topic"]), consumer_chart))
 
 
-    with ui.footer() as footer:
-        with ui.row().classes("w-full items-center"):
-            ui.button(icon="menu", on_click=toggle_log).props("flat text-color=white")
-            ui.label("Log")
-
-            ui.space()
-
-            # Show endpoints
-            ui.label(" | ".join([f"{k.upper()}: {v}" for k,v in DEMO["endpoints"].items()])).classes("tracking-wide")
-
-            ui.space()
-
-            ui.spinner("ios", size="2em", color="red").bind_visibility_from(
-                app.storage.user, "busy"
-            ).tooltip("Busy")
-
-            ui.icon("check_circle", size="2em", color="green").bind_visibility_from(
-                app.storage.user, "busy", lambda x: not x
-            ).tooltip("Ready")
-
-        log = (
-            ui.log()
-            .classes("w-full h-48 bg-neutral-300/30")
-            .style("white-space: pre-wrap")
-            .bind_visibility(app.storage.user, "showlog")
-        )
-        logger.addHandler(LogElementHandler(log, level=logging.INFO))
-
+    footer()
 
 if __name__ in {"__main__", "__mp_main__"}:
     ui.run(

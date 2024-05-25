@@ -12,11 +12,15 @@ import importlib_resources
 from nicegui import ui, events, app
 
 APP_NAME = "catchX"
+TITLE = "Data Pipeline for Fraud"
+STORAGE_SECRET = "ezmer@1r0cks"
+
 
 DEMO = json.loads(importlib_resources.files().joinpath("banking.json").read_text())
 
-MAX_POLL_TIME = 5.0
+MAX_POLL_TIME = 2.0
 MON_REFRESH_INTERVAL = 1.0
+
 
 class LogElementHandler(logging.Handler):
     """A logging handler that emits messages to a log element."""
@@ -35,7 +39,7 @@ class LogElementHandler(logging.Handler):
             )
         )
         try:
-            # remove color formatting for ezfabricctl output
+            # remove color formatting from output
             ANSI_RE = re.compile(r"\x1b\[[0-9;]*m")
             msg = self.format(record)
             self.element.push(re.sub(ANSI_RE, "", msg))
@@ -134,30 +138,43 @@ async def run_command(command: str) -> None:
 
 
 def configure_cluster():
-    with ui.dialog().props("position=right full-height") as dialog, ui.card().classes("relative"):
+    with ui.dialog().props("position=right full-height") as dialog, ui.card().classes("relative bordered"):
         # with close button
         ui.button(icon="close", on_click=dialog.close).props("flat round dense").classes("absolute right-4 top-4")
 
-        with ui.card_section().classes("mt-4"):
-            ui.label("Client files (config.tar and/or jwt_tokens.tar.gz)").classes("text-lg")
-            ui.upload(label="Upload", on_upload=upload_client_files, multiple=True, auto_upload=True, max_files=2).props("accept='application/x-tar,application/x-gzip' hide-upload-btn").classes("w-full")
+        with ui.card_section().classes("mt-6"):
+            ui.label("Client files").classes("text-lg")
+            ui.label("config.tar and/or jwt_tokens.tar.gz").classes("text-subtitle2")
+            with ui.row().classes("w-full place-items-center"):
+                ui.upload(label="Upload", on_upload=upload_client_files, multiple=True, auto_upload=True, max_files=2).props("accept='application/x-tar,application/x-gzip' hide-upload-btn").classes("w-full")
 
         ui.separator()
         with ui.card_section():
-            ui.label("Cluster").classes("text-lg")
-            ui.toggle(app.storage.general["clusters"]).bind_value(app.storage.general, "cluster")
+            ui.label("Select cluster").classes("text-lg")
+            with ui.row().classes("w-full place-items-center"):
+                ui.toggle(app.storage.general["clusters"]).bind_value(app.storage.general, "cluster")
 
         ui.separator()
         with ui.card_section():
-            ui.label("User credentials, required for REST API and monitoring").classes("text-lg")
-            ui.input("Username").bind_value(app.storage.general, "MAPR_USER")
-            ui.input("Password").bind_value(app.storage.general, "MAPR_PASS")
+            ui.label("User credentials").classes("text-lg")
+            ui.label("required for REST API and monitoring").classes("text-subtitle2")
+            with ui.row().classes("w-full place-items-center"):
+                ui.input("Username").bind_value(app.storage.general, "MAPR_USER")
+                ui.input("Password").bind_value(app.storage.general, "MAPR_PASS")
 
         ui.separator()
-        with ui.card_actions():
+        with ui.card_section():
             ui.label("Setup").classes("text-lg")
-            ui.button("configure.sh", on_click=lambda: run_command("/opt/mapr/server/configure.sh -R"))
-            ui.button("List", on_click=lambda: run_command(f"ls -l /mapr/{app.storage.general['clusters'].get(app.storage.general.get('cluster', ''), '')}"))
+            with ui.row().classes("w-full place-items-center"):
+                ui.button("configure.sh", on_click=lambda: run_command("/opt/mapr/server/configure.sh -R"))
+                ui.button("List Mountpoint", on_click=lambda: run_command(f"ls -l /mapr/{app.storage.general['clusters'].get(app.storage.general.get('cluster', ''), '')}"))
+
+        ui.separator()
+        with ui.card_section():
+            ui.label("Login").classes("text-lg")
+            ui.label("if not using JWT").classes("text-subtitle2")
+            with ui.row().classes("w-full place-items-center"):
+                ui.button("maprlogin", on_click=lambda: run_command(f"echo {app.storage.general['MAPR_PASS']} | maprlogin password -user {app.storage.general['MAPR_USER']}"))
 
     dialog.open()
 
