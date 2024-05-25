@@ -73,7 +73,7 @@ def get_echart():
     )
 
 
-def add_measurement(metric, chart):
+def update_chart(metric, chart):
     if metric:
         chart.options["xAxis"]["data"].append(metric["time"])
         chart.options["title"]["text"] = metric["name"].title()
