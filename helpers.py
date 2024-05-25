@@ -10,15 +10,18 @@ import uuid
 
 import importlib_resources
 from nicegui import ui, events, app, binding
+from nicegui.events import ValueChangeEventArguments
 
 APP_NAME = "catchX"
 TITLE = "Data Pipeline for Fraud"
 STORAGE_SECRET = "ezmer@1r0cks"
 
-DEMO = json.loads(importlib_resources.files().joinpath("banking.json").read_text())
+DEMO = json.loads(importlib_resources.files().joinpath("catchx.json").read_text())
 
 MAX_POLL_TIME = 2.0
 MON_REFRESH_INTERVAL = 1.0
+
+logger = logging.getLogger()
 
 
 class LogElementHandler(logging.Handler):
@@ -187,20 +190,36 @@ def set_logging():
                     format="%(asctime)s:%(levelname)s:%(module)s (%(funcName)s): %(message)s",
                     datefmt='%H:%M:%S')
 
-    logger = logging.getLogger()
-
     # INSECURE REQUESTS ARE OK in Lab
-    urllib_logger = logging.getLogger("urllib3.connectionpool")
-    urllib_logger.setLevel(logging.WARNING)
+    logging.getLogger("urllib3").setLevel(logging.WARNING)
 
-    requests_log = logging.getLogger("requests.packages.urllib3")
-    requests_log.setLevel(logging.WARNING)
+    logging.getLogger("httpx").setLevel(logging.WARNING)
 
-    watcher_logger = logging.getLogger("watchfiles.main")
-    watcher_logger.setLevel(logging.FATAL)
+    logging.getLogger("requests").setLevel(logging.WARNING)
+    
+    logging.getLogger("watchfiles").setLevel(logging.FATAL)
 
-    faker_log = logging.getLogger("faker.factory")
-    faker_log.setLevel(logging.FATAL)
+    logging.getLogger("faker").setLevel(logging.FATAL)
 
     # https://sam.hooke.me/note/2023/10/nicegui-binding-propagation-warning/
     binding.MAX_PROPAGATION_TIME = 0.05
+
+
+def toggle_log():
+    app.storage.user["showlog"] = not app.storage.user["showlog"]
+
+
+def toggle_debug(arg: ValueChangeEventArguments):
+    print(f"debug set to {arg.value}")
+    if arg.value:
+        logger.setLevel(logging.DEBUG)
+    else:
+        logger.setLevel(logging.INFO)
+
+
+# Handle exceptions without UI failure
+def gracefully_fail(exc: Exception):
+    print("gracefully failing...")
+    logger.exception(exc)
+    app.storage.user["busy"] = False
+

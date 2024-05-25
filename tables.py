@@ -1,37 +1,27 @@
-import logging
+import socket
 from mapr.ojai.storage.ConnectionFactory import ConnectionFactory
 
 from nicegui import app 
 
-logger = logging.getLogger()
+from helpers import *
 
-def get_cert_domain():
-    with open("/opt/mapr/conf/ssl_truststore.pem", 'r') as f:
-        for line in f:
-            if "subject=C =" in line:
-                return line.split(" CN = *.")[1]
-
-    return ""
         
 def get_connection(host: str):
-    ### FIX: bruteforce cert validation
-    domain = get_cert_domain()
 
     # Create a connection to data access server
     connection_str = f"{host}:5678?auth=basic;user={app.storage.general['MAPR_USER']};password={app.storage.general['MAPR_PASS']};" \
             "ssl=true;" \
             "sslCA=/opt/mapr/conf/ssl_truststore.pem;" \
-            f"sslTargetNameOverride=client.{domain}"
+            f"sslTargetNameOverride={socket.getfqdn(app.storage.general['cluster'])}"
     
     return ConnectionFactory.get_connection(connection_str=connection_str)
 
-def upsert_document(host: str, table: str, json_dict: dict):
+def upsert_document(host: str, table_path: str, json_dict: dict):
     try:
         connection = get_connection(host=host)
 
-        store = connection.get_or_create_store(table)
+        store = connection.get_or_create_store(table_path)
 
-        # Create new document from json_document
         new_document = connection.new_document(dictionary=json_dict)
 
         store.insert_or_replace(new_document)
@@ -41,8 +31,7 @@ def upsert_document(host: str, table: str, json_dict: dict):
         return False
 
     finally:        
-        # close the OJAI connection
-        connection.close()
+        if connection: connection.close()
 
     return True
 

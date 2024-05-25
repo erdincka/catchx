@@ -6,7 +6,7 @@ This application expects certain runtime environment (container) with required l
 
 Before running the demo, ensure that you have Ezmeral Data Fabric connectivity is established and a user ticket is generated for the user defined in `MAPR_USER` environment variable.
 
-App uses `/apps/banking/` volume path on the connected cluster, so do not run this app on a cluster which already has this path/volume configured.
+App uses `/apps/catchx_*` volumes on the connected cluster, so do not run this app on a cluster which already has this path/volume configured.
 
 Follow the steps to walk through the demo. 
 

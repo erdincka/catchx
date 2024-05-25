@@ -1,9 +1,4 @@
-import logging
-
-from helpers import MAX_POLL_TIME
-
-
-logger = logging.getLogger()
+from helpers import *
 
 
 def produce(stream: str, topic: str, message: str):

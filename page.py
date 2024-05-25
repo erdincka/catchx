@@ -2,12 +2,9 @@ import inspect
 import logging
 from nicegui import ui, app
 
-from chart import update_chart, get_echart
 from functions import *
 from helpers import *
-
-
-logger = logging.getLogger()
+from monitoring import *
 
 
 def app_init():
@@ -55,7 +52,10 @@ def footer():
             ui.space()
 
             # Show endpoints
-            ui.label(" | ".join([f"{k.upper()}: {v}" for k,v in DEMO["endpoints"].items()])).classes("tracking-wide")
+            ui.label(" | ".join([f"{k.upper()}: {v}" for k,v in DEMO["volumes"].items()])).classes("tracking-wide")
+            ui.label(DEMO["stream"]).classes("tracking-wide")
+            ui.label(DEMO["topic"]).classes("tracking-wide")
+            ui.label(DEMO["table"]).classes("tracking-wide")
 
             ui.space()
 
@@ -102,15 +102,27 @@ def demo_steps():
             ui.code(inspect.getsource(produce)).classes("w-full")
             ui.separator()
             with ui.row():
-                ui.button(on_click=transaction_feed_service).bind_text_from(app.storage.general, "txn_feed_svc", backward=lambda x: "Stop" if x else "Stream").props("outline")
+                ui.button(on_click=transaction_feed_service).bind_text_from(app.storage.general, "txn_feed_svc", backward=lambda x: "Stop Streaming" if x else "Start Streaming").props("outline")
                 ui.space()
-                ui.button("Batch", on_click=customer_data_ingestion).props("outline")
+                ui.button("Start Batch", on_click=customer_data_ingestion).props("outline")
         
         with ui.expansion("ETL", caption="Realtime processing for incoming data", group="flow"):
             ui.code(inspect.getsource(ingest_transactions)).classes("w-full")
             ui.code(inspect.getsource(consume)).classes("w-full")
+            ui.code(inspect.getsource(create_update_profile)).classes("w-full")
+            ui.code(inspect.getsource(upsert_document)).classes("w-full")
             ui.separator()
             with ui.row():
-                ui.button("Consume", on_click=ingest_transactions).props("outline")
+                ui.button("Start ETL", on_click=ingest_transactions).props("outline")
 
 
+def monitoring_charts():
+    # Monitoring charts
+    with ui.card().classes("flex-grow shrink"):
+        topic_chart = get_echart()
+        topic_chart.run_chart_method(':showLoading', r'{text: "Waiting..."}',)
+        ui.timer(MON_REFRESH_INTERVAL, lambda c=topic_chart: update_chart(c, topic_stats))
+
+        consumer_chart = get_echart()
+        consumer_chart.run_chart_method(':showLoading', r'{text: "Waiting..."}',)
+        ui.timer(MON_REFRESH_INTERVAL, lambda c=consumer_chart: update_chart(c, consumer_stats))
