@@ -31,44 +31,44 @@ def get_echart():
                     "splitLine": { "show": False }
                 },
             ],
-            "series": [  # manually set max series to display (TODO: find a pythonic way)
-                {
-                    "type": "line",
-                    "showSymbol": False,
-                    "smooth": True,
-                    "data": [],
-                    "emphasis": {
-                        "focus": 'series'
-                    },
-                },
-                {
-                    "type": "line",
-                    "showSymbol": False,
-                    "smooth": True,
-                    "data": [],
-                    "emphasis": {
-                        "focus": 'series'
-                    },
-                },
-                {
-                    "type": "line",
-                    "showSymbol": False,
-                    "smooth": True,
-                    "emphasis": {
-                        "focus": 'series'
-                    },
-                    "data": [],
-                },
-                {
-                    "type": "line",
-                    "showSymbol": False,
-                    "smooth": True,
-                    "emphasis": {
-                        "focus": 'series'
-                    },
-                    "data": [],
-                },
-            ],
+            # "series": [  # manually set max series to display (TODO: find a pythonic way)
+            #     {
+            #         "type": "line",
+            #         "showSymbol": False,
+            #         "smooth": True,
+            #         "data": [],
+            #         "emphasis": {
+            #             "focus": 'series'
+            #         },
+            #     },
+            #     {
+            #         "type": "line",
+            #         "showSymbol": False,
+            #         "smooth": True,
+            #         "data": [],
+            #         "emphasis": {
+            #             "focus": 'series'
+            #         },
+            #     },
+            #     {
+            #         "type": "line",
+            #         "showSymbol": False,
+            #         "smooth": True,
+            #         "emphasis": {
+            #             "focus": 'series'
+            #         },
+            #         "data": [],
+            #     },
+            #     {
+            #         "type": "line",
+            #         "showSymbol": False,
+            #         "smooth": True,
+            #         "emphasis": {
+            #             "focus": 'series'
+            #         },
+            #         "data": [],
+            #     },
+            # ],
         },
     )
 

@@ -9,12 +9,11 @@ from time import gmtime, strftime
 import uuid
 
 import importlib_resources
-from nicegui import ui, events, app
+from nicegui import ui, events, app, binding
 
 APP_NAME = "catchX"
 TITLE = "Data Pipeline for Fraud"
 STORAGE_SECRET = "ezmer@1r0cks"
-
 
 DEMO = json.loads(importlib_resources.files().joinpath("banking.json").read_text())
 
@@ -179,3 +178,29 @@ def configure_cluster():
     dialog.open()
 
 
+def set_logging():
+    """
+    Set up logging and supress third party errors
+    """
+
+    logging.basicConfig(level=logging.INFO,
+                    format="%(asctime)s:%(levelname)s:%(module)s (%(funcName)s): %(message)s",
+                    datefmt='%H:%M:%S')
+
+    logger = logging.getLogger()
+
+    # INSECURE REQUESTS ARE OK in Lab
+    urllib_logger = logging.getLogger("urllib3.connectionpool")
+    urllib_logger.setLevel(logging.WARNING)
+
+    requests_log = logging.getLogger("requests.packages.urllib3")
+    requests_log.setLevel(logging.WARNING)
+
+    watcher_logger = logging.getLogger("watchfiles.main")
+    watcher_logger.setLevel(logging.FATAL)
+
+    faker_log = logging.getLogger("faker.factory")
+    faker_log.setLevel(logging.FATAL)
+
+    # https://sam.hooke.me/note/2023/10/nicegui-binding-propagation-warning/
+    binding.MAX_PROPAGATION_TIME = 0.05
