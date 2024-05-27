@@ -80,7 +80,7 @@ def new_series():
 
 
 async def topic_stats():
-    stream_path = f"{DEMO['volumes']['bronze']}/{DEMO['stream']}"
+    stream_path = f"{DEMO['basedir']}/{DEMO['stream']}"
     topic = DEMO["topic"]
 
     if app.storage.general.get("cluster", None) is None:
@@ -135,14 +135,15 @@ async def topic_stats():
                         "values": series,
                     }
                 else:
-                    logger.warn("Topic stat query error %s", metrics["errors"])
+                    # possibly topic is not created yet
+                    logger.debug("Topic stat query error %s", metrics["errors"])
 
     except Exception as error:
         logger.warning("Topic stat request error %s", error)
 
 
 async def consumer_stats():
-    stream_path = f"{DEMO['volumes']['bronze']}/{DEMO['stream']}"
+    stream_path = f"{DEMO['basedir']}/{DEMO['stream']}"
     topic = DEMO["topic"]
 
     if app.storage.general.get("cluster", None) is None:
@@ -185,14 +186,15 @@ async def consumer_stats():
                         )
                     # logger.info("Metrics %s", series)
                     return {
-                        "name": "Consumer",
+                        "name": "Consumers",
                         "time": datetime.datetime.fromtimestamp(
                             metrics["timestamp"] / (10**3)
                         ).strftime("%H:%M:%S"),
                         "values": series,
                     }
                 else:
-                    logger.warn("Consumer stat query error %s", metrics["errors"])
+                    # possibly topic is not created yet
+                    logger.debug("Consumer stat query error %s", metrics["errors"])
 
     except Exception as error:
         # possibly not connected or topic not populated yet, just ignore it

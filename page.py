@@ -8,8 +8,7 @@ from monitoring import *
 
 
 def app_init():
-    # Reset service
-    app.storage.general["txn_feed_svc"] = False
+    # Reset services
 
     # and previous run state if it was hang
     app.storage.user["busy"] = False
@@ -36,7 +35,7 @@ def header():
         ui.space()
 
         with ui.row().classes("place-items-center"):
-            ui.button("Cluster", on_click=configure_cluster).props("outline color=white")
+            ui.button("Cluster", on_click=cluster_configuration_dialog).props("outline color=white")
             ui.link(target=f"https://{app.storage.general.get('cluster', 'localhost')}:8443/", new_tab=True).bind_text_from(app.storage.general, "cluster", backward=lambda x: app.storage.general["clusters"][x] if x else "None").classes("text-white hover:text-blue-600")
 
         ui.space()
@@ -52,10 +51,10 @@ def footer():
             ui.space()
 
             # Show endpoints
-            ui.label(" | ".join([f"{k.upper()}: {v}" for k,v in DEMO["volumes"].items()])).classes("tracking-wide")
-            ui.label(DEMO["stream"]).classes("tracking-wide")
-            ui.label(DEMO["topic"]).classes("tracking-wide")
-            ui.label(DEMO["table"]).classes("tracking-wide")
+            ui.label(f"Volumes: {' | '.join( DEMO['volumes'].values() )}").classes("tracking-wide uppercase")
+            ui.label(f"Tables: {' | '.join( DEMO['tables'] )}").classes("tracking-wide uppercase")
+            ui.label(f"Stream: { DEMO['stream'] }").classes("tracking-wide uppercase")
+            ui.label(f"Topic: { DEMO['topic'] }").classes("tracking-wide uppercase")
 
             ui.space()
 
@@ -85,7 +84,7 @@ def info():
         ui.markdown(DEMO["description"]).classes("font-normal")
         ui.image(importlib_resources.files("main").joinpath(DEMO["diagram"])).classes(
             "object-scale-down g-10"
-        )
+        ).on("click", handler=lambda x: print(x)) # TODO: open image in sidebar when clicked
         ui.link(
             "Source",
             target=DEMO.get("link", ""),
@@ -96,29 +95,43 @@ def info():
 def demo_steps():
     with ui.list().props("bordered").classes("w-2/3"):
 
-        with ui.expansion("Data Ingestion", caption="Streaming and batch data ingestion", group="flow", value=True):
-            ui.code(inspect.getsource(fake_transaction)).classes("w-full")
-            ui.code(inspect.getsource(publish_transaction)).classes("w-full")
-            ui.code(inspect.getsource(produce)).classes("w-full")
-            ui.separator()
+        with ui.expansion("Ingestion", caption="Streaming and batch data ingestion", group="flow"):
+            with ui.expansion("Producer Functions", caption="Source code for running the stream ingestion", group="ingest").classes("w-full"):
+                ui.code(inspect.getsource(fake_transaction)).classes("w-full")
+                ui.code(inspect.getsource(publish_transaction)).classes("w-full")
+                ui.code(inspect.getsource(produce)).classes("w-full")
             with ui.row():
-                ui.button(on_click=transaction_feed_service).bind_text_from(app.storage.general, "txn_feed_svc", backward=lambda x: "Stop Streaming" if x else "Start Streaming").props("outline")
-                ui.space()
+                ui.button("Start Streaming", on_click=transaction_feed_service).props("outline")
+
+            ui.separator()        
+            with ui.expansion("Batch Functions", caption="Source code for running the batch ingestion", group="ingest").classes("w-full"):
+                ui.code(inspect.getsource(customer_data_ingestion)).classes("w-full")
+            with ui.row():
                 ui.button("Start Batch", on_click=customer_data_ingestion).props("outline")
-        
+                ui.button("Check Data", on_click=customer_data_list).props("outline")
+            
         with ui.expansion("ETL", caption="Realtime processing for incoming data", group="flow"):
-            ui.code(inspect.getsource(ingest_transactions)).classes("w-full")
-            ui.code(inspect.getsource(consume)).classes("w-full")
-            ui.code(inspect.getsource(create_update_profile)).classes("w-full")
-            ui.code(inspect.getsource(upsert_document)).classes("w-full")
+            with ui.expansion("Code", caption="Source code for running the ETL tasks").classes("w-full"):
+                ui.code(inspect.getsource(ingest_transactions)).classes("w-full")
+                ui.code(inspect.getsource(consume)).classes("w-full")
+                ui.code(inspect.getsource(create_update_profile)).classes("w-full")
+                ui.code(inspect.getsource(upsert_document)).classes("w-full")
             ui.separator()
             with ui.row():
-                ui.button("Start ETL", on_click=ingest_transactions).props("outline")
+                ui.button("Start ETL", on_click=ingest_transactions).props("outline").bind_enabled_from(app.storage.user, "busy", backward=lambda x: not x)
+                ui.button("Check Iceberg ", on_click=ingest_transactions).props("outline").bind_enabled_from(app.storage.user, "busy", backward=lambda x: not x)
+
+        with ui.expansion("Cleaning", caption="Integrate with data catalogue and clean/enrich data into silver tier", group="flow"):
+            with ui.expansion("Code", caption="Source code for running the Cleaning tasks").classes("w-full"):
+                ui.code(inspect.getsource(refine_transaction)).classes("w-full")
+            ui.separator()
+            with ui.row():
+                ui.button("Start Cleaning").props("outline").bind_enabled_from(app.storage.user, "busy", backward=lambda x: not x)
 
 
 def monitoring_charts():
     # Monitoring charts
-    with ui.card().classes("flex-grow shrink"):
+    with ui.card().classes("flex-grow shrink sticky top-0"):
         topic_chart = get_echart()
         topic_chart.run_chart_method(':showLoading', r'{text: "Waiting..."}',)
         ui.timer(MON_REFRESH_INTERVAL, lambda c=topic_chart: update_chart(c, topic_stats))

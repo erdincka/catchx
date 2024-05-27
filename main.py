@@ -24,7 +24,7 @@ async def home():
     ui.separator()
 
     # Main
-    with ui.row().classes("w-full flex flex-nowrap"):
+    with ui.row().classes("w-full flex flex-nowrap relative"):
         demo_steps()
 
         monitoring_charts()

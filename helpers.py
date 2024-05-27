@@ -8,9 +8,12 @@ import tarfile
 from time import gmtime, strftime
 import uuid
 
+import httpx
 import importlib_resources
 from nicegui import ui, events, app, binding
 from nicegui.events import ValueChangeEventArguments
+
+from functions import generate_demo_data
 
 APP_NAME = "catchX"
 TITLE = "Data Pipeline for Fraud"
@@ -60,15 +63,7 @@ def dt_from_iso(timestring):
 
 
 def get_uuid_key():
-    return '{0}_{1}'.format(strftime("%Y%m%d%H%M%S",gmtime()),uuid.uuid4())
-
-
-# def is_configured():
-#     """
-#     Check if all client configuration files in place
-#     """
-#     files = ["/opt/mapr/conf/mapr-clusters.conf", "/opt/mapr/conf/ssl_truststore", "/opt/mapr/conf/ssl_truststore.pem", "/root/jwt_access", "/root/jwt_refresh"]
-#     return all([os.path.isfile(f) for f in files])
+    return '{0}_{1}'.format(strftime("%Y%m%d%H%M%S",gmtime()),uuid.uuid4().hex)
 
 
 def upload_client_files(e: events.UploadEventArguments):
@@ -139,46 +134,93 @@ async def run_command(command: str) -> None:
     result.push(f"Finished: {command}")
 
 
-def configure_cluster():
-    with ui.dialog().props("position=right full-height") as dialog, ui.card().classes("relative bordered"):
-        # with close button
-        ui.button(icon="close", on_click=dialog.close).props("flat round dense").classes("absolute right-4 top-4")
+def get_cluster_name():
+    return app.storage.general['clusters'].get(app.storage.general.get('cluster', ''), '')
 
-        with ui.card_section().classes("mt-6"):
-            ui.label("Client files").classes("text-lg")
-            ui.label("config.tar and/or jwt_tokens.tar.gz").classes("text-subtitle2")
-            with ui.row().classes("w-full place-items-center"):
-                ui.upload(label="Upload", on_upload=upload_client_files, multiple=True, auto_upload=True, max_files=2).props("accept='application/x-tar,application/x-gzip' hide-upload-btn").classes("w-full")
 
-        ui.separator()
-        with ui.card_section():
-            ui.label("Select cluster").classes("text-lg")
-            with ui.row().classes("w-full place-items-center"):
-                ui.toggle(app.storage.general["clusters"]).bind_value(app.storage.general, "cluster")
+async def create_volumes_and_stream():
+    auth = (app.storage.general["MAPR_USER"], app.storage.general["MAPR_PASS"])
 
-        ui.separator()
-        with ui.card_section():
-            ui.label("User credentials").classes("text-lg")
-            ui.label("required for REST API and monitoring").classes("text-subtitle2")
-            with ui.row().classes("w-full place-items-center"):
-                ui.input("Username").bind_value(app.storage.general, "MAPR_USER")
-                ui.input("Password").bind_value(app.storage.general, "MAPR_PASS")
+    # create base folder if not exists
+    basedir = f"/mapr/{get_cluster_name()}{DEMO['basedir']}"
+    if not os.path.isdir(basedir):
+        os.mkdir(basedir)
 
-        ui.separator()
-        with ui.card_section():
-            ui.label("Setup").classes("text-lg")
-            with ui.row().classes("w-full place-items-center"):
-                ui.button("configure.sh", on_click=lambda: run_command("/opt/mapr/server/configure.sh -R"))
-                ui.button("List Mountpoint", on_click=lambda: run_command(f"ls -l /mapr/{app.storage.general['clusters'].get(app.storage.general.get('cluster', ''), '')}"))
+    for vol in DEMO['volumes']:
 
-        ui.separator()
-        with ui.card_section():
-            ui.label("Login").classes("text-lg")
-            ui.label("if not using JWT").classes("text-subtitle2")
-            with ui.row().classes("w-full place-items-center"):
-                ui.button("maprlogin", on_click=lambda: run_command(f"echo {app.storage.general['MAPR_PASS']} | maprlogin password -user {app.storage.general['MAPR_USER']}"))
+        URL = f"https://{app.storage.general['cluster']}:8443/rest/volume/create?name={DEMO['volumes'][vol]}&path={DEMO['basedir']}/{DEMO['volumes'][vol]}&replication=1&minreplication=1&nsreplication=1&nsminreplication=1"
+        async with httpx.AsyncClient(verify=False) as client:
+            response = await client.post(URL, auth=auth)
 
-    dialog.open()
+            if response is None or response.status_code != 200:
+                logger.warning(f"REST failed for create volume: %s", vol)
+                logger.warning("Response: %s", response.text)
+
+            else:
+                res = response.json()
+                if res['status'] == "OK":
+                    ui.notify(f"{res['messages']}", type='positive')
+                elif res['status'] == "ERROR":
+                    ui.notify(f"{res['errors'][0]['desc']}", type='warning')
+
+    # Create stream
+    URL = f"https://{app.storage.general['cluster']}:8443/rest/stream/create?path={DEMO['basedir']}/{DEMO['stream']}&ttl=38400&compression=lz4&produceperm=p&consumeperm=p&topicperm=p"
+    async with httpx.AsyncClient(verify=False) as client:
+        response = await client.post(URL, auth=auth)
+
+        if response is None or response.status_code != 200:
+            # possibly not an issue if stream already exists
+            logger.warning(f"REST failed for create stream: %s", vol)
+            logger.warning("Response: %s", response.text)
+
+        else:
+            res = response.json()
+            if res['status'] == "OK":
+                ui.notify(f"Stream {DEMO['stream']} created", type='positive')
+            elif res['status'] == "ERROR":
+                ui.notify(f"Stream: {DEMO['stream']}: {res['errors'][0]['desc']}", type='warning')
+
+
+async def delete_volumes_and_stream():
+    auth = (app.storage.general["MAPR_USER"], app.storage.general["MAPR_PASS"])
+
+    for vol in DEMO['volumes']:
+
+        URL = f"https://{app.storage.general['cluster']}:8443/rest/volume/remove?name={DEMO['volumes'][vol]}"
+        async with httpx.AsyncClient(verify=False) as client:
+            response = await client.post(URL, auth=auth)
+
+            if response is None or response.status_code != 200:
+                logger.warning("REST failed for delete volume: %s", vol)
+                logger.warning("Response: %s", response.text)
+
+            else:
+                res = response.json()
+                if res['status'] == "OK":
+                    ui.notify(f"Volume {vol} deleted", type='positive')
+                elif res['status'] == "ERROR":
+                    ui.notify(f"{vol}: {res['errors'][0]['desc']}", type='warning')
+
+
+    # Delete stream
+    URL = f"https://{app.storage.general['cluster']}:8443/rest/stream/delete?path={DEMO['basedir']}/{DEMO['stream']}"
+    async with httpx.AsyncClient(verify=False) as client:
+        response = await client.post(URL, auth=auth)
+
+        if response is None or response.status_code != 200:
+            logger.warning(f"REST failed for delete stream: %s", vol)
+            logger.warning("Response: %s", response.text)
+
+        else:
+            res = response.json()
+            if res['status'] == "OK":
+                ui.notify(f"Stream '{DEMO['stream']}' deleted", type='positive')
+            elif res['status'] == "ERROR":
+                ui.notify(f"Stream: {DEMO['stream']}: {res['errors'][0]['desc']}", type='warning')
+
+    # delete base folder
+    basedir = f"/mapr/{get_cluster_name()}{DEMO['basedir']}"
+    os.rmdir(basedir)
 
 
 def set_logging():
@@ -187,11 +229,13 @@ def set_logging():
     """
 
     logging.basicConfig(level=logging.INFO,
-                    format="%(asctime)s:%(levelname)s:%(module)s (%(funcName)s): %(message)s",
+                    format="%(asctime)s:%(levelname)s:%(name)s (%(funcName)s): %(message)s",
                     datefmt='%H:%M:%S')
 
     # INSECURE REQUESTS ARE OK in Lab
     logging.getLogger("urllib3").setLevel(logging.WARNING)
+
+    logging.getLogger("httpcore").setLevel(logging.WARNING)
 
     logging.getLogger("httpx").setLevel(logging.WARNING)
 

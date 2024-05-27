@@ -1,25 +1,90 @@
 import logging
-from time import sleep
-import pyarrow.parquet as pq
-import pyarrow.compute as pc
+# from time import sleep
+# import pyarrow.parquet as pq
+# import pyarrow.compute as pc
 import pyarrow as pa
-from pyiceberg.catalog import load_catalog
-from pyarrow import fs
-import json
-import pandas as pd
-from pyarrow import csv
-from kafka import KafkaProducer
-from kafka.errors import KafkaError
+# from pyiceberg.catalog import load_catalog
+# from pyarrow import fs
+# import json
+# import pandas as pd
+# from pyarrow import csv
+# from kafka import KafkaProducer
+# from kafka.errors import KafkaError
 from pyiceberg import Iceberg, Table
 
-from helpers import DEMO, get_uuid_key
+from helpers import DEMO
 
 logger = logging.getLogger()
 
-def stock_producer():
-    producer = KafkaProducer(key_serializer=str.encode, value_serializer=lambda v: json.dumps(v).encode('ascii'),bootstrap_servers='kafka:9092',retries=3)
+# def stock_producer():
+#     producer = KafkaProducer(key_serializer=str.encode, value_serializer=lambda v: json.dumps(v).encode('ascii'),bootstrap_servers='kafka:9092',retries=3)
 
-    tablename = DEMO['table']
+#     tablename = DEMO['tables']['profiles']
+#     schemaname = "transactions" 
+#     local_data_dir = "/tmp/stocks/"
+
+#     from pyiceberg.catalog.sql import SqlCatalog
+#     warehouse_path = "/tmp/warehouse"
+#     catalog = SqlCatalog(
+#         "docs",
+#         **{
+#             "uri": f"sqlite:///{warehouse_path}/iceberg_catalog.db",
+#             "warehouse": f"file://{warehouse_path}",
+#             "py-io-impl": "pyiceberg.io.pyarrow.PyArrowFileIO",
+#         },
+#     )
+
+#     rowCounter = 0
+#     isList = []
+
+#     while rowCounter >= 0:
+#         uuid_key = get_uuid_key()
+#         try:
+#             row = {'uuid': uuid_key, 'stockname': "DUMBDATA" }
+#             producer.send(tablename, key=uuid_key, value=row)
+#             producer.flush()
+#         except Exception as error:
+#             logger.warning(error)
+
+#         logger.debug(str(rowCounter) + " " + str(row))
+#         isList.append(row)
+#         rowCounter = rowCounter + 1
+
+#         if ( rowCounter >= 1000 ):
+#             rowCounter = 0
+            
+#             ## build PyArrow table from python list
+#             df = pa.Table.from_pylist(isList)
+#             #### Write to Apache Iceberg on Minio (S3)
+#             ### - only create it for new table
+#             table = None
+#             try:
+#                 table = catalog.create_table(
+#                     f'{schemaname}.{tablename}',
+#                     schema=df.schema,
+#                     location=warehouse_path,
+#                 )
+#             except:
+#                 print("Table exists, append " + tablename)    
+#                 table = catalog.load_table(f'{schemaname}.{tablename}')
+
+#             ### Write table to Iceberg/Minio
+#             table.append(df)
+#             isList = []
+#             df = None 
+
+#         sleep(0.05)
+            
+#     producer.close()
+
+def write_iceberg():
+    
+    # Replace this with your project-specific code
+    project = "your_iceberg_project"
+    namespace = "your_iceberg_namespace"
+    table = "your_iceberg_table"
+    filepath = "/opt/demo/data/parquet/file.parquet"
+    tablename = DEMO['tables']['profiles']
     schemaname = "transactions" 
     local_data_dir = "/tmp/stocks/"
 
@@ -34,56 +99,20 @@ def stock_producer():
         },
     )
 
-    rowCounter = 0
-    isList = []
+    df = pa.Table.from_pylist(isList)
+    table = None
+    try:
+        table = catalog.create_table(
+            f'{schemaname}.{tablename}',
+            schema=df.schema,
+            location=warehouse_path,
+        )
+    except:
+        print("Table exists, append " + tablename)    
+        table = catalog.load_table(f'{schemaname}.{tablename}')
 
-    while rowCounter >= 0:
-        uuid_key = get_uuid_key()
-        try:
-            row = {'uuid': uuid_key, 'stockname': "DUMBDATA" }
-            producer.send(tablename, key=uuid_key, value=row)
-            producer.flush()
-        except Exception as error:
-            logger.warning(error)
-
-        logger.debug(str(rowCounter) + " " + str(row))
-        isList.append(row)
-        rowCounter = rowCounter + 1
-
-        if ( rowCounter >= 1000 ):
-            rowCounter = 0
-            
-            ## build PyArrow table from python list
-            df = pa.Table.from_pylist(isList)
-            #### Write to Apache Iceberg on Minio (S3)
-            ### - only create it for new table
-            table = None
-            try:
-                table = catalog.create_table(
-                    f'{schemaname}.{tablename}',
-                    schema=df.schema,
-                    location=warehouse_path,
-                )
-            except:
-                print("Table exists, append " + tablename)    
-                table = catalog.load_table(f'{schemaname}.{tablename}')
-
-            ### Write table to Iceberg/Minio
-            table.append(df)
-            isList = []
-            df = None 
-
-        sleep(0.05)
-            
-    producer.close()
-
-def write_iceberg():
-    
-    # Replace this with your project-specific code
-    project = "your_iceberg_project"
-    namespace = "your_iceberg_namespace"
-    table = "your_iceberg_table"
-    filepath = "/opt/demo/data/parquet/file.parquet"
+    ### Write table to Iceberg/Minio
+    table.append(df)
 
     iceberg = Iceberg()
     iceberg.init(project=project, namespace=namespace)
