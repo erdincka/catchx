@@ -5,15 +5,11 @@ import logging
 import os
 import re
 import tarfile
-from time import gmtime, strftime
-import uuid
 
 import httpx
 import importlib_resources
 from nicegui import ui, events, app, binding
 from nicegui.events import ValueChangeEventArguments
-
-from functions import generate_demo_data
 
 APP_NAME = "catchX"
 TITLE = "Data Pipeline for Fraud"
@@ -23,6 +19,7 @@ DEMO = json.loads(importlib_resources.files().joinpath("catchx.json").read_text(
 
 MAX_POLL_TIME = 2.0
 MON_REFRESH_INTERVAL = 1.0
+MON_REFRESH_INTERVAL3 = 3.0
 
 logger = logging.getLogger()
 
@@ -62,10 +59,6 @@ def dt_from_iso(timestring):
     return dt + datetime.timedelta(hours=12) if isPM else dt
 
 
-def get_uuid_key():
-    return '{0}_{1}'.format(strftime("%Y%m%d%H%M%S",gmtime()),uuid.uuid4().hex)
-
-
 def upload_client_files(e: events.UploadEventArguments):
     # possibly a security issue to use uploaded file names directly - don't care in demo/lab environment
     try:
@@ -102,12 +95,13 @@ def update_clusters():
             app.storage.general["clusters"].update(cls)
     
 
-async def run_command(command: str) -> None:
+async def run_command_with_dialog(command: str) -> None:
     """Run a command in the background and display the output in the pre-created dialog."""
     with ui.dialog().props("full-width v-model='cmd") as dialog, ui.card().classes("grow relative"):
-        ui.button(icon="close", on_click=dialog.close).props("flat round dense").classes("absolute right-4 top-4")
+        ui.button(icon="close", on_click=dialog.close).props("flat round dense").classes("absolute right-4 top-2")
         result = ui.log().classes("w-full").style("white-space: pre-wrap")
 
+    dialog.on("close", lambda d=dialog: d.delete())
     dialog.open()
     result.content = ''
 
@@ -132,6 +126,29 @@ async def run_command(command: str) -> None:
         result.push(new.decode())
 
     result.push(f"Finished: {command}")
+
+
+async def run_command(command: str):
+    """Run a command in the background and return the output."""
+    process = await asyncio.create_subprocess_shell(
+        command,
+        stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.STDOUT,
+        cwd=os.path.dirname(os.path.abspath(__file__))
+    )
+
+    while True:
+        new = await process.stdout.read(4096)
+        if not new:
+            break
+        yield new.decode()
+
+    yield f"Finished: {command}"
+
+
+async def command_to_log(command: str, uilog: ui.code):
+    uilog.content = ""
+    async for output in run_command(command):
+        uilog.content += output
 
 
 def get_cluster_name():
@@ -266,4 +283,8 @@ def gracefully_fail(exc: Exception):
     print("gracefully failing...")
     logger.exception(exc)
     app.storage.user["busy"] = False
+
+
+def not_implemented():
+    ui.notify('Not implemented', type='warning')
 
