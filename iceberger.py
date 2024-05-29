@@ -52,7 +52,7 @@ def write(schemaname: str, tablename: str, records: list):
     return True
 
 
-def head(tier: str, tablename: str):
+def tail(tier: str, tablename: str):
 
     warehouse_path = f"/mapr/{get_cluster_name()}{DEMO['basedir']}/{tier}/{tablename}"
 
@@ -60,9 +60,9 @@ def head(tier: str, tablename: str):
 
     table = catalog.load_table(f'{tier}.{tablename}')
 
-    df = table.scan(limit=20).to_pandas()
+    df = table.scan().to_pandas()
 
-    return df.head(5)
+    return df.tail(5)
 
 
 def history(tier: str, tablename: str):
@@ -78,5 +78,4 @@ def history(tier: str, tablename: str):
                 "date": datetime.datetime.fromtimestamp(int(h.timestamp_ms)/1000).strftime('%Y-%m-%d %H:%M:%S'), 
                 "id": h.snapshot_id 
             }
-
 

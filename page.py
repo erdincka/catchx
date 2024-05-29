@@ -70,13 +70,13 @@ def footer():
                 app.storage.user, "busy", lambda x: not x
             ).tooltip("Ready")
 
-        log = (
-            ui.log()
-            .classes("w-full h-48 bg-neutral-300/30")
-            .style("white-space: pre-wrap")
-            .bind_visibility(app.storage.user, "showlog")
-        )
-        logger.addHandler(LogElementHandler(log, level=logging.INFO))
+        # log = (
+        #     ui.log()
+        #     .classes("w-full h-48 bg-neutral-300/30")
+        #     .style("white-space: pre-wrap")
+        #     .bind_visibility(app.storage.user, "showlog")
+        # )
+        # logger.addHandler(LogElementHandler(log, level=logging.INFO))
 
 
 def info():
@@ -86,9 +86,9 @@ def info():
         caption="End to end pipeline processing using Ezmeral Data Fabric",
     ).classes("w-full").classes("text-bold").bind_value(app.storage.general.get("ui", {}), "info"):
         ui.markdown(DEMO["description"]).classes("font-normal")
-        ui.image(importlib_resources.files("main").joinpath(DEMO["diagram"])).classes(
-            "object-scale-down g-10"
-        ).on("click", handler=lambda x: print(x)) # TODO: open image in sidebar when clicked
+        # ui.image(importlib_resources.files("main").joinpath(DEMO["diagram"])).classes(
+        #     "object-scale-down g-10"
+        # ).on("click", handler=lambda x: print(x)) # TODO: open image in sidebar when clicked
         ui.link(
             "Source",
             target=DEMO.get("link", ""),
@@ -136,12 +136,19 @@ def demo_steps():
                 ui.button("Batch", on_click=ingest_customers)
                 ui.button("History", on_click=customer_data_list).props("outline")
 
-        with ui.expansion("Cleaning", caption="Integrate with data catalogue and clean/enrich data into silver tier", group="flow"):
+        with ui.expansion("Enrich & Clean", caption="Integrate with data catalogue and clean/enrich data into silver tier", group="flow"):
             with ui.expansion("Code", caption="Source code for running the Cleaning tasks").classes("w-full"):
                 ui.code(inspect.getsource(refine_transaction)).classes("w-full")
 
             with ui.row():
-                ui.button("Start Cleaning").props("outline").bind_enabled_from(app.storage.user, "busy", backward=lambda x: not x)
+                ui.button("Create Silver", on_click=not_implemented).bind_enabled_from(app.storage.user, "busy", backward=lambda x: not x)
+
+        with ui.expansion("Consolidate", caption="Create data lake for gold tier", group="flow"):
+            with ui.expansion("Code", caption="Source code for aggregation").classes("w-full"):
+                ui.code(inspect.getsource(not_implemented)).classes("w-full")
+
+            with ui.row():
+                ui.button("Create Golden", on_click=not_implemented)
 
 
 def monitoring_charts():
@@ -150,14 +157,15 @@ def monitoring_charts():
         topic_chart = get_echart()
         topic_chart.run_chart_method(':showLoading', r'{text: "Waiting..."}',)
         ui.timer(MON_REFRESH_INTERVAL, lambda c=topic_chart: update_chart(c, topic_stats))
-
-        consumer_chart = get_echart()
-        consumer_chart.run_chart_method(':showLoading', r'{text: "Waiting..."}',)
-        ui.timer(MON_REFRESH_INTERVAL, lambda c=consumer_chart: update_chart(c, consumer_stats))
+        # consumer_chart = get_echart()
+        # consumer_chart.run_chart_method(':showLoading', r'{text: "Waiting..."}',)
+        # ui.timer(MON_REFRESH_INTERVAL, lambda c=consumer_chart: update_chart(c, consumer_stats))
 
         #### MONITOR ICEBERG TABLE CHANGES???
+        with ui.card_section():
+            ui.label("Bronze tier")
+            
 
-        
         # ui.label("App:")
         # t = ui.code("", language='shell').classes("w-full h-fit").style("white-space: pre-wrap")
         # ui.timer(MON_REFRESH_INTERVAL3, lambda l=t: command_to_log(f"ls -gorth /mapr/{get_cluster_name()}{DEMO['basedir']}/", l))

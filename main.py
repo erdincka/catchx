@@ -1,5 +1,6 @@
 from nicegui import app, ui
 
+from map import leafmap
 from monitoring import *
 from functions import *
 from page import *
@@ -7,6 +8,8 @@ from page import *
 
 # catch-all exceptions
 app.on_exception(gracefully_fail)
+
+app.add_static_files('/images', 'images')
 
 set_logging()
 
@@ -21,6 +24,7 @@ async def home():
     # Documentation / Intro
     info()
 
+    leafmap()
     ui.separator()
 
     # Main
