@@ -97,9 +97,10 @@ def update_clusters():
 
 async def run_command_with_dialog(command: str) -> None:
     """Run a command in the background and display the output in the pre-created dialog."""
-    with ui.dialog().props("full-width v-model='cmd") as dialog, ui.card().classes("grow relative"):
+    with ui.dialog().props("full-width v-model='cmd'") as dialog, ui.card().classes("grow relative"):
         ui.button(icon="close", on_click=dialog.close).props("flat round dense").classes("absolute right-4 top-2")
-        result = ui.log().classes("w-full").style("white-space: pre-wrap")
+        ui.label(f"Running: {command}").classes("text-bold")
+        result = ui.log().classes("w-full mt-2").style("white-space: pre-wrap")
 
     dialog.on("close", lambda d=dialog: d.delete())
     dialog.open()
@@ -125,7 +126,7 @@ async def run_command_with_dialog(command: str) -> None:
             break
         result.push(new.decode())
 
-    result.push(f"Finished: {command}")
+    result.push(f"Command completed.")
 
 
 async def run_command(command: str):
@@ -264,10 +265,6 @@ def set_logging():
 
     # https://sam.hooke.me/note/2023/10/nicegui-binding-propagation-warning/
     binding.MAX_PROPAGATION_TIME = 0.05
-
-
-def toggle_log():
-    app.storage.user["showlog"] = not app.storage.user["showlog"]
 
 
 def toggle_debug(arg: ValueChangeEventArguments):

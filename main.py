@@ -1,6 +1,6 @@
 from nicegui import app, ui
 
-from map import leafmap
+from map import meshmap
 from monitoring import *
 from functions import *
 from page import *
@@ -21,10 +21,16 @@ async def home():
     # Page header
     header()
 
+    # Data Mesh
+    with ui.expansion("Data Mesh", caption="Build a globally distributed mesh with delegated data products", icon="dashboard").classes("w-full"):
+        # meshmap()
+        ui.button("Namespace", on_click=lambda: run_command_with_dialog("df -h /mapr; ls -lA /mapr/"))
+
+    ui.separator()
+
     # Documentation / Intro
     info()
 
-    leafmap()
     ui.separator()
 
     # Main

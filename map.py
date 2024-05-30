@@ -1,4 +1,4 @@
-from nicegui import ui, app
+from nicegui import ui, app, events
 
 from geopy.geocoders import Nominatim
 
@@ -8,8 +8,16 @@ def get_city_latlng(city: str):
     location = geolocator.geocode(city)
     return (location.latitude, location.longitude)
 
-def leafmap():
+def handleClick(e: events.GenericEventArguments):
+    print(e.args)
+    # if e.args['layerType'] == 'marker':
+    #     print(e.args['layer'])
+
+
+def meshmap():
     m = ui.leaflet(center=(51.505, -0.090), zoom=3)
+    m.on('map-click', handleClick)
+
     # m.clear_layers()
     # m.tile_layer(
     #     url_template=r'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
@@ -22,7 +30,7 @@ def leafmap():
 
     for cls in app.storage.general['clusters']:
         dc = 'L.icon({iconUrl: "/images/dc.png", iconSize: [32, 32]})'
-        edge = 'L.icon({iconUrl: "/images/edge.png", iconSize: [32, 32]})'
+        edge = 'L.icon({iconUrl: "/images/edge.png", iconSize: [24, 24]})'
         marker = m.marker(latlng=(get_city_latlng(app.storage.general['clusters'][cls])))
 
         if cls == app.storage.general['cluster']:

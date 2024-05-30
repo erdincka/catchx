@@ -3,6 +3,7 @@ import httpx
 from nicegui import ui, app
 
 from helpers import *
+import iceberger
 
 
 def get_echart():
@@ -41,8 +42,8 @@ def get_echart():
     )
 
 
-async def update_chart(chart: ui.echart, metric_caller):
-    metric = await metric_caller()
+async def update_chart(chart: ui.echart, metric_caller, *args):
+    metric = await metric_caller(*args)
     if metric:
         chart.options["xAxis"]["data"].append(metric["time"])
         chart.options["title"]["text"] = metric["name"].title()
@@ -199,4 +200,35 @@ async def consumer_stats():
     except Exception as error:
         # possibly not connected or topic not populated yet, just ignore it
         logger.debug("Consumer stat request error %s", error)
+
+
+async def table_stats(tier: str):
+    if app.storage.general.get("cluster", None) is None:
+        logger.debug("Cluster not configured, skipping.")
+        return
+    
+    try:
+        ### get # of records in iceberg table "customers"
+        ### get # of records in iceberg table "transactions"
+        ### get # of records in json table "profiles"
+        metrics = iceberger.stats(tier)
+        logger.debug("BRONZE STAT %s", metrics)
+
+        series = []
+        series.append(metrics)
+        # for m in metrics:
+        #     series.append(
+        #         {
+        #             f"{m['name']}": float(m['value'])
+        #         }
+        #     )
+
+        return {
+            "name": tier.capitalize(),
+            "time": datetime.datetime.now().strftime("%H:%M:%S"),
+            "values": series,
+        }
+
+    except Exception as error:
+        logger.debug("%s stat get error %s", tier, error)
 

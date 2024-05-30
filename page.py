@@ -1,5 +1,4 @@
 import inspect
-import logging
 from nicegui import ui, app
 
 from functions import *
@@ -16,9 +15,6 @@ def app_init():
 
     # and previous run state if it was hang
     app.storage.user["busy"] = False
-
-    # and log window
-    app.storage.user["showlog"] = False
 
     # reset the cluster info
     if "clusters" not in app.storage.general:
@@ -40,7 +36,7 @@ def header():
 
         with ui.row().classes("place-items-center"):
             ui.button("Cluster", on_click=cluster_configuration_dialog).props("outline color=white")
-            ui.link(target=f"https://{app.storage.general.get('cluster', 'localhost')}:8443/", new_tab=True).bind_text_from(app.storage.general, "cluster", backward=lambda x: app.storage.general["clusters"][x] if x else "None").classes("text-white hover:text-blue-600")
+            ui.link(target=f"https://{app.storage.general.get('cluster', 'localhost')}:8443/app/mcs", new_tab=True).bind_text_from(app.storage.general, "cluster", backward=lambda x: app.storage.general["clusters"].get(x, "localhost") if x else "None").classes("text-white hover:text-blue-600")
 
         ui.space()
         ui.switch(on_change=toggle_debug).tooltip("Debug").props("color=dark keep-color")
@@ -49,11 +45,6 @@ def header():
 def footer():
     with ui.footer():
         with ui.row().classes("w-full items-center"):
-            ui.button(icon="menu", on_click=toggle_log).props("flat text-color=white")
-            ui.label("Log")
-
-            ui.space()
-
             # Show endpoints
             ui.label(f"Volumes: {' | '.join( DEMO['volumes'].values() )}").classes("tracking-wide uppercase")
             ui.label(f"Tables: {' | '.join( DEMO['tables'] )}").classes("tracking-wide uppercase")
@@ -70,25 +61,15 @@ def footer():
                 app.storage.user, "busy", lambda x: not x
             ).tooltip("Ready")
 
-        # log = (
-        #     ui.log()
-        #     .classes("w-full h-48 bg-neutral-300/30")
-        #     .style("white-space: pre-wrap")
-        #     .bind_visibility(app.storage.user, "showlog")
-        # )
-        # logger.addHandler(LogElementHandler(log, level=logging.INFO))
-
 
 def info():
     with ui.expansion( 
         TITLE,
         icon="info",
         caption="End to end pipeline processing using Ezmeral Data Fabric",
-    ).classes("w-full").classes("text-bold").bind_value(app.storage.general.get("ui", {}), "info"):
+    ).classes("w-full").classes("text-bold"):
         ui.markdown(DEMO["description"]).classes("font-normal")
-        # ui.image(importlib_resources.files("main").joinpath(DEMO["diagram"])).classes(
-        #     "object-scale-down g-10"
-        # ).on("click", handler=lambda x: print(x)) # TODO: open image in sidebar when clicked
+        ui.image(f"/images/{DEMO['diagram']}").classes("object-scale-down g-10").on("click", handler=lambda x: print(x)) # TODO: open image in sidebar when clicked
         ui.link(
             "Source",
             target=DEMO.get("link", ""),
@@ -157,23 +138,16 @@ def monitoring_charts():
         topic_chart = get_echart()
         topic_chart.run_chart_method(':showLoading', r'{text: "Waiting..."}',)
         ui.timer(MON_REFRESH_INTERVAL, lambda c=topic_chart: update_chart(c, topic_stats))
+        
         # consumer_chart = get_echart()
         # consumer_chart.run_chart_method(':showLoading', r'{text: "Waiting..."}',)
         # ui.timer(MON_REFRESH_INTERVAL, lambda c=consumer_chart: update_chart(c, consumer_stats))
 
-        #### MONITOR ICEBERG TABLE CHANGES???
-        with ui.card_section():
+        with ui.card_section().classes("w-full"):
             ui.label("Bronze tier")
-            
-
-        # ui.label("App:")
-        # t = ui.code("", language='shell').classes("w-full h-fit").style("white-space: pre-wrap")
-        # ui.timer(MON_REFRESH_INTERVAL3, lambda l=t: command_to_log(f"ls -gorth /mapr/{get_cluster_name()}{DEMO['basedir']}/", l))
-
-        # for vol in DEMO['volumes']:
-        #     ui.label(f"{vol.title()}")
-        #     t = ui.code("", language='shell').classes("w-full h-fit").style("white-space: pre-wrap")
-        #     ui.timer(MON_REFRESH_INTERVAL3, lambda v=vol, l=t: command_to_log(f"ls -gorth /mapr/{get_cluster_name()}{DEMO['basedir']}/{v}/", l))
+            bronze_chart = get_echart()
+            bronze_chart.run_chart_method(':showLoading', r'{text: "Waiting..."}',)
+            ui.timer(MON_REFRESH_INTERVAL3, lambda c=bronze_chart: update_chart(c, table_stats, "bronze"))
 
 
 def cluster_configuration_dialog():
@@ -206,6 +180,7 @@ def cluster_configuration_dialog():
             with ui.row().classes("w-full place-items-center"):
                 ui.button("configure.sh -R", on_click=lambda: run_command_with_dialog("/opt/mapr/server/configure.sh -R"))
                 ui.button("maprlogin", on_click=lambda: run_command_with_dialog(f"echo {app.storage.general['MAPR_PASS']} | maprlogin password -user {app.storage.general['MAPR_USER']}"))
+                ui.button("remount /mapr", on_click=lambda: run_command_with_dialog(f"umount -l /mapr; mount -t nfs {app.storage.general['cluster']}:/mapr /mapr"))
 
         ui.separator()
         with ui.card_section():
@@ -220,7 +195,7 @@ def cluster_configuration_dialog():
             ui.label("Show volumes").classes("text-lg")
             with ui.row().classes("w-full place-items-center"):
                 for vol in DEMO['volumes']:
-                    ui.button(f"List {vol}", on_click=lambda v=vol: run_command_with_dialog(f"ls -la /mapr/{get_cluster_name()}{DEMO['basedir']}/{DEMO['volumes'][v]}")).props('outline')
+                    ui.button(f"List {vol}", on_click=lambda v=vol: run_command_with_dialog(f"find /mapr/{get_cluster_name()}{DEMO['basedir']}/{DEMO['volumes'][v]}")).props('outline')
 
         ui.separator()
         with ui.card_section():

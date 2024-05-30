@@ -8,18 +8,26 @@ logger = logging.getLogger()
 
 
 def get_catalog(warehouse_path:str):
+
+    # not an iceberg table but mapr table
+    if os.path.islink(warehouse_path): return None
+
     if not os.path.isdir(warehouse_path):
         os.mkdir(warehouse_path)
 
     from pyiceberg.catalog.sql import SqlCatalog
-    catalog = SqlCatalog(
-        "docs",
-        **{
-            "uri": f"sqlite:///{warehouse_path}/iceberg_catalog.db",
-            "warehouse": f"file://{warehouse_path}",
-        },
-    )
-
+    try:
+        catalog = SqlCatalog(
+            "docs",
+            **{
+                "uri": f"sqlite:///{warehouse_path}/iceberg_catalog.db",
+                "warehouse": f"file://{warehouse_path}",
+            },
+        )
+    except Exception as error:
+        logger.debug("Get Cataloge error: %s", error)
+        return None
+    
     return catalog
 
 
@@ -78,4 +86,25 @@ def history(tier: str, tablename: str):
                 "date": datetime.datetime.fromtimestamp(int(h.timestamp_ms)/1000).strftime('%Y-%m-%d %H:%M:%S'), 
                 "id": h.snapshot_id 
             }
+
+
+def stats(tier: str):
+    metrics = {}
+
+    for tablename in DEMO['tables']:
+        warehouse_path = f"/mapr/{get_cluster_name()}{DEMO['basedir']}/{tier}/{tablename}"
+
+        try:
+            catalog = get_catalog(warehouse_path)
+            if catalog is None: continue # skip non-iceberg tables
+
+        except Exception as error:
+            logger.debug("Iceberg stat error on %s: %s", tier, error)
+
+        table = catalog.load_table(f'{tier}.{tablename}')
+        df = table.scan().to_pandas()
+
+        metrics.update({ tablename: len(df) })
+
+    return metrics
 
