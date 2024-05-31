@@ -70,7 +70,7 @@ def create_csv_files():
     ui.notify(f"Created files with {len(customers)} customers and {len(transactions)} transactions", type='positive')
 
 
-async def peek_demo_data():
+async def peek_mocked_data():
     await run_command_with_dialog(f"head /mapr/{get_cluster_name()}{DEMO['basedir']}/{DEMO['tables']['customers']}.csv /mapr/{get_cluster_name()}{DEMO['basedir']}/{DEMO['tables']['transactions']}.csv")
 
 

@@ -85,7 +85,7 @@ def demo_steps():
 
             with ui.row().classes("w-full place-items-center"):
                 ui.button("Create", on_click=create_csv_files)
-                ui.button("Peek Data", on_click=peek_demo_data).props("outline")
+                ui.button("Peek Data", on_click=peek_mocked_data).props("outline")
                 ui.button("Into S3", color='warning', on_click=not_implemented).props('outline')
 
             with ui.expansion("Publish", caption="Source code for Kafka producer", group="generate").classes("w-full"):
@@ -177,6 +177,12 @@ def cluster_configuration_dialog():
             with ui.row().classes("w-full place-items-center"):
                 ui.input("Username").bind_value(app.storage.general, "MAPR_USER")
                 ui.input("Password", password=True, password_toggle_button=True).bind_value(app.storage.general, "MAPR_PASS")
+
+            ui.label("S3 Credentials").classes("text-lg w-full")
+            ui.label("for iceberg and spark").classes("text-subtitle2")
+            with ui.row().classes("w-full place-items-center"):
+                ui.input("Access Key").bind_value(app.storage.general, "S3_ACCESS_KEY")
+                ui.input("Secret Key", password=True, password_toggle_button=True).bind_value(app.storage.general, "S3_SECRET_KEY")
 
         ui.separator()
         with ui.card_section():
