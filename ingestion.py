@@ -20,9 +20,10 @@ async def ingest_transactions():
         # update the profile
         await upsert_profile(txn)
 
-    # Write into iceberg for Bronze tier (raw data)
-    if iceberger.write(DEMO['volumes']['bronze'], DEMO['tables']['transactions'], records=transactions):
-        ui.notify(f"Saved {len(transactions)} transactions in bronze volume with Iceberg", type="positive")
+    if len(transactions) > 0:
+        # Write into iceberg for Bronze tier (raw data)
+        if iceberger.write(DEMO['volumes']['bronze'], DEMO['tables']['transactions'], records=transactions):
+            ui.notify(f"Saved {len(transactions)} transactions in bronze volume with Iceberg", type="positive")
 
     # release when done
     app.storage.user['busy'] = False
@@ -37,7 +38,7 @@ async def ingest_customers():
             logger.info("Reading %s", csvpath)
 
             # Write into iceberg for Bronze tier (raw data)
-            if iceberger.write(schemaname=DEMO['volumes']['bronze'], tablename=DEMO['tables']['customers'], records=[cust for cust in csv_reader]):
+            if iceberger.write(tier=DEMO['volumes']['bronze'], tablename=DEMO['tables']['customers'], records=[cust for cust in csv_reader]):
                 ui.notify(f"Stored {len(csv_reader)} records in bronze volume with Iceberg", type='positive')
 
     except Exception as error:

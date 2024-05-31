@@ -3,7 +3,6 @@ import datetime
 import json
 import logging
 import os
-import re
 import tarfile
 
 import httpx
@@ -12,7 +11,7 @@ from nicegui import ui, events, app, binding
 from nicegui.events import ValueChangeEventArguments
 
 APP_NAME = "catchX"
-TITLE = "Data Pipeline for Fraud"
+TITLE = "Fraud detection pipeline"
 STORAGE_SECRET = "ezmer@1r0cks"
 
 DEMO = json.loads(importlib_resources.files().joinpath("catchx.json").read_text())
@@ -22,31 +21,6 @@ MON_REFRESH_INTERVAL = 1.0
 MON_REFRESH_INTERVAL3 = 3.0
 
 logger = logging.getLogger()
-
-
-# class LogElementHandler(logging.Handler):
-#     """A logging handler that emits messages to a log element."""
-
-#     def __init__(self, element: ui.log, level: int = logging.NOTSET) -> None:
-#         self.element = element
-#         super().__init__(level)
-
-#     def emit(self, record: logging.LogRecord) -> None:
-#         # change log format for UI
-#         self.setFormatter(
-#             logging.Formatter(
-#                 # "%(asctime)s %(levelname)s: %(message)s",
-#                 # datefmt="%H:%M:%S",
-#                 "%(message)s",
-#             )
-#         )
-#         try:
-#             # remove color formatting from output
-#             ANSI_RE = re.compile(r"\x1b\[[0-9;]*m")
-#             msg = self.format(record)
-#             self.element.push(re.sub(ANSI_RE, "", msg))
-#         except Exception:
-#             self.handleError(record)
 
 
 def dt_from_iso(timestring):
@@ -235,6 +209,10 @@ async def delete_volumes_and_stream():
                 ui.notify(f"Stream '{DEMO['stream']}' deleted", type='positive')
             elif res['status'] == "ERROR":
                 ui.notify(f"Stream: {DEMO['stream']}: {res['errors'][0]['desc']}", type='warning')
+
+    # delete mock data files
+    for file in ["customers.csv", "transactions.csv"]:
+        os.remove(f"/mapr/{get_cluster_name()}{DEMO['basedir']}/{file}")
 
     # delete base folder
     basedir = f"/mapr/{get_cluster_name()}{DEMO['basedir']}"

@@ -212,6 +212,7 @@ async def table_stats(tier: str):
         ### get # of records in iceberg table "transactions"
         ### get # of records in json table "profiles"
         metrics = iceberger.stats(tier)
+        print(metrics)
         logger.debug("BRONZE STAT %s", metrics)
 
         series = []

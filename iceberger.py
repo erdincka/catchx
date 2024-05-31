@@ -6,39 +6,43 @@ from helpers import *
 
 logger = logging.getLogger()
 
+catalog_path = f"/mapr/{get_cluster_name()}{DEMO['basedir']}/catalog"
 
-def get_catalog(warehouse_path:str):
+def get_catalog():
 
-    # not an iceberg table but mapr table
-    if os.path.islink(warehouse_path): return None
-
-    if not os.path.isdir(warehouse_path):
-        os.mkdir(warehouse_path)
+    if not os.path.isdir(catalog_path):
+        os.mkdir(catalog_path)
+        logger.warning("Created catalog path: %s", catalog_path)
 
     from pyiceberg.catalog.sql import SqlCatalog
     try:
         catalog = SqlCatalog(
             "docs",
             **{
-                "uri": f"sqlite:///{warehouse_path}/iceberg_catalog.db",
-                "warehouse": f"file://{warehouse_path}",
+                "uri": f"sqlite:///{catalog_path}/iceberg_catalog.db",
+                "warehouse": f"file://{catalog_path}",
             },
         )
+
     except Exception as error:
         logger.debug("Get Cataloge error: %s", error)
         return None
-    
+
     return catalog
 
 
-def write(schemaname: str, tablename: str, records: list):
+def write(tier: str, tablename: str, records: list):
 
-    warehouse_path = f"/mapr/{get_cluster_name()}{DEMO['basedir']}/{schemaname}/{tablename}"
+    warehouse_path = f"/mapr/{get_cluster_name()}{DEMO['basedir']}/{tier}/{tablename}"
 
-    catalog = get_catalog(warehouse_path)
+    catalog = get_catalog()
 
-    if (schemaname,) not in catalog.list_namespaces():
-        catalog.create_namespace(schemaname)
+    if catalog is None:
+        ui.notify(f"Catalog not found at {catalog_path}")
+        return None
+
+    if (tier,) not in catalog.list_namespaces():
+        catalog.create_namespace(tier)
 
     ## build PyArrow table from python list
     df = pa.Table.from_pylist(records)
@@ -46,14 +50,14 @@ def write(schemaname: str, tablename: str, records: list):
     table = None
     try:
         table = catalog.create_table(
-            f'{schemaname}.{tablename}',
+            f'{tier}.{tablename}',
             schema=df.schema,
             location=warehouse_path,
         )
 
     except:
         logger.debug("Table exists, append " + tablename)    
-        table = catalog.load_table(f'{schemaname}.{tablename}')
+        table = catalog.load_table(f'{tier}.{tablename}')
 
     ### Write table to Iceberg
     table.append(df)
@@ -64,7 +68,11 @@ def tail(tier: str, tablename: str):
 
     warehouse_path = f"/mapr/{get_cluster_name()}{DEMO['basedir']}/{tier}/{tablename}"
 
-    catalog = get_catalog(warehouse_path)
+    catalog = get_catalog()
+
+    if catalog is None:
+        ui.notify(f"Catalog not found at {catalog_path}")
+        return None
 
     table = catalog.load_table(f'{tier}.{tablename}')
 
@@ -75,11 +83,19 @@ def tail(tier: str, tablename: str):
 
 def history(tier: str, tablename: str):
 
-    warehouse_path = f"/mapr/{get_cluster_name()}{DEMO['basedir']}/{tier}/{tablename}"
+    # warehouse_path = f"/mapr/{get_cluster_name()}{DEMO['basedir']}/{tier}/{tablename}"
 
-    catalog = get_catalog(warehouse_path)
+    catalog = get_catalog()
+
+    if catalog is None:
+        ui.notify(f"Catalog not found at {catalog_path}")
+        return None
+
+    logger.warning("Loading table: %s.%s", tier, tablename)
 
     table = catalog.load_table(f'{tier}.{tablename}')
+
+    print(f"Got table: {table}")
 
     for h in table.history():
          yield { 
@@ -95,7 +111,7 @@ def stats(tier: str):
         warehouse_path = f"/mapr/{get_cluster_name()}{DEMO['basedir']}/{tier}/{tablename}"
 
         try:
-            catalog = get_catalog(warehouse_path)
+            catalog = get_catalog()
             if catalog is None: continue # skip non-iceberg tables
 
         except Exception as error:

@@ -20,9 +20,6 @@ def app_init():
     if "clusters" not in app.storage.general:
         app.storage.general["clusters"] = {}
 
-    # reset monitor refresh
-    # app.storage.user["refresh_interval"] = MON_REFRESH_INTERVAL
-
     # If user is not set, get from environment
     if "MAPR_USER" not in app.storage.general:
         app.storage.general["MAPR_USER"] = os.environ.get("MAPR_USER", "")
@@ -46,10 +43,10 @@ def footer():
     with ui.footer():
         with ui.row().classes("w-full items-center"):
             # Show endpoints
-            ui.label(f"Volumes: {' | '.join( DEMO['volumes'].values() )}").classes("tracking-wide uppercase")
-            ui.label(f"Tables: {' | '.join( DEMO['tables'] )}").classes("tracking-wide uppercase")
-            ui.label(f"Stream: { DEMO['stream'] }").classes("tracking-wide uppercase")
-            ui.label(f"Topic: { DEMO['topic'] }").classes("tracking-wide uppercase")
+            ui.label(f"Volumes: [ {' | '.join( DEMO['volumes'].values() )} ]").classes("tracking-wide uppercase")
+            ui.label(f"Tables: [ {' | '.join( DEMO['tables'] )} ]").classes("tracking-wide uppercase")
+            ui.label(f"Stream: [ { DEMO['stream'] } ]").classes("tracking-wide uppercase")
+            ui.label(f"Topic: [ { DEMO['topic'] } ]").classes("tracking-wide uppercase")
 
             ui.space()
 
@@ -99,6 +96,14 @@ def demo_steps():
                 ui.button("Publish", on_click=publish_transactions)
 
         with ui.expansion("Ingestion & ETL Processing", caption="Realtime processing on incoming data", group="flow"):
+            with ui.expansion("Batch", caption="Source code for batch processing", group="ingest").classes("w-full"):
+                ui.code(inspect.getsource(ingest_customers)).classes("w-full")
+                ui.code(inspect.getsource(iceberger.write)).classes("w-full")
+
+            with ui.row():
+                ui.button("Batch", on_click=ingest_customers)
+                ui.button("History", on_click=customer_data_list).props("outline")
+
             with ui.expansion("Stream", caption="Source code for consuming streaming data", group="ingest").classes("w-full"):
                 ui.code(inspect.getsource(ingest_transactions)).classes("w-full")
                 ui.code(inspect.getsource(streams.consume)).classes("w-full")
@@ -109,14 +114,6 @@ def demo_steps():
                 ui.button("Stream", on_click=ingest_transactions).bind_enabled_from(app.storage.user, "busy", backward=lambda x: not x)
                 ui.button("Using Airflow", color='warning', on_click=not_implemented).props("outline").bind_enabled_from(app.storage.user, "busy", backward=lambda x: not x)
             
-            with ui.expansion("Batch", caption="Source code for batch processing", group="ingest").classes("w-full"):
-                ui.code(inspect.getsource(ingest_customers)).classes("w-full")
-                ui.code(inspect.getsource(iceberger.write)).classes("w-full")
-
-            with ui.row():
-                ui.button("Batch", on_click=ingest_customers)
-                ui.button("History", on_click=customer_data_list).props("outline")
-
         with ui.expansion("Enrich & Clean", caption="Integrate with data catalogue and clean/enrich data into silver tier", group="flow"):
             with ui.expansion("Code", caption="Source code for running the Cleaning tasks").classes("w-full"):
                 ui.code(inspect.getsource(refine_transaction)).classes("w-full")
@@ -143,11 +140,11 @@ def monitoring_charts():
         # consumer_chart.run_chart_method(':showLoading', r'{text: "Waiting..."}',)
         # ui.timer(MON_REFRESH_INTERVAL, lambda c=consumer_chart: update_chart(c, consumer_stats))
 
-        with ui.card_section().classes("w-full"):
-            ui.label("Bronze tier")
-            bronze_chart = get_echart()
-            bronze_chart.run_chart_method(':showLoading', r'{text: "Waiting..."}',)
-            ui.timer(MON_REFRESH_INTERVAL3, lambda c=bronze_chart: update_chart(c, table_stats, "bronze"))
+        # with ui.card_section().classes("w-full"):
+        #     ui.label("Bronze tier")
+        #     bronze_chart = get_echart()
+        #     bronze_chart.run_chart_method(':showLoading', r'{text: "Waiting..."}',)
+        #     ui.timer(MON_REFRESH_INTERVAL3, lambda c=bronze_chart: update_chart(c, table_stats, "bronze"))
 
 
 def cluster_configuration_dialog():
@@ -156,18 +153,21 @@ def cluster_configuration_dialog():
         ui.button(icon="close", on_click=dialog.close).props("flat round dense").classes("absolute right-4 top-2")
 
         with ui.card_section().classes("w-full mt-6"):
-            ui.label("Client files").classes("text-lg")
+            ui.label("Client files").classes("text-lg w-full")
             ui.label("config.tar and/or jwt_tokens.tar.gz").classes("text-subtitle2")
             ui.upload(label="Upload", on_upload=upload_client_files, multiple=True, auto_upload=True, max_files=2).props("accept='application/x-tar,application/x-gzip' hide-upload-btn").classes("w-full")
 
         ui.separator()
         with ui.card_section():
-            ui.label("Select cluster").classes("text-lg")
+            with ui.row().classes("w-full"):
+                ui.label("Select cluster").classes("text-lg")
+                ui.space()
+                ui.button(icon="refresh", on_click=update_clusters).props("flat")
             ui.toggle(app.storage.general["clusters"]).bind_value(app.storage.general, "cluster")
 
         ui.separator()
         with ui.card_section():
-            ui.label("Local user credentials").classes("text-lg")
+            ui.label("Local user credentials").classes("text-lg w-full")
             ui.label("required for REST API and monitoring").classes("text-subtitle2")
             with ui.row().classes("w-full place-items-center"):
                 ui.input("Username").bind_value(app.storage.general, "MAPR_USER")
@@ -175,7 +175,7 @@ def cluster_configuration_dialog():
 
         ui.separator()
         with ui.card_section():
-            ui.label("Configure and login").classes("text-lg")
+            ui.label("Configure and login").classes("text-lg w-full")
             ui.label("login if not using JWT").classes("text-subtitle2")
             with ui.row().classes("w-full place-items-center"):
                 ui.button("configure.sh -R", on_click=lambda: run_command_with_dialog("/opt/mapr/server/configure.sh -R"))
@@ -184,7 +184,7 @@ def cluster_configuration_dialog():
 
         ui.separator()
         with ui.card_section():
-            ui.label("Create the volumes and the stream").classes("text-lg")
+            ui.label("Create the volumes and the stream").classes("text-lg w-full")
             ui.label("required constructs for the demo")
             with ui.row().classes("w-full place-items-center"):
                 ui.button("Create", on_click=create_volumes_and_stream)
@@ -192,7 +192,7 @@ def cluster_configuration_dialog():
 
         ui.separator()
         with ui.card_section():
-            ui.label("Show volumes").classes("text-lg")
+            ui.label("Show volumes").classes("text-lg w-full")
             with ui.row().classes("w-full place-items-center"):
                 for vol in DEMO['volumes']:
                     ui.button(f"List {vol}", on_click=lambda v=vol: run_command_with_dialog(f"find /mapr/{get_cluster_name()}{DEMO['basedir']}/{DEMO['volumes'][v]}")).props('outline')

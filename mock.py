@@ -1,5 +1,4 @@
 import csv
-import inspect
 import random
 import uuid
 from faker import Faker
@@ -8,7 +7,8 @@ from nicegui import run
 from helpers import *
 import streams
 
-fake = Faker(["en_GB", "en_US", "de_DE", "ja_JP", "en_IN"])
+# fake = Faker(["en_GB", "en_US", "de_DE", "ja_JP", "en_IN"])
+fake = Faker(["en_GB"])
 
 
 def fake_customer():

@@ -15,18 +15,17 @@ def handleClick(e: events.GenericEventArguments):
 
 
 def meshmap():
-    m = ui.leaflet(center=(51.505, -0.090), zoom=3)
-    m.on('map-click', handleClick)
+    m = ui.leaflet(center=(51.505, -0.090), zoom=6)
 
-    # m.clear_layers()
-    # m.tile_layer(
-    #     url_template=r'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
-    #     options={
-    #         'attribution': '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
-    #         'subdomains': 'abcd',
-    #         'maxZoom': 20
-    #     },
-    # )
+    m.clear_layers()
+    m.tile_layer(
+        url_template=r'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
+        options={
+            'attribution': '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+            'subdomains': 'abcd',
+            'maxZoom': 20
+        },
+    )
 
     for cls in app.storage.general['clusters']:
         dc = 'L.icon({iconUrl: "/images/dc.png", iconSize: [32, 32]})'
@@ -35,6 +34,7 @@ def meshmap():
 
         if cls == app.storage.general['cluster']:
             ui.timer(0.1, lambda mr=marker: mr.run_method(':setIcon', dc), once=True)
+            m.set_center(marker.latlng)
         else:
             ui.timer(0.1, lambda mr=marker: mr.run_method(':setIcon', edge), once=True)
 
