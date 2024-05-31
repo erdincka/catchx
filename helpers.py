@@ -10,6 +10,7 @@ import importlib_resources
 from nicegui import ui, events, app, binding
 from nicegui.events import ValueChangeEventArguments
 
+
 APP_NAME = "catchX"
 TITLE = "Fraud detection pipeline"
 STORAGE_SECRET = "ezmer@1r0cks"
@@ -45,8 +46,9 @@ def upload_client_files(e: events.UploadEventArguments):
                 tf.extractall(path="/opt/mapr")
                 # Refresh cluster list in UI
                 update_clusters()
+                ui.navigate.reload()
 
-            elif "jwt_tokens" in filename:
+            elif "jwt" in filename:
                 tf.extractall(path="/root")
             else:
                 ui.notify(f"Unknown filename: {filename}", type="warning")
@@ -68,7 +70,8 @@ def update_clusters():
                 # dict { 'value1': 'name1' } formatted cluster list, compatible to ui.select options
                 cls = { t[2].split(":")[0] : t[0] }
                 app.storage.general["clusters"].update(cls)
-
+            # select first cluster to avoid null value
+            app.storage.general["cluster"] = next(iter(app.storage.general["clusters"]))
     except Exception as error:
         logger.warning("Failed to update clusters: %s", error)
 

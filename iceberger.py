@@ -8,6 +8,7 @@ logger = logging.getLogger()
 
 catalog_path = f"/mapr/{get_cluster_name()}{DEMO['basedir']}/catalog"
 
+
 def get_catalog():
 
     if not os.path.isdir(catalog_path):
