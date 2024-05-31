@@ -191,7 +191,7 @@ def cluster_configuration_dialog():
             with ui.row().classes("w-full place-items-center"):
                 ui.button("configure.sh -R", on_click=lambda: run_command_with_dialog("/opt/mapr/server/configure.sh -R"))
                 ui.button("maprlogin", on_click=lambda: run_command_with_dialog(f"echo {app.storage.general['MAPR_PASS']} | maprlogin password -user {app.storage.general['MAPR_USER']}"))
-                ui.button("remount /mapr", on_click=lambda: run_command_with_dialog(f"umount -l /mapr; mount -t nfs {app.storage.general['cluster']}:/mapr /mapr"))
+                ui.button("remount /mapr", on_click=lambda: run_command_with_dialog(f"[ -d /mapr ] && umount -l /mapr; [ -d /mapr ] || mkdir /mapr; mount -t nfs -o nolock,soft {app.storage.general['cluster']}:/mapr /mapr"))
 
         ui.separator()
         with ui.card_section():

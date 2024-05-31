@@ -59,15 +59,19 @@ def upload_client_files(e: events.UploadEventArguments):
 
 
 def update_clusters():
-    with open("/opt/mapr/conf/mapr-clusters.conf", "r") as conf:
-        # reset the clusters
-        app.storage.general["clusters"] = {}
-        for line in conf.readlines():
-            t = line.split(' ')
-            # dict { 'value1': 'name1' } formatted cluster list, compatible to ui.select options
-            cls = { t[2].split(":")[0] : t[0] }
-            app.storage.general["clusters"].update(cls)
-    
+    try:
+        with open("/opt/mapr/conf/mapr-clusters.conf", "r") as conf:
+            # reset the clusters
+            app.storage.general["clusters"] = {}
+            for line in conf.readlines():
+                t = line.split(' ')
+                # dict { 'value1': 'name1' } formatted cluster list, compatible to ui.select options
+                cls = { t[2].split(":")[0] : t[0] }
+                app.storage.general["clusters"].update(cls)
+
+    except Exception as error:
+        logger.warning("Failed to update clusters: %s", error)
+
 
 async def run_command_with_dialog(command: str) -> None:
     """Run a command in the background and display the output in the pre-created dialog."""
@@ -127,7 +131,7 @@ async def command_to_log(command: str, uilog: ui.code):
 
 
 def get_cluster_name():
-    return app.storage.general['clusters'].get(app.storage.general.get('cluster', ''), '')
+    return app.storage.general.get('clusters', {}).get(app.storage.general.get('cluster', ''), '')
 
 
 async def create_volumes_and_stream():
