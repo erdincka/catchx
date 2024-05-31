@@ -39,7 +39,7 @@ def sse_code():
     source_path = 's3a://truecorp-landingzone-rangsit/'
     dest_path = 's3a://truecorp-raw-rangsit/FN00002/'
 
-
+    spark = SparkSession.builder.master(f"spark://{app.storage.general.get('cluster', 'localhost')}:7077").appName("ETL").getOrCreate()
     # Read CSV file into DataFrame
 
     file_path='file:///mounts/shared-volume/shared/jars/cdr_f_mon_dtn.csv'

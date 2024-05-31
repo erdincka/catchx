@@ -36,9 +36,11 @@ async def ingest_transactions_spark():
     stream_path = f"{DEMO['basedir']}/{DEMO['stream']}" # input
     table_path = f"{DEMO['basedir']}/{DEMO['volumes']['bronze']}/{DEMO['tables']['profiles']}" # output
     
-    # psuedo code below
-    spark.read_stream(stream_path).upsert_maprdb_binarytable(table=table_path).write_iceberg(schemaname=DEMO['volumes']['bronze'], tablename=DEMO['tables']['transactions'])
-    # profiles binary table has the following object for each record/row
+    ### psuedo code below
+    # spark.read_stream(stream_path).upsert_maprdb_binarytable(table=table_path).write_iceberg(schemaname=DEMO['volumes']['bronze'], tablename=DEMO['tables']['transactions'])
+    ###
+ 
+    ### profiles binary table has the following object for each record/row
     # profile = {
     #     "_id": get_customer_id(message['receiver_account']),
     #     "score": await dummy_fraud_score()
@@ -55,9 +57,9 @@ async def ingest_customers_airflow():
 
     COUNT_OF_ROWS = 0
 
-    # psuedo code below
-    if spark.read_csv(csvpath).write_iceberg(schemaname=DEMO['volumes']['bronze'], tablename=DEMO['tables']['customers']):
-        ui.notify(f"Stored {len(COUNT_OF_ROWS)} records in bronze volume with Iceberg", type='positive')
+    ### psuedo code below
+    # if spark.read_csv(csvpath).write_iceberg(schemaname=DEMO['volumes']['bronze'], tablename=DEMO['tables']['customers']):
+    #     ui.notify(f"Stored {len(COUNT_OF_ROWS)} records in bronze volume with Iceberg", type='positive')
 
 
 async def ingest_customers_spark():
