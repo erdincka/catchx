@@ -6,6 +6,7 @@ import streams
 import iceberger
 from functions import upsert_profile
 
+
 async def ingest_transactions():
 
     stream_path = f"{DEMO['basedir']}/{DEMO['stream']}"
@@ -29,6 +30,36 @@ async def ingest_transactions():
     app.storage.user['busy'] = False
 
 
+# SSE-TODO: read from stream, upsert profiles table, and write raw data into iceberg table
+async def ingest_transactions_spark():
+
+    stream_path = f"{DEMO['basedir']}/{DEMO['stream']}" # input
+    table_path = f"{DEMO['basedir']}/{DEMO['volumes']['bronze']}/{DEMO['tables']['profiles']}" # output
+    
+    # psuedo code below
+    spark.read_stream(stream_path).upsert_maprdb_binarytable(table=table_path).write_iceberg(schemaname=DEMO['volumes']['bronze'], tablename=DEMO['tables']['transactions'])
+    # profiles binary table has the following object for each record/row
+    # profile = {
+    #     "_id": get_customer_id(message['receiver_account']),
+    #     "score": await dummy_fraud_score()
+    # }
+
+
+# SSE-TODO: Airflow DAG to process csv file at /mapr/london/apps/catchx/customers.csv, 
+# and write records into iceberg table at /mapr/london/apps/catchx/bronze/customers/
+async def ingest_customers_airflow():
+    """
+    Read CSV file and ingest into Iceberg table
+    """
+    csvpath = f"/mapr/{get_cluster_name()}{DEMO['basedir']}/{DEMO['tables']['customers']}.csv"
+
+    COUNT_OF_ROWS = 0
+
+    # psuedo code below
+    if spark.read_csv(csvpath).write_iceberg(schemaname=DEMO['volumes']['bronze'], tablename=DEMO['tables']['customers']):
+        ui.notify(f"Stored {len(COUNT_OF_ROWS)} records in bronze volume with Iceberg", type='positive')
+
+
 async def ingest_customers():
     csvpath = f"/mapr/{get_cluster_name()}{DEMO['basedir']}/{DEMO['tables']['customers']}.csv"
     try:
@@ -49,15 +80,16 @@ async def ingest_customers():
 
 
 def customer_data_list():
-    with ui.dialog().props("full-width") as dialog, ui.card().classes("grow relative"):
-        ui.button(icon="close", on_click=dialog.close).props("flat round dense").classes("absolute right-4 top-2")
-        result = ui.log().classes("w-full").style("white-space: pre-wrap")
+    not_implemented()
+    # with ui.dialog().props("full-width") as dialog, ui.card().classes("grow relative"):
+    #     ui.button(icon="close", on_click=dialog.close).props("flat round dense").classes("absolute right-4 top-2")
+    #     result = ui.log().classes("w-full").style("white-space: pre-wrap")
 
-        for history in iceberger.history(tier=DEMO['volumes']['bronze'], tablename=DEMO['tables']['customers']):
-            result.push(history)
+    #     for history in iceberger.history(tier=DEMO['volumes']['bronze'], tablename=DEMO['tables']['customers']):
+    #         result.push(history)
 
-    dialog.on("close", lambda d=dialog: d.delete())
-    dialog.open()
+    # dialog.on("close", lambda d=dialog: d.delete())
+    # dialog.open()
 
 
 

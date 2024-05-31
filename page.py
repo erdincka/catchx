@@ -132,9 +132,14 @@ def demo_steps():
 def monitoring_charts():
     # Monitoring charts
     with ui.card().classes("flex-grow shrink sticky top-0"):
-        topic_chart = get_echart()
-        topic_chart.run_chart_method(':showLoading', r'{text: "Waiting..."}',)
-        ui.timer(MON_REFRESH_INTERVAL, lambda c=topic_chart: update_chart(c, topic_stats))
+        streams_chart = get_echart()
+        streams_chart.run_chart_method(':showLoading', r'{text: "Waiting..."}',)
+        
+        # ui.timer(1.0, lambda c=streams_chart, s=stream_stats: run.io_bound(chart_listener, c, s), once=True)
+
+        # topic_chart = get_echart()
+        # topic_chart.run_chart_method(':showLoading', r'{text: "Waiting..."}',)
+        # ui.timer(MON_REFRESH_INTERVAL, lambda c=topic_chart: update_chart(c, topic_stats))
         
         # consumer_chart = get_echart()
         # consumer_chart.run_chart_method(':showLoading', r'{text: "Waiting..."}',)

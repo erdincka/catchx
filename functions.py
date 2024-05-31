@@ -36,14 +36,24 @@ def get_customer_id(from_account: str):
     """
     find the customerID from customers table using account #
     """
+
+    # input: parameter: account_number
+    # output: customerID from iceberg table
+    input_table = table_path = f"{DEMO['basedir']}/{DEMO['volumes']['bronze']}/{DEMO['tables']['profiles']}"
     return ""  # TODO: get customer ID from customers table
 
 
+# SSE-TODO: for each individual transaction, add customer ID (using get_customer_id()) and mask account numbers (sender and receiver)
+# output to be written to maprdb binary table
 async def refine_transaction(message: dict):
 
     logger.info("Transaction cleanup")
-    table_path = f"{DEMO['basedir']}/{DEMO['volumes']['bronze']}/{DEMO['tables']['profiles']}"
-    # iceberger.read(table_path, message['id'])
+    # input table - iceberg
+    table_path = f"{DEMO['basedir']}/{DEMO['volumes']['bronze']}/{DEMO['tables']['profiles']}" 
+
+    # output table - maprdb binary
+    output_table = f"{DEMO['basedir']}/{DEMO['volumes']['silver']}/{DEMO['tables']['profiles']}"
+
 
 
 def detect_fraud(params: list, count: int):

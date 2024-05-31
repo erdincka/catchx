@@ -1,10 +1,11 @@
 import datetime
+import socket
 import httpx
 from nicegui import ui, app
 
 from helpers import *
 import iceberger
-
+import streams
 
 def get_echart():
     return ui.echart(
@@ -40,6 +41,32 @@ def get_echart():
             "series": [],
         },
     )
+
+
+async def chart_listener(chart: ui.echart, metric_generator, *args):
+    for metric in await metric_generator(*args):
+        if metric:
+            chart.options["xAxis"]["data"].append(metric["time"])
+            chart.options["title"]["text"] = metric["name"].title()
+
+            for idx, serie in enumerate(metric["values"]):
+                # add missing series
+                if idx not in chart.options["series"]:
+                    chart.options["series"].append(new_series())
+
+                chart_series = chart.options["series"][idx]
+
+                for key in serie.keys():
+                    if not chart_series.get("name", None):
+                        chart_series["name"] = key
+                    # if name ends with (s), place it onto second yAxis
+                    if "(s)" in key:
+                        chart_series["yAxisIndex"] = 1
+
+                    chart_series["data"].append(int(serie[key]))
+
+            chart.run_chart_method('hideLoading')
+            chart.update()
 
 
 async def update_chart(chart: ui.echart, metric_caller, *args):
@@ -78,6 +105,24 @@ def new_series():
             "focus": 'series'
         },
     }
+
+
+async def stream_stats():
+    stream_path = "/var/mapr/mapr.monitoring/metricstreams/0"
+
+    for record in await streams.consume(stream=stream_path, topic=socket.getfqdn(app.storage.general['cluster'])):
+        metric = json.loads(record)
+        series = []
+        if metric[0]["metric"] in ["mapr.streams.produce_msgs", "mapr.streams.listen_msgs"]:
+            # mapr.db.table.write_rows and mapr.db.table.read_rows for table
+            series.append(
+                { metric[0]["metric"]: metric[0]["value"] }
+            )
+        yield {
+            "name": metric[0]["tags"]["clustername"],
+            "time": datetime.datetime.now().strftime("%H:%M:%S"),
+            "values": series,
+        }
 
 
 async def topic_stats():
