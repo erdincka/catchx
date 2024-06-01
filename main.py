@@ -23,8 +23,8 @@ async def home():
 
     # Data Mesh
     with ui.expansion("Data Mesh", caption="Build a globally distributed mesh with delegated data products", icon="dashboard").classes("w-full").bind_value(app.storage.user, "mapview"):
-        meshmap() if app.storage.general.get("maptype", "Location") else print("category")
-        ui.button("Namespace", on_click=lambda: run_command_with_dialog("df -h /mapr; ls -lA /mapr/"))
+        # meshmap()
+        pass
 
     ui.separator()
 

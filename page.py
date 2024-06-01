@@ -208,6 +208,7 @@ def cluster_configuration_dialog():
         with ui.card_section():
             ui.label("Show volumes").classes("text-lg w-full")
             with ui.row().classes("w-full place-items-center"):
+                ui.button("GNS", on_click=lambda: run_command_with_dialog("df -h /mapr; ls -lA /mapr/")).props('outline')
                 for vol in DEMO['volumes']:
                     ui.button(f"List {vol}", on_click=lambda v=vol: run_command_with_dialog(f"find /mapr/{get_cluster_name()}{DEMO['basedir']}/{DEMO['volumes'][v]}")).props('outline')
 
