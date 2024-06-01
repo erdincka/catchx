@@ -32,6 +32,7 @@ async def home():
     info()
 
     ui.separator()
+    ui.button("find customer", on_click=lambda: get_customer_id("GB06DGIO54615721447272"))
 
     # Main
     with ui.row().classes("w-full flex flex-nowrap relative"):

@@ -1,127 +1,151 @@
 import logging
-import os
+import pandas
 import pyarrow as pa
+from pyiceberg.expressions import EqualTo
 
 from helpers import *
 
 logger = logging.getLogger()
 
-catalog_path = f"/mapr/{get_cluster_name()}{DEMO['basedir']}/catalog"
-
 
 def get_catalog():
+    """Create or return a catalog"""
 
-    if not os.path.isdir(catalog_path):
-        os.mkdir(catalog_path)
-        logger.warning("Created catalog path: %s", catalog_path)
-
-    from pyiceberg.catalog.sql import SqlCatalog
     try:
+        from pyiceberg.catalog.sql import SqlCatalog
         catalog = SqlCatalog(
-            "docs",
+            "default",
             **{
-                "uri": f"sqlite:///{catalog_path}/iceberg_catalog.db",
-                "warehouse": f"file://{catalog_path}",
+                "uri": "sqlite:////tmp/pyiceberg.db",
             },
         )
 
     except Exception as error:
-        logger.debug("Get Cataloge error: %s", error)
-        return None
+        logger.warning("Iceberg Catalog error: %s", error)
+        ui.notify(f"Iceberg catalog error: {error}", type='negative')
 
-    return catalog
+    finally:
+        return catalog
 
 
-def write(tier: str, tablename: str, records: list):
+def write(tier: str, tablename: str, records: list) -> bool:
+    """
+    Write rows into iceberg table
+
+    :param tier str: namespace in catalog
+    :param tablename str: table name in namespace
+    :param records list: records to append to `tablename`
+
+    :return bool: Success or failure
+    """
 
     warehouse_path = f"/mapr/{get_cluster_name()}{DEMO['basedir']}/{tier}/{tablename}"
 
     catalog = get_catalog()
 
-    if catalog is None:
-        ui.notify(f"Catalog not found at {catalog_path}")
-        return None
+    if catalog is not None:
+        if (tier,) not in catalog.list_namespaces():
+            catalog.create_namespace(tier)
 
-    if (tier,) not in catalog.list_namespaces():
-        catalog.create_namespace(tier)
+        ## build PyArrow table from python list
+        df = pa.Table.from_pylist(records)
+        ## - only create it for new table
+        table = None
+        try:
+            table = catalog.create_table(
+                f'{tier}.{tablename}',
+                schema=df.schema,
+                location=warehouse_path,
+            )
 
-    ## build PyArrow table from python list
-    df = pa.Table.from_pylist(records)
-    ## - only create it for new table
-    table = None
-    try:
-        table = catalog.create_table(
-            f'{tier}.{tablename}',
-            schema=df.schema,
-            location=warehouse_path,
-        )
+        except:
+            logger.info("Table exists, append " + tablename)    
+            table = catalog.load_table(f'{tier}.{tablename}')
 
-    except:
-        logger.debug("Table exists, append " + tablename)    
-        table = catalog.load_table(f'{tier}.{tablename}')
+        ### Append to Iceberg table
+        table.append(df)
+        return True
 
-    ### Write table to Iceberg
-    table.append(df)
-    return True
-
+    return False
 
 def tail(tier: str, tablename: str):
-
-    warehouse_path = f"/mapr/{get_cluster_name()}{DEMO['basedir']}/{tier}/{tablename}"
+    """Return last 5 records from tablename"""
 
     catalog = get_catalog()
 
-    if catalog is None:
-        ui.notify(f"Catalog not found at {catalog_path}")
-        return None
+    if catalog is not None:
 
-    table = catalog.load_table(f'{tier}.{tablename}')
+        table = catalog.load_table(f'{tier}.{tablename}')
 
-    df = table.scan().to_pandas()
+        df = table.scan().to_pandas()
 
-    return df.tail(5)
+        return df.tail()
 
 
 def history(tier: str, tablename: str):
+    """Return list of snapshot history from tablename"""
 
     # warehouse_path = f"/mapr/{get_cluster_name()}{DEMO['basedir']}/{tier}/{tablename}"
 
     catalog = get_catalog()
 
-    if catalog is None:
-        ui.notify(f"Catalog not found at {catalog_path}")
-        return None
+    if catalog is not None:
 
-    logger.warning("Loading table: %s.%s", tier, tablename)
+        logger.debug("Loading table: %s.%s", tier, tablename)
 
-    table = catalog.load_table(f'{tier}.{tablename}')
+        table = catalog.load_table(f'{tier}.{tablename}')
 
-    print(f"Got table: {table}")
+        logger.debug("Got table: %s", table)
 
-    for h in table.history():
-         yield { 
-                "date": datetime.datetime.fromtimestamp(int(h.timestamp_ms)/1000).strftime('%Y-%m-%d %H:%M:%S'), 
-                "id": h.snapshot_id 
-            }
-
-
+        return [
+                {
+                    "date": datetime.datetime.fromtimestamp(int(h.timestamp_ms)/1000).strftime('%Y-%m-%d %H:%M:%S'), 
+                    "id": h.snapshot_id 
+                } 
+                for h in table.history()
+        ]
+                
+# TODO: need a better way to monitor table statistics
 def stats(tier: str):
+    """Return table statistics"""
+
     metrics = {}
 
     for tablename in DEMO['tables']:
-        warehouse_path = f"/mapr/{get_cluster_name()}{DEMO['basedir']}/{tier}/{tablename}"
 
-        try:
-            catalog = get_catalog()
-            if catalog is None: continue # skip non-iceberg tables
+        catalog = get_catalog()
 
-        except Exception as error:
-            logger.debug("Iceberg stat error on %s: %s", tier, error)
+        if catalog is not None:
 
-        table = catalog.load_table(f'{tier}.{tablename}')
-        df = table.scan().to_pandas()
+            table = catalog.load_table(f'{tier}.{tablename}')
+            df = table.scan().to_pandas()
 
-        metrics.update({ tablename: len(df) })
+            metrics.update({ tablename: len(df) })
 
     return metrics
 
+
+def find_by_field(tier: str, tablename: str, field: str, value: str):
+    """Find record(s) matching the field"""
+
+    catalog = get_catalog()
+
+    if catalog is not None:
+        try:
+            table = catalog.load_table(
+                f'{tier}.{tablename}',
+            )
+
+            filtered = table.scan(
+                row_filter=EqualTo(field, value),
+                selected_fields=("id",),
+                # limit=1, # assuming no duplicates
+            ).to_arrow()
+
+            return filtered
+
+        except:
+            logger.info("Table exists, append " + tablename)    
+            table = catalog.load_table(f'{tier}.{tablename}')
+        
+        return None

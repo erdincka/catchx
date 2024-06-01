@@ -4,16 +4,12 @@ from nicegui import app
 
 from helpers import *
 import tables
-
-
-def open_airflow():
-    pass
+import iceberger
 
 
 async def upsert_profile(message: dict):
-    """
-    assign customer ID and fraud score for the receiver account
-    """
+    """Assign customer ID and fraud score for the receiver account in transaction"""
+    
     profile = {
         "_id": get_customer_id(message['receiver_account']),
         "score": await dummy_fraud_score()
@@ -32,15 +28,18 @@ async def dummy_fraud_score():
     return random.randint(0, 10)
 
 
+# TODO: get customer ID from customers table
 def get_customer_id(from_account: str):
-    """
-    find the customerID from customers table using account #
-    """
+    """Find the customerID from customers table using account number"""
 
-    # input: parameter: account_number
-    # output: customerID from iceberg table
-    input_table = table_path = f"{DEMO['basedir']}/{DEMO['volumes']['bronze']}/{DEMO['tables']['profiles']}"
-    return ""  # TODO: get customer ID from customers table
+    # TODO: This should be changed to silver tier, as reading ID from bronze (dirty) data is not ideal
+    found = iceberger.find_by_field(tier=DEMO['volumes']['bronze'], tablename=DEMO['tables']['customers'], field="account_number", value=from_account)
+
+    if found is not None:
+        # get first column (id) from first row
+        return found[0][0]
+
+    else: return None
 
 
 # SSE-TODO: for each individual transaction, add customer ID (using get_customer_id()) and mask account numbers (sender and receiver)

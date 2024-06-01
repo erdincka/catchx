@@ -62,7 +62,7 @@ async def ingest_customers_airflow():
     #     ui.notify(f"Stored {len(COUNT_OF_ROWS)} records in bronze volume with Iceberg", type='positive')
 
 
-async def ingest_customers_spark():
+async def ingest_customers():
     csvpath = f"/mapr/{get_cluster_name()}{DEMO['basedir']}/{DEMO['tables']['customers']}.csv"
     try:
         with open(csvpath, "r", newline='') as csvfile:
@@ -82,17 +82,26 @@ async def ingest_customers_spark():
         ui.notify("Customer data ingested into bronze tier", type='positive')
 
 
-def customer_data_list():
-    not_implemented()
-    # with ui.dialog().props("full-width") as dialog, ui.card().classes("grow relative"):
-    #     ui.button(icon="close", on_click=dialog.close).props("flat round dense").classes("absolute right-4 top-2")
-    #     result = ui.log().classes("w-full").style("white-space: pre-wrap")
+def customer_data_history():
+    with ui.dialog().props("full-width") as dialog, ui.card().classes("grow relative"):
+        ui.button(icon="close", on_click=dialog.close).props("flat round dense").classes("absolute right-4 top-2")
+        result = ui.log().classes("w-full").style("white-space: pre-wrap")
 
-    #     for history in iceberger.history(tier=DEMO['volumes']['bronze'], tablename=DEMO['tables']['customers']):
-    #         result.push(history)
+        for history in iceberger.history(tier=DEMO['volumes']['bronze'], tablename=DEMO['tables']['customers']):
+            result.push(history)
 
-    # dialog.on("close", lambda d=dialog: d.delete())
-    # dialog.open()
+    dialog.on("close", lambda d=dialog: d.delete())
+    dialog.open()
 
+
+def customer_data_tail():
+    with ui.dialog().props("full-width") as dialog, ui.card().classes("grow relative"):
+        ui.button(icon="close", on_click=dialog.close).props("flat round dense").classes("absolute right-4 top-2")
+        result = ui.log().classes("w-full").style("white-space: pre-wrap")
+
+        result.push(iceberger.tail(tier=DEMO['volumes']['bronze'], tablename=DEMO['tables']['customers']))
+
+    dialog.on("close", lambda d=dialog: d.delete())
+    dialog.open()
 
 
