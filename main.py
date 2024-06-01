@@ -13,6 +13,8 @@ app.add_static_files('/images', 'images')
 
 set_logging()
 
+logger = logging.getLogger("main")
+
 @ui.page("/")
 async def home():
     # Initialize app parameters
@@ -32,11 +34,18 @@ async def home():
 
     ui.separator()
 
-    # Canvas
+    def popup_menu_for(element: str):
+        logger.info(element)
+        with ui.dialog(value=True), ui.card():
+            ui.button("Code", on_click=lambda: ui.notify(inspect.getsource(element)))
+            ui.label(element)
+
+    # Image interaction
     with ui.interactive_image("/images/DataPipeline.png", content='''
         <rect id="publish_transactions" x="200" y="1470" rx="80" ry="80" width="360" height="360" fill="none" stroke="red" stroke-width:"5" pointer-events="all" cursor="pointer" />
         <rect id="create_csv_files" x="200" y="2400" rx="80" ry="80" width="360" height="360" fill="none" stroke="red" stroke-width:"5" pointer-events="all" cursor="pointer" />
-        ''').on('svg:pointerup', lambda e: ui.notify(f"Selected: {e.args['element_id']}")):
+        # ''').on('svg:pointerover', lambda e: popup_menu_for(e.args['element_id'])):
+
 
         ui.button(on_click=lambda: ui.notify('thumbs up'), icon='thumb_up') \
         .props('flat fab color=blue') \
