@@ -22,9 +22,8 @@ async def home():
     header()
 
     # Data Mesh
-    with ui.expansion("Data Mesh", caption="Build a globally distributed mesh with delegated data products", icon="dashboard").classes("w-full").bind_value(app.storage.user, "mapview"):
-        # meshmap()
-        pass
+    # with ui.expansion("Data Mesh", caption="Build a globally distributed mesh with delegated data products", icon="dashboard").classes("w-full").bind_value(app.storage.user, "mapview"):
+    #     meshmap()
 
     ui.separator()
 
@@ -32,6 +31,16 @@ async def home():
     info()
 
     ui.separator()
+
+    # Canvas
+    with ui.interactive_image("/images/DataPipeline.png", content='''
+        <rect id="publish_transactions" x="200" y="1470" rx="80" ry="80" width="360" height="360" fill="none" stroke="red" stroke-width:"5" pointer-events="all" cursor="pointer" />
+        <rect id="create_csv_files" x="200" y="2400" rx="80" ry="80" width="360" height="360" fill="none" stroke="red" stroke-width:"5" pointer-events="all" cursor="pointer" />
+        ''').on('svg:pointerup', lambda e: ui.notify(f"Selected: {e.args['element_id']}")):
+
+        ui.button(on_click=lambda: ui.notify('thumbs up'), icon='thumb_up') \
+        .props('flat fab color=blue') \
+        .classes('absolute top-0 left-0 m-2')
 
     # Main
     with ui.row().classes("w-full flex flex-nowrap relative"):
