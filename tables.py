@@ -5,7 +5,9 @@ from nicegui import app
 
 from helpers import *
 
-        
+logger = logging.getLogger("tables")
+
+
 def get_connection(host: str):
 
     # Create a connection to data access server
@@ -15,6 +17,7 @@ def get_connection(host: str):
             f"sslTargetNameOverride={socket.getfqdn(app.storage.general['cluster'])}"
     
     return ConnectionFactory.get_connection(connection_str=connection_str)
+
 
 def upsert_document(host: str, table_path: str, json_dict: dict):
     try:
@@ -34,6 +37,7 @@ def upsert_document(host: str, table_path: str, json_dict: dict):
         if connection: connection.close()
 
     return True
+
 
 def find_document_by_id(host: str, table: str, docid: str):
 
@@ -92,3 +96,8 @@ def search_documents(host: str, table: str, whereClause: dict):
         # close the OJAI connection
         connection.close()
         return doc
+
+
+# SSE-TODO: binary table create/read/write functions
+# using Spark or any other means, except the Java and C code shown in examples in the documentation
+# we may use REST API but I couldn't find rich REST functionality (read/write) for binary tables

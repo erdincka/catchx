@@ -1,11 +1,10 @@
 import logging
-import pandas
 import pyarrow as pa
 from pyiceberg.expressions import EqualTo
 
 from helpers import *
 
-logger = logging.getLogger()
+logger = logging.getLogger("iceberger")
 
 
 def get_catalog():
@@ -47,10 +46,12 @@ def write(tier: str, tablename: str, records: list) -> bool:
         if (tier,) not in catalog.list_namespaces():
             catalog.create_namespace(tier)
 
-        ## build PyArrow table from python list
+        # build PyArrow table from python list
         df = pa.Table.from_pylist(records)
-        ## - only create it for new table
+
         table = None
+
+        # Create table if not exists
         try:
             table = catalog.create_table(
                 f'{tier}.{tablename}',
@@ -59,14 +60,17 @@ def write(tier: str, tablename: str, records: list) -> bool:
             )
 
         except:
-            logger.info("Table exists, append " + tablename)    
+            logger.info("Table exists, appending to: " + tablename)    
             table = catalog.load_table(f'{tier}.{tablename}')
 
-        ### Append to Iceberg table
+        # Append to Iceberg table
         table.append(df)
+        
         return True
 
+    # if append didn't succeed
     return False
+
 
 def tail(tier: str, tablename: str):
     """Return last 5 records from tablename"""

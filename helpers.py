@@ -137,7 +137,7 @@ def get_cluster_name():
     return app.storage.general.get('clusters', {}).get(app.storage.general.get('cluster', ''), '')
 
 
-async def create_volumes_and_stream():
+async def create_demo_constructs():
     auth = (app.storage.general["MAPR_USER"], app.storage.general["MAPR_PASS"])
 
     # create base folder if not exists

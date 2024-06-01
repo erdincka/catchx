@@ -1,6 +1,10 @@
+import logging
 from nicegui import ui, app, events
 
 from geopy.geocoders import Nominatim
+
+logger = logging.getLogger("map")
+
 
 def get_city_latlng(city: str):
     geolocator = Nominatim(user_agent="ezdemo")
@@ -8,8 +12,9 @@ def get_city_latlng(city: str):
     location = geolocator.geocode(city)
     return (location.latitude, location.longitude)
 
+
 def handleClick(e: events.GenericEventArguments):
-    print(e.args)
+    logger.debug(e.args)
     # if e.args['layerType'] == 'marker':
     #     print(e.args['layer'])
 

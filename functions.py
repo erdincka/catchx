@@ -6,25 +6,35 @@ from helpers import *
 import tables
 import iceberger
 
+logger = logging.getLogger("functions")
 
-async def upsert_profile(message: dict):
-    """Assign customer ID and fraud score for the receiver account in transaction"""
+
+async def upsert_profile(transaction: dict):
+    """
+    Assign customer ID and fraud score for the receiver account in transaction
+    
+    param: transaction dict: transaction record as dict
+    """
     
     profile = {
-        "_id": get_customer_id(message['receiver_account']),
+        "_id": get_customer_id(transaction['receiver_account']),
         "score": await dummy_fraud_score()
     }
 
-    table_path = f"{DEMO['basedir']}/{DEMO['volumes']['bronze']}/{DEMO['tables']['profiles']}"
+    # updated profile information is written to "silver" tier
+    table_path = f"{DEMO['basedir']}/{DEMO['volumes']['silver']}/{DEMO['tables']['profiles']}"
 
     if tables.upsert_document(host=app.storage.general["cluster"], table_path=table_path, json_dict=profile):
         logger.debug("Updated profile: %s with score: %d", profile['_id'], profile['score'])
 
 
 async def dummy_fraud_score():
-    # introduce delay for calculation
+    """Return a random scoring between 1 to 10 with adding a delay to simulate querying to an AI model"""
+
+    # add delay
     await asyncio.sleep(0.05)
-    # respond with a probability
+
+    # respond with a random probability
     return random.randint(0, 10)
 
 
@@ -44,9 +54,15 @@ def get_customer_id(from_account: str):
 
 # SSE-TODO: for each individual transaction, add customer ID (using get_customer_id()) and mask account numbers (sender and receiver)
 # output to be written to maprdb binary table
-async def refine_transaction(message: dict):
+async def refine_transaction(transaction: dict):
+    """
+    For each transaction, enrich/classify/mask and write into the binary table in "silver" tier
 
-    logger.info("Transaction cleanup")
+    :param transaction dict: raw transaction record as dict
+
+    :return bool: Success or Failure
+    """
+
     # input table - iceberg
     table_path = f"{DEMO['basedir']}/{DEMO['volumes']['bronze']}/{DEMO['tables']['profiles']}" 
 
@@ -56,6 +72,10 @@ async def refine_transaction(message: dict):
 
 
 def detect_fraud(params: list, count: int):
+    """
+    Generator for randomly selected transactions to simulate fraud activity
+
+    """
     # params is not used
     table_path = f"{DEMO['basedir']}/{DEMO['volumes']['bronze']}/{DEMO['tables']['profiles']}"
 

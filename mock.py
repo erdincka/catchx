@@ -7,6 +7,9 @@ from nicegui import run
 from helpers import *
 import streams
 
+
+logger = logging.getLogger("mock")
+
 # fake = Faker(["en_GB", "en_US", "de_DE", "ja_JP", "en_IN"])
 fake = Faker(["en_GB"])
 

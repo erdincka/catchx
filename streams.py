@@ -1,5 +1,7 @@
 from helpers import *
 
+logger = logging.getLogger("streams")
+
 
 def produce(stream: str, topic: str, message: str):
     from confluent_kafka import Producer

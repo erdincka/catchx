@@ -86,7 +86,8 @@ def demo_steps():
             with ui.row().classes("w-full place-items-center"):
                 ui.button("Create", on_click=create_csv_files)
                 ui.button("Peek Data", on_click=peek_mocked_data).props("outline")
-                ui.button("Into S3", color='warning', on_click=not_implemented).props('outline')
+                ui.button("Into S3", color='warning', on_click=not_implemented).props('outline').bind_visibility_from(app.storage.general, "S3_SECRET_KEY")
+                ui.button("Show Bucket", color='warning', on_click=not_implemented).props('outline').bind_visibility_from(app.storage.general, "S3_SECRET_KEY")
 
             with ui.expansion("Publish", caption="Source code for Kafka producer", group="generate").classes("w-full"):
                 ui.code(inspect.getsource(publish_transactions)).classes("w-full")
@@ -96,14 +97,14 @@ def demo_steps():
                 ui.button("Publish", on_click=publish_transactions)
 
         with ui.expansion("Ingestion & ETL Processing", caption="Realtime processing on incoming data", group="flow"):
-            with ui.expansion("Batch", caption="Source code for batch processing", group="ingest").classes("w-full"):
-                ui.code(inspect.getsource(ingest_customers)).classes("w-full")
+            with ui.expansion("CSV to Iceberg", caption="Source code for ingesting CSV file to Iceberg table", group="ingest").classes("w-full"):
+                ui.code(inspect.getsource(ingest_customers_iceberg)).classes("w-full")
                 ui.code(inspect.getsource(iceberger.write)).classes("w-full")
 
             with ui.row():
-                ui.button("Batch", on_click=ingest_customers)
-                ui.button("History", on_click=customer_data_history).props("outline")
-                ui.button("Tail", on_click=customer_data_tail).props("outline")
+                ui.button("Into Iceberg", on_click=ingest_customers_iceberg)
+                ui.button("Iceberg Table History", on_click=customer_data_history).props("outline")
+                ui.button("Iceberg Table Tail", on_click=customer_data_tail).props("outline")
 
             with ui.expansion("Stream", caption="Source code for consuming streaming data", group="ingest").classes("w-full"):
                 ui.code(inspect.getsource(ingest_transactions)).classes("w-full")
@@ -117,7 +118,6 @@ def demo_steps():
             
         with ui.expansion("Enrich & Clean", caption="Integrate with data catalogue and clean/enrich data into silver tier", group="flow"):
             with ui.expansion("Code", caption="Source code for running the Cleaning tasks").classes("w-full"):
-                ui.code(inspect.getsource(refine_transaction)).classes("w-full")
                 ui.code(inspect.getsource(refine_transaction)).classes("w-full")
 
             with ui.row():
@@ -134,8 +134,9 @@ def demo_steps():
 def monitoring_charts():
     # Monitoring charts
     with ui.card().classes("flex-grow shrink sticky top-0"):
-        streams_chart = get_echart()
-        streams_chart.run_chart_method(':showLoading', r'{text: "Waiting..."}',)
+        pass
+        # streams_chart = get_echart()
+        # streams_chart.run_chart_method(':showLoading', r'{text: "Waiting..."}',)
         
         # ui.timer(1.0, lambda c=streams_chart, s=stream_stats: run.io_bound(chart_listener, c, s), once=True)
 
@@ -200,7 +201,7 @@ def cluster_configuration_dialog():
             ui.label("Create the volumes and the stream").classes("text-lg w-full")
             ui.label("required constructs for the demo")
             with ui.row().classes("w-full place-items-center"):
-                ui.button("Create", on_click=create_volumes_and_stream)
+                ui.button("Create", on_click=create_demo_constructs)
                 ui.button(f"List {DEMO['basedir']}", on_click=lambda: run_command_with_dialog(f"ls -la /mapr/{get_cluster_name()}{DEMO['basedir']}")).props('outline')
 
         ui.separator()

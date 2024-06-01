@@ -7,6 +7,9 @@ from helpers import *
 import iceberger
 import streams
 
+logger = logging.getLogger("monitoring")
+
+
 def get_echart():
     return ui.echart(
         {

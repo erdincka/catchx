@@ -7,6 +7,9 @@ import iceberger
 from functions import upsert_profile
 import sparking
 
+logger = logging.getLogger("ingestion")
+
+
 async def ingest_transactions():
 
     stream_path = f"{DEMO['basedir']}/{DEMO['stream']}"
@@ -62,7 +65,7 @@ async def ingest_customers_airflow():
     #     ui.notify(f"Stored {len(COUNT_OF_ROWS)} records in bronze volume with Iceberg", type='positive')
 
 
-async def ingest_customers():
+async def ingest_customers_iceberg():
     csvpath = f"/mapr/{get_cluster_name()}{DEMO['basedir']}/{DEMO['tables']['customers']}.csv"
     try:
         with open(csvpath, "r", newline='') as csvfile:
@@ -71,7 +74,6 @@ async def ingest_customers():
             logger.info("Reading %s", csvpath)
 
             # Write into iceberg for Bronze tier (raw data)
-            # sparking.ingest(input_file=csvpath)
             if iceberger.write(tier=DEMO['volumes']['bronze'], tablename=DEMO['tables']['customers'], records=[cust for cust in csv_reader]):
                 ui.notify(f"Stored {len(csv_reader)} records in bronze volume with Iceberg", type='positive')
 
