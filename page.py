@@ -61,12 +61,12 @@ def footer():
 
 def info():
     with ui.expansion( 
-        TITLE,
+        "Data Product",
         icon="info",
-        caption="End to end pipeline processing using Ezmeral Data Fabric",
+        caption="End to end data pipeline using Ezmeral Data Fabric for financial transactions",
     ).classes("w-full").classes("text-bold"):
         ui.markdown(DEMO["description"]).classes("font-normal")
-        ui.image(f"/images/{DEMO['diagram']}").classes("object-scale-down g-10").on("click", handler=lambda x: print(x)) # TODO: open image in sidebar when clicked
+        ui.image(f"/images/{DEMO['diagram']}").classes("object-scale-down g-10")
         ui.link(
             "Source",
             target=DEMO.get("link", ""),
@@ -78,7 +78,9 @@ def demo_steps():
     with ui.list().props("bordered").classes("w-2/3"):
 
         with ui.expansion("Generation", caption="Prepare mock data for ingestion", group="flow"):
-            with ui.expansion("Create Data", caption="Source code for data generation", group="generate").classes("w-full"):
+            with ui.dialog().props("full-width") as generate_code, ui.card().classes("grow relative"):
+                ui.button(icon="close", on_click=generate_code.close).props("flat round dense").classes("absolute right-2 top-2")
+            # with ui.expansion("Create Data", caption="Source code for data generation", group="generate").classes("w-full"):
                 ui.code(inspect.getsource(create_csv_files)).classes("w-full mt-6")
                 ui.code(inspect.getsource(fake_customer)).classes("w-full")
                 ui.code(inspect.getsource(fake_transaction)).classes("w-full")
@@ -88,46 +90,50 @@ def demo_steps():
                 ui.button("Peek Data", on_click=peek_mocked_data).props("outline")
                 ui.button("Into S3", color='warning', on_click=not_implemented).props('outline').bind_visibility_from(app.storage.general, "S3_SECRET_KEY")
                 ui.button("Show Bucket", color='warning', on_click=not_implemented).props('outline').bind_visibility_from(app.storage.general, "S3_SECRET_KEY")
+                ui.button("Code", on_click=generate_code.open, color="info").props("outline")
 
-            with ui.expansion("Publish", caption="Source code for Kafka producer", group="generate").classes("w-full"):
-                ui.code(inspect.getsource(publish_transactions)).classes("w-full")
+            with ui.dialog().props("full-width") as publish, ui.card().classes("grow relative"):
+                ui.button(icon="close", on_click=publish.close).props("flat round dense").classes("absolute right-2 top-2")
+            # with ui.expansion("Publish", caption="Source code for Kafka producer", group="generate").classes("w-full"):
+                ui.code(inspect.getsource(publish_transactions)).classes("w-full mt-6")
                 ui.code(inspect.getsource(streams.produce)).classes("w-full")
 
-            with ui.row():
+            with ui.row().classes("w-full place-items-center"):
                 ui.button("Publish", on_click=publish_transactions)
+                ui.button("Code", on_click=publish.open, color="info").props("outline")
 
         with ui.expansion("Ingestion & ETL Processing", caption="Realtime processing on incoming data", group="flow"):
             with ui.expansion("CSV to Iceberg", caption="Source code for ingesting CSV file to Iceberg table", group="ingest").classes("w-full"):
                 ui.code(inspect.getsource(ingest_customers_iceberg)).classes("w-full")
                 ui.code(inspect.getsource(iceberger.write)).classes("w-full")
 
-            with ui.row():
+            with ui.row().classes("w-full place-items-center"):
                 ui.button("Into Iceberg", on_click=ingest_customers_iceberg)
                 ui.button("Iceberg Table History", on_click=customer_data_history).props("outline")
                 ui.button("Iceberg Table Tail", on_click=customer_data_tail).props("outline")
 
             with ui.expansion("Stream", caption="Source code for consuming streaming data", group="ingest").classes("w-full"):
-                ui.code(inspect.getsource(ingest_transactions)).classes("w-full")
+                ui.code(inspect.getsource(ingest_transactions)).classes("w-full mt-6")
                 ui.code(inspect.getsource(streams.consume)).classes("w-full")
                 ui.code(inspect.getsource(upsert_profile)).classes("w-full")
                 ui.code(inspect.getsource(tables.upsert_document)).classes("w-full")
 
-            with ui.row():
+            with ui.row().classes("w-full place-items-center"):
                 ui.button("Stream", on_click=ingest_transactions).bind_enabled_from(app.storage.user, "busy", backward=lambda x: not x)
                 ui.button("Using Airflow", color='warning', on_click=not_implemented).props("outline").bind_enabled_from(app.storage.user, "busy", backward=lambda x: not x)
             
         with ui.expansion("Enrich & Clean", caption="Integrate with data catalogue and clean/enrich data into silver tier", group="flow"):
             with ui.expansion("Code", caption="Source code for running the Cleaning tasks").classes("w-full"):
-                ui.code(inspect.getsource(refine_transaction)).classes("w-full")
+                ui.code(inspect.getsource(refine_transaction)).classes("w-full mt-6")
 
-            with ui.row():
+            with ui.row().classes("w-full place-items-center"):
                 ui.button("Create Silver", on_click=not_implemented).bind_enabled_from(app.storage.user, "busy", backward=lambda x: not x)
 
         with ui.expansion("Consolidate", caption="Create data lake for gold tier", group="flow"):
             with ui.expansion("Code", caption="Source code for aggregation").classes("w-full"):
-                ui.code(inspect.getsource(not_implemented)).classes("w-full")
+                ui.code(inspect.getsource(not_implemented)).classes("w-full mt-6")
 
-            with ui.row():
+            with ui.row().classes("w-full place-items-center"):
                 ui.button("Create Golden", on_click=not_implemented)
 
 

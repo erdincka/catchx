@@ -86,7 +86,7 @@ async def ingest_customers_iceberg():
 
 def customer_data_history():
     with ui.dialog().props("full-width") as dialog, ui.card().classes("grow relative"):
-        ui.button(icon="close", on_click=dialog.close).props("flat round dense").classes("absolute right-4 top-2")
+        ui.button(icon="close", on_click=dialog.close).props("flat round dense").classes("absolute right-2 top-2")
         result = ui.log().classes("w-full").style("white-space: pre-wrap")
 
         for history in iceberger.history(tier=DEMO['volumes']['bronze'], tablename=DEMO['tables']['customers']):
@@ -98,7 +98,7 @@ def customer_data_history():
 
 def customer_data_tail():
     with ui.dialog().props("full-width") as dialog, ui.card().classes("grow relative"):
-        ui.button(icon="close", on_click=dialog.close).props("flat round dense").classes("absolute right-4 top-2")
+        ui.button(icon="close", on_click=dialog.close).props("flat round dense").classes("absolute right-2 top-2")
         result = ui.log().classes("w-full").style("white-space: pre-wrap")
 
         result.push(iceberger.tail(tier=DEMO['volumes']['bronze'], tablename=DEMO['tables']['customers']))
