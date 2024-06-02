@@ -156,9 +156,9 @@ def monitoring_charts():
 
 
 def cluster_configuration_dialog():
-    with ui.dialog().props(f"position=right full-height") as dialog, ui.card().classes("relative bordered"):
+    with ui.dialog().props("position=right full-height") as dialog, ui.card().classes("relative bordered"):
         # with close button
-        ui.button(icon="close", on_click=dialog.close).props("flat round dense").classes("absolute right-4 top-2")
+        ui.button(icon="close", on_click=dialog.close).props("flat round dense").classes("absolute right-2 top-2")
 
         with ui.card_section().classes("w-full mt-6"):
             ui.label("Client files").classes("text-lg w-full")
