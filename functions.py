@@ -56,9 +56,9 @@ def get_customer_id(from_account: str):
 
 # SSE-TODO: for each individual transaction, add customer ID (using get_customer_id()) and mask account numbers (sender and receiver)
 # output to be written to maprdb binary table
-async def refine_transaction(transaction: dict):
+async def refine_transactions():
     """
-    For each transaction, enrich/classify/mask and write into the binary table in "silver" tier
+    Retrieve customers from "bronze" table, enrich/classify/mask and write into the binary table in "silver" tier
 
     :param transaction dict: raw transaction record as dict
 
@@ -66,12 +66,36 @@ async def refine_transaction(transaction: dict):
     """
 
     # input table - iceberg
-    table_path = f"{DEMO['basedir']}/{DEMO['volumes']['bronze']}/{DEMO['tables']['profiles']}" 
+    tier = DEMO['volumes']['bronze']
+    tablename = DEMO['tables']['transactions']
 
     # output table - maprdb binary
-    output_table = f"{DEMO['basedir']}/{DEMO['volumes']['silver']}/{DEMO['tables']['profiles']}"
+    # TODO: using DocumentDB here, change to BinaryDB
+    silver_transactions_table = f"{DEMO['basedir']}/{DEMO['volumes']['silver']}/{DEMO['tables']['transactions']}"
 
-    not_implemented()
+    df = iceberger.find_all(tier=tier, tablename=tablename)
+    ui.notify(f"Found {df.count(axis=1).size} rows in {tablename}")
+
+    # assign a random category to the transaction
+    df['category'] = df.apply(lambda _: random.choice(TRANSACTION_CATEGORIES), axis=1)
+
+    # use _id to comply with OJAI primary key
+    df.rename(columns={'id': '_id'}, inplace=True)
+
+    try:
+        logger.info("Loading %s documents into %s", df.count(axis=1).size, silver_transactions_table)
+        if await run.io_bound(tables.upsert_documents, table_path=silver_transactions_table, docs=df.to_dict("records")):
+            ui.notify("Succeed", type='positive')
+        else:
+            ui.notify("Failed", type='negative')
+
+
+    except Exception as error:
+        logger.warning(error)
+        ui.notify(f"Failed to write into table: {error}", type='negative')
+
+    finally:
+        ui.notify(f"Customers are written to {silver_transactions_table}", type='positive')
 
 
 # SSE-TODO: for each customer with country_name empty, get country_code and add country_name field with converted name (GB -> Great Britain)
@@ -88,12 +112,13 @@ async def refine_customers():
     tablename = DEMO['tables']['customers']
 
     # output table - maprdb binary
+    # TODO: using DocumentDB here, change to BinaryDB
     silver_customers_table = f"{DEMO['basedir']}/{DEMO['volumes']['silver']}/{DEMO['tables']['customers']}"
 
     cc = coco.CountryConverter()
 
     df = iceberger.find_all(tier=tier, tablename=tablename)
-    ui.notify(f"Found {df.count(axis=1)} rows in {tablename}")
+    ui.notify(f"Found {df.count(axis=1).size} rows in {tablename}")
 
     # add country_name column with short name (from ISO2 country code)
     df['country_name'] = cc.pandas_convert(df['country_code'], src="ISO2", to="name_short")
@@ -106,42 +131,72 @@ async def refine_customers():
     df.rename(columns={'id': '_id'}, inplace=True)
 
     try:
-        logger.info("Loading %s documents into %s", df.count(axis=1), silver_customers_table)
-        await run.io_bound(df.apply, lambda row: tables.upsert_document(table_path=silver_customers_table, json_dict=row.to_dict()), axis=1)
-
+        logger.info("Loading %s documents into %s", df.count(axis=1).size, silver_customers_table)
+        if await run.io_bound(tables.upsert_documents, table_path=silver_customers_table, docs=df.to_dict("records")):
+            ui.notify("Succeed", type='positive')
+        else:
+            ui.notify("Failed", type='negative')
+        
     except Exception as error:
-        logger.warning("Failed to write into silver table: %s", error)
+        logger.warning(error)
+        ui.notify(f"Failed to write into table: {error}", type='negative')
 
     finally:
-        logger.info("Customers are written to %s", silver_customers_table)
+        ui.notify(f"Customers are written to {silver_customers_table}", type='positive')
 
 
-def tail_silver_customers():
+def iceberg_table_history(tier: str, tablename: str):
     """
-    Tail/head for "silver" customers table
+    Get Iceberg table history and display in dialog
+
+    :param tier str: iceberg namespace matching the volume tier    
+    :param tablename str: iceberg table name
     """
 
-    silver_customers_table = f"{DEMO['basedir']}/{DEMO['volumes']['silver']}/{DEMO['tables']['customers']}"
+    with ui.dialog().props("full-width") as dialog, ui.card().classes("grow relative"):
+        ui.button(icon="close", on_click=dialog.close).props("flat round dense").classes("absolute right-2 top-2")
+        result = ui.log().classes("w-full mt-6").style("white-space: pre-wrap")
 
+        for history in iceberger.history(tier=tier, tablename=tablename):
+            result.push(history)
+
+    dialog.on("close", lambda d=dialog: d.delete())
+    dialog.open()
+
+
+def iceberg_table_tail(tier: str, tablename: str):
+    """
+    Get last 5 records from Iceberg table and display in dialog
+
+    :param tier str: iceberg namespace matching the volume tier    
+    :param tablename str: iceberg table name
+    """
 
     with ui.dialog().props("full-width") as dialog, ui.card().classes("grow relative"):
         ui.button(icon="close", on_click=dialog.close).props("flat round dense").classes("absolute right-2 top-2")
 
-        docs = tables.get_documents(table=silver_customers_table, limit=5)
+        df = iceberger.tail(tier=tier, tablename=tablename)
+        ui.table.from_pandas(df).classes('w-full mt-6')
+
+    dialog.on("close", lambda d=dialog: d.delete())
+    dialog.open()
+
+def peek_documents(tablepath: str):
+    """
+    Get 5 documents from DocumentDB table
+
+    :param tablepath str: full path for the JSON table
+    """
+
+    with ui.dialog().props("full-width") as dialog, ui.card().classes("grow relative"):
+        ui.button(icon="close", on_click=dialog.close).props("flat round dense").classes("absolute right-2 top-2")
+
+        docs = tables.get_documents(table=tablepath, limit=5)
         ui.table.from_pandas(pd.DataFrame.from_dict(docs)).classes('w-full mt-6')
         
     dialog.on("close", lambda d=dialog: d.delete())
     dialog.open()
 
-
-def tail_silver_transactions():
-    """
-    Tail/head for "silver" transactions table
-    """
-
-    silver_customers_table = f"{DEMO['basedir']}/{DEMO['volumes']['silver']}/{DEMO['tables']['transactions']}"
-
-    not_implemented()
 
 # def detect_fraud(params: list, count: int):
 #     """

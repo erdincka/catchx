@@ -21,6 +21,19 @@ MAX_POLL_TIME = 2.0
 MON_REFRESH_INTERVAL = 1.0
 MON_REFRESH_INTERVAL3 = 3.0
 
+TRANSACTION_CATEGORIES = [
+    "Entertainment",
+    "Shopping",
+    "Education",
+    "Investment",
+    "Bills",
+    "Transport",
+    "Income",
+    "Home",
+    "Transfers",
+    "Other"
+]
+
 logger = logging.getLogger()
 
 

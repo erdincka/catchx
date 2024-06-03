@@ -113,8 +113,8 @@ def demo_steps():
             with ui.row().classes("w-full place-items-center"):
                 ui.label("Batch ingestion: ").classes("w-40")
                 ui.button("Into Iceberg", on_click=ingest_customers_iceberg)
-                ui.button("Iceberg Table History", on_click=customer_data_history).props("outline")
-                ui.button("Iceberg Table Tail", on_click=customer_data_tail).props("outline")
+                ui.button("Table History", on_click=lambda: iceberg_table_history(tier=DEMO['volumes']['bronze'], tablename=DEMO['tables']['customers'])).props("outline")
+                ui.button("Table Tail", on_click=lambda: iceberg_table_tail(tier=DEMO['volumes']['bronze'], tablename=DEMO['tables']['customers'])).props("outline")
                 ui.button("Code", on_click=batch_dialog.open, color="info").props("outline")
 
             with ui.dialog().props("full-width") as stream_dialog, ui.card().classes("grow relative"):
@@ -127,6 +127,8 @@ def demo_steps():
             with ui.row().classes("w-full place-items-center"):
                 ui.label("Stream ingestion: ").classes("w-40")
                 ui.button("Stream", on_click=ingest_transactions).bind_enabled_from(app.storage.user, "busy", backward=lambda x: not x)
+                ui.button("Table History", on_click=lambda: iceberg_table_history(tier=DEMO['volumes']['bronze'], tablename=DEMO['tables']['transactions'])).props("outline")
+                ui.button("Table Tail", on_click=lambda: iceberg_table_tail(tier=DEMO['volumes']['bronze'], tablename=DEMO['tables']['transactions'])).props("outline")
                 ui.button("Using Airflow", color='warning', on_click=not_implemented).props("outline").bind_enabled_from(app.storage.user, "busy", backward=lambda x: not x)
                 ui.button("Code", on_click=stream_dialog.open, color="info").props("outline")
             
@@ -136,17 +138,17 @@ def demo_steps():
             with ui.dialog().props("full-width") as enrich_dialog, ui.card().classes("grow relative"):
                 ui.button(icon="close", on_click=enrich_dialog.close).props("flat round dense").classes("absolute right-2 top-2")
                 ui.code(inspect.getsource(refine_customers)).classes("w-full mt-6")
-                ui.code(inspect.getsource(refine_transaction)).classes("w-full")
+                ui.code(inspect.getsource(refine_transactions)).classes("w-full")
 
             with ui.row().classes("w-full place-items-center"):
                 ui.label("Data enrichment: ").classes("w-40")
                 ui.button("Customers", on_click=refine_customers).bind_enabled_from(app.storage.user, "busy", backward=lambda x: not x)
-                ui.button("Tail Customers", on_click=tail_silver_customers).props("outline")
-                ui.button("Transactions", on_click=refine_transaction).bind_enabled_from(app.storage.user, "busy", backward=lambda x: not x)
-                ui.button("Tail Transactions", on_click=tail_silver_transactions).props("outline")
+                ui.button("Peek Customers", on_click=lambda: peek_documents(tablepath=f"{DEMO['basedir']}/{DEMO['volumes']['silver']}/{DEMO['tables']['customers']}")).props("outline")
+                ui.button("Transactions", on_click=refine_transactions).bind_enabled_from(app.storage.user, "busy", backward=lambda x: not x)
+                ui.button("Peek Transactions", on_click=lambda: peek_documents(f"{DEMO['basedir']}/{DEMO['volumes']['silver']}/{DEMO['tables']['transactions']}")).props("outline")
                 ui.button("Code", on_click=enrich_dialog.open, color="info").props("outline")
 
-            ui.button("List Silver", on_click=lambda: run_command_with_dialog(f"find /mapr/{get_cluster_name()}{DEMO['basedir']}/{DEMO['volumes']['silver']}")).props('outline')
+            ui.button("List Silver", on_click=lambda: run_command_with_dialog(f"ls -lA /mapr/{get_cluster_name()}{DEMO['basedir']}/{DEMO['volumes']['silver']}")).props('outline')
 
         with ui.expansion("Consolidate", caption="Create data lake for gold tier", group="flow"):
             with ui.dialog().props("full-width") as aggregate_dialog, ui.card().classes("grow relative"):
@@ -165,18 +167,19 @@ def monitoring_charts():
     # Monitoring charts
     with ui.card().classes("flex-grow shrink sticky top-0"):
         ui.label("Realtime Visibility").classes("uppercase")
-        pass
-        streams_chart = get_echart()
-        streams_chart.run_chart_method(':showLoading', r'{text: "Waiting..."}',)
-        ui.timer(MON_REFRESH_INTERVAL, lambda c=streams_chart, s=mapr_monitoring: chart_listener(c, s), once=True)
 
-        # topic_chart = get_echart()
-        # topic_chart.run_chart_method(':showLoading', r'{text: "Waiting..."}',)
-        # ui.timer(MON_REFRESH_INTERVAL, lambda c=topic_chart: update_chart(c, topic_stats))
+        # monitor using /var/mapr/mapr.monitoring/metricstreams/0
+        # streams_chart = get_echart()
+        # streams_chart.run_chart_method(':showLoading', r'{text: "Waiting..."}',)
+        # ui.timer(MON_REFRESH_INTERVAL, lambda c=streams_chart, s=mapr_monitoring: chart_listener(c, s), once=True)
+
+        topic_chart = get_echart()
+        topic_chart.run_chart_method(':showLoading', r'{text: "Waiting..."}',)
+        ui.timer(MON_REFRESH_INTERVAL3, lambda c=topic_chart: update_chart(c, topic_stats))
         
-        # consumer_chart = get_echart()
-        # consumer_chart.run_chart_method(':showLoading', r'{text: "Waiting..."}',)
-        # ui.timer(MON_REFRESH_INTERVAL, lambda c=consumer_chart: update_chart(c, consumer_stats))
+        consumer_chart = get_echart()
+        consumer_chart.run_chart_method(':showLoading', r'{text: "Waiting..."}',)
+        ui.timer(MON_REFRESH_INTERVAL3, lambda c=consumer_chart: update_chart(c, consumer_stats))
 
         # with ui.card_section().classes("w-full"):
         #     ui.label("Bronze tier")

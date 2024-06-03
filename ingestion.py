@@ -13,21 +13,26 @@ logger = logging.getLogger("ingestion")
 async def ingest_transactions():
 
     stream_path = f"{DEMO['basedir']}/{DEMO['stream']}"
+    topic = DEMO['topic']
     
     app.storage.user['busy'] = True
 
     transactions = []
 
-    for record in await run.io_bound(streams.consume, stream=stream_path, topic=DEMO['topic']):
+    for record in await run.io_bound(streams.consume, stream=stream_path, topic=topic):
         txn = json.loads(record)
+
+        logger.debug("Ingesting transaction: %s", txn["id"])
+
         transactions.append(txn)
         # update the profile
         await upsert_profile(txn)
 
     if len(transactions) > 0:
         # Write into iceberg for Bronze tier (raw data)
+        logger.info("Writing %d transactions with iceberg", len(transactions))
         if iceberger.write(DEMO['volumes']['bronze'], DEMO['tables']['transactions'], records=transactions):
-            ui.notify(f"Saved {len(transactions)} transactions in bronze volume with Iceberg", type="positive")
+            ui.notify(f"Saved {len(transactions)} transactions in {DEMO['volumes']['bronze']} volume with Iceberg", type="positive")
 
     # release when done
     app.storage.user['busy'] = False
@@ -89,36 +94,4 @@ async def ingest_customers_iceberg():
 
     except Exception as error:
         logger.debug("Failed to read customers.csv: %s", error)
-
-
-def customer_data_history():
-
-    tier = DEMO['volumes']['bronze']
-    tablename = DEMO['tables']['customers']
-
-    with ui.dialog().props("full-width") as dialog, ui.card().classes("grow relative"):
-        ui.button(icon="close", on_click=dialog.close).props("flat round dense").classes("absolute right-2 top-2")
-        result = ui.log().classes("w-full mt-6").style("white-space: pre-wrap")
-
-        for history in iceberger.history(tier=tier, tablename=tablename):
-            result.push(history)
-
-    dialog.on("close", lambda d=dialog: d.delete())
-    dialog.open()
-
-
-def customer_data_tail():
-
-    tier = DEMO['volumes']['bronze']
-    tablename = DEMO['tables']['customers']
-
-    with ui.dialog().props("full-width") as dialog, ui.card().classes("grow relative"):
-        ui.button(icon="close", on_click=dialog.close).props("flat round dense").classes("absolute right-2 top-2")
-
-        df = iceberger.tail(tier=tier, tablename=tablename)
-        ui.table.from_pandas(df).classes('w-full mt-6')
-
-    dialog.on("close", lambda d=dialog: d.delete())
-    dialog.open()
-
 

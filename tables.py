@@ -1,5 +1,6 @@
 import socket
 from mapr.ojai.storage.ConnectionFactory import ConnectionFactory
+from mapr.ojai.ojai.OJAIDocumentStream import OJAIDocumentStream
 
 from nicegui import app 
 
@@ -41,7 +42,39 @@ def upsert_document(table_path: str, json_dict: dict):
 
         store.insert_or_replace(new_document)
 
-        logger.debug("upsert completed for %s", json_dict["_id"])
+        logger.debug("upsert for %s", json_dict["_id"])
+
+    except Exception as error:
+        logger.warning(error)
+        return False
+
+    # finally:        
+    #     if connection: connection.close()
+
+    return True
+
+
+def upsert_documents(table_path: str, docs: list):
+    """
+    Update or insert a document into the OJAI store (table)
+
+    :param table_path str: full table path under the selected cluster
+    :param json_dict dict: JSON serializable object to insert/update
+
+    :return bool: result of operation
+
+    """
+
+    try:
+        connection = get_connection()
+
+        store = connection.get_or_create_store(table_path)
+
+        logger.info("Upserting %d documents from list", len(docs))
+        
+        store.insert_or_replace(doc_stream=docs)
+
+        logger.debug("upsert done")
 
     except Exception as error:
         logger.warning(error)
@@ -121,18 +154,24 @@ def get_documents(table: str, limit: int = 10):
     :returns list[doc]: list of documents as JSON objects
 
     """
-    connection = get_connection()
 
-    table = connection.get_store(table)
+    try:
+        connection = get_connection()
 
-    # Create a query to get the last n records based on the timestamp field
-    query = connection.new_query() \
-        .select('*') \
-        .limit(limit) \
-        .build()
+        table = connection.get_store(table)
 
-    # Run the query and return the results as list
-    return [doc for doc in table.find(query)]
+        # Create a query to get the last n records based on the timestamp field
+        query = connection.new_query() \
+            .select('*') \
+            .limit(limit) \
+            .build()
+
+        # Run the query and return the results as list
+        return [doc for doc in table.find(query)]
+
+    except Exception as error:
+        logger.warning("Failed to get document: %s", error)
+        return []
 
 
 # SSE-TODO: binary table create/read/write functions

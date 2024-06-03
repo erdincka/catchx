@@ -156,7 +156,7 @@ async def topic_stats():
             else:
                 metrics = response.json()
                 if not metrics["status"] == "ERROR":
-                    logger.debug("TOPIC STAT %s", metrics)
+                    # logger.debug(metrics)
 
                     series = []
                     for m in metrics["data"]:
@@ -218,10 +218,9 @@ async def consumer_stats():
 
             else:
                 metrics = response.json()
-                logger.debug(metrics)
+                # logger.debug(metrics)
 
                 if not metrics["status"] == "ERROR":
-                    logger.debug("CONSUMER STAT %s", metrics)
                     series = []
                     for m in metrics["data"]:
                         series.append(

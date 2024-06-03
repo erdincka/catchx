@@ -18,6 +18,7 @@ def get_catalog():
             "default",
             **{
                 "uri": f"sqlite:////mapr/{get_cluster_name()}{DEMO['basedir']}/iceberg.db",
+                "py-io-impl": "pyiceberg.io.pyarrow.PyArrowFileIO",
             },
         )
 
