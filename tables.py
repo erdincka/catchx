@@ -8,10 +8,12 @@ from helpers import *
 logger = logging.getLogger("tables")
 
 
-def get_connection(host: str):
+def get_connection():
+    """
+    Returns an OJAIConnection object for configured cluster
+    """
 
-    # Create a connection to data access server
-    connection_str = f"{host}:5678?auth=basic;user={app.storage.general['MAPR_USER']};password={app.storage.general['MAPR_PASS']};" \
+    connection_str = f"{app.storage.general['cluster']}:5678?auth=basic;user={app.storage.general['MAPR_USER']};password={app.storage.general['MAPR_PASS']};" \
             "ssl=true;" \
             "sslCA=/opt/mapr/conf/ssl_truststore.pem;" \
             f"sslTargetNameOverride={socket.getfqdn(app.storage.general['cluster'])}"
@@ -19,9 +21,19 @@ def get_connection(host: str):
     return ConnectionFactory.get_connection(connection_str=connection_str)
 
 
-def upsert_document(host: str, table_path: str, json_dict: dict):
+def upsert_document(table_path: str, json_dict: dict):
+    """
+    Update or insert a document into the OJAI store (table)
+
+    :param table_path str: full table path under the selected cluster
+    :param json_dict dict: JSON serializable object to insert/update
+
+    :return bool: result of operation
+
+    """
+
     try:
-        connection = get_connection(host=host)
+        connection = get_connection()
 
         store = connection.get_or_create_store(table_path)
 
@@ -29,22 +41,24 @@ def upsert_document(host: str, table_path: str, json_dict: dict):
 
         store.insert_or_replace(new_document)
 
+        logger.debug("upsert completed for %s", json_dict["_id"])
+
     except Exception as error:
         logger.warning(error)
         return False
 
-    finally:        
-        if connection: connection.close()
+    # finally:        
+    #     if connection: connection.close()
 
     return True
 
 
-def find_document_by_id(host: str, table: str, docid: str):
+def find_document_by_id(table: str, docid: str):
 
     doc = None
 
     try:
-        connection = get_connection(host)
+        connection = get_connection()
 
         # Get a store and assign it as a DocumentStore object
         store = connection.get_store(table)
@@ -55,26 +69,24 @@ def find_document_by_id(host: str, table: str, docid: str):
     except Exception as error:
         logger.warning(error)
 
-    finally:        
-        # close the OJAI connection
-        connection.close()
+    finally:
+        # # close the OJAI connection
+        # connection.close()
         return doc
 
 
-def search_documents(host: str, table: str, whereClause: dict):
+def search_documents(table: str, selectClause: list, whereClause: dict):
 
     doc = None
 
     try:
-        connection = get_connection(host)
+        connection = get_connection()
 
         # Get a store and assign it as a DocumentStore object
-        store = connection.get_store(table)
+        table = connection.get_store(table)
 
         # Create an OJAI query
-        query = {"$select": ["_id",
-                            "sender",
-                            "receiver"],
+        query = {"$select": selectClause,
                 "$where": whereClause }
 
         # options for find request
@@ -83,7 +95,7 @@ def search_documents(host: str, table: str, whereClause: dict):
             }
 
         # fetch OJAI Documents by query
-        query_result = store.find(query, options=options)
+        query_result = table.find(query, options=options)
 
         # Print OJAI Documents from document stream
         for doc in query_result:
@@ -94,10 +106,61 @@ def search_documents(host: str, table: str, whereClause: dict):
 
     finally:        
         # close the OJAI connection
-        connection.close()
+        # connection.close()
         return doc
 
 
+def get_documents(table: str, limit: int = 10):
+    """
+    Read n(limit) records from the table to peek data
+
+    :param table str: full path for the JSON table
+
+    :param limit int: Number of records to return, default is 10
+
+    :returns list[doc]: list of documents as JSON objects
+
+    """
+    connection = get_connection()
+
+    table = connection.get_store(table)
+
+    # Create a query to get the last n records based on the timestamp field
+    query = connection.new_query() \
+        .select('*') \
+        .limit(limit) \
+        .build()
+
+    # Run the query and return the results as list
+    return [doc for doc in table.find(query)]
+
+
 # SSE-TODO: binary table create/read/write functions
-# using Spark or any other means, except the Java and C code shown in examples in the documentation
+# using Spark or any other means
 # we may use REST API but I couldn't find rich REST functionality (read/write) for binary tables
+
+def binary_table_upsert(tablepath: str, row: dict):
+    """
+    Create or return table, then push the row into the table
+
+    :param tablepath str: full path to the table
+
+    :param row dict: object to insert into the table
+
+    :returns bool: result of op
+    """
+
+    not_implemented()
+
+
+def binary_table_get_all(tablepath: str):
+    """
+    Returns all records from the binary table as ???
+
+    :param tablepath str: full path to the table
+
+    :returns ??: record as dict
+    """
+
+    not_implemented()
+

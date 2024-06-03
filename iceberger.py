@@ -8,14 +8,16 @@ logger = logging.getLogger("iceberger")
 
 
 def get_catalog():
-    """Create or return a catalog"""
+    """Return the catalog, create if not exists"""
+
+    catalog = None
 
     try:
         from pyiceberg.catalog.sql import SqlCatalog
         catalog = SqlCatalog(
             "default",
             **{
-                "uri": "sqlite:////tmp/pyiceberg.db",
+                "uri": f"sqlite:////mapr/{get_cluster_name()}{DEMO['basedir']}/iceberg.db",
             },
         )
 
@@ -68,7 +70,7 @@ def write(tier: str, tablename: str, records: list) -> bool:
         
         return True
 
-    # if append didn't succeed
+    # catalog not found
     return False
 
 
@@ -108,7 +110,8 @@ def history(tier: str, tablename: str):
                 } 
                 for h in table.history()
         ]
-                
+
+
 # TODO: need a better way to monitor table statistics
 def stats(tier: str):
     """Return table statistics"""
@@ -129,8 +132,27 @@ def stats(tier: str):
     return metrics
 
 
+def find_all(tier: str, tablename: str):
+    """Return pandas dataframe of all records"""
+
+    df = None
+
+    catalog = get_catalog()
+
+    if catalog is not None:
+        try:
+            table = catalog.load_table(f'{tier}.{tablename}')
+            df = table.scan().to_pandas()
+
+        except Exception as error:
+            logger.warning("Failed to scan table %s", table)
+
+        finally:
+            return df
+
+
 def find_by_field(tier: str, tablename: str, field: str, value: str):
-    """Find record(s) matching the field"""
+    """Find record(s) matching the field as arrow dataset"""
 
     catalog = get_catalog()
 
@@ -149,7 +171,6 @@ def find_by_field(tier: str, tablename: str, field: str, value: str):
             return filtered
 
         except:
-            logger.info("Table exists, append " + tablename)    
-            table = catalog.load_table(f'{tier}.{tablename}')
+            logger.warning("Cannot scan table: " + tablename)    
         
         return None

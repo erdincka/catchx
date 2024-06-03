@@ -47,8 +47,9 @@ def get_echart():
 
 
 async def chart_listener(chart: ui.echart, metric_generator, *args):
-    for metric in await metric_generator(*args):
+    for metric in metric_generator(*args):
         if metric:
+
             chart.options["xAxis"]["data"].append(metric["time"])
             chart.options["title"]["text"] = metric["name"].title()
 
@@ -110,14 +111,20 @@ def new_series():
     }
 
 
-async def stream_stats():
+def mapr_monitoring():
     stream_path = "/var/mapr/mapr.monitoring/metricstreams/0"
 
-    for record in await streams.consume(stream=stream_path, topic=socket.getfqdn(app.storage.general['cluster'])):
+    metric_host_fqdn = socket.getfqdn(app.storage.general['cluster'])
+
+    for record in streams.consume(stream=stream_path, topic=metric_host_fqdn):
         metric = json.loads(record)
+
+        # logger.debug("Activity metric: %s", metric)
+
         series = []
-        if metric[0]["metric"] in ["mapr.streams.produce_msgs", "mapr.streams.listen_msgs"]:
-            # mapr.db.table.write_rows and mapr.db.table.read_rows for table
+        if metric[0]["metric"] in ["mapr.streams.produce_msgs", "mapr.streams.listen_msgs", "mapr.db.table.write_rows", "mapr.db.table.read_rows"]:
+            logger.info("Found metric %s", metric[0])
+
             series.append(
                 { metric[0]["metric"]: metric[0]["value"] }
             )

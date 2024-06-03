@@ -77,74 +77,98 @@ def info():
 def demo_steps():
     with ui.list().props("bordered").classes("w-2/3"):
 
-        with ui.expansion("Generation", caption="Prepare mock data for ingestion", group="flow"):
-            with ui.dialog().props("full-width") as generate_code, ui.card().classes("grow relative"):
-                ui.button(icon="close", on_click=generate_code.close).props("flat round dense").classes("absolute right-2 top-2")
-            # with ui.expansion("Create Data", caption="Source code for data generation", group="generate").classes("w-full"):
+        with ui.expansion("Generation", caption="Prepare and publish mock data into the pipeline", group="flow", value=True):
+            with ui.dialog().props("full-width") as generate_dialog, ui.card().classes("grow relative"):
+                ui.button(icon="close", on_click=generate_dialog.close).props("flat round dense").classes("absolute right-2 top-2")
                 ui.code(inspect.getsource(create_csv_files)).classes("w-full mt-6")
                 ui.code(inspect.getsource(fake_customer)).classes("w-full")
                 ui.code(inspect.getsource(fake_transaction)).classes("w-full")
 
             with ui.row().classes("w-full place-items-center"):
+                ui.label("Create CSVs: ").classes("w-40")
                 ui.button("Create", on_click=create_csv_files)
                 ui.button("Peek Data", on_click=peek_mocked_data).props("outline")
                 ui.button("Into S3", color='warning', on_click=not_implemented).props('outline').bind_visibility_from(app.storage.general, "S3_SECRET_KEY")
                 ui.button("Show Bucket", color='warning', on_click=not_implemented).props('outline').bind_visibility_from(app.storage.general, "S3_SECRET_KEY")
-                ui.button("Code", on_click=generate_code.open, color="info").props("outline")
+                ui.button("Code", on_click=generate_dialog.open, color="info").props("outline")
 
-            with ui.dialog().props("full-width") as publish, ui.card().classes("grow relative"):
-                ui.button(icon="close", on_click=publish.close).props("flat round dense").classes("absolute right-2 top-2")
-            # with ui.expansion("Publish", caption="Source code for Kafka producer", group="generate").classes("w-full"):
+            with ui.dialog().props("full-width") as publish_dialog, ui.card().classes("grow relative"):
+                ui.button(icon="close", on_click=publish_dialog.close).props("flat round dense").classes("absolute right-2 top-2")
                 ui.code(inspect.getsource(publish_transactions)).classes("w-full mt-6")
                 ui.code(inspect.getsource(streams.produce)).classes("w-full")
 
             with ui.row().classes("w-full place-items-center"):
+                ui.label("Publish to Kafka stream: ").classes("w-40")
                 ui.button("Publish", on_click=publish_transactions)
-                ui.button("Code", on_click=publish.open, color="info").props("outline")
+                ui.button("Code", on_click=publish_dialog.open, color="info").props("outline")
+
+            ui.button("List volume", on_click=lambda: run_command_with_dialog(f"ls -lA /mapr/{get_cluster_name()}{DEMO['basedir']}")).props('outline')
 
         with ui.expansion("Ingestion & ETL Processing", caption="Realtime processing on incoming data", group="flow"):
-            with ui.expansion("CSV to Iceberg", caption="Source code for ingesting CSV file to Iceberg table", group="ingest").classes("w-full"):
-                ui.code(inspect.getsource(ingest_customers_iceberg)).classes("w-full")
+            with ui.dialog().props("full-width") as batch_dialog, ui.card().classes("grow relative"):
+                ui.button(icon="close", on_click=batch_dialog.close).props("flat round dense").classes("absolute right-2 top-2")
+                ui.code(inspect.getsource(ingest_customers_iceberg)).classes("w-full mt-6")
                 ui.code(inspect.getsource(iceberger.write)).classes("w-full")
 
             with ui.row().classes("w-full place-items-center"):
+                ui.label("Batch ingestion: ").classes("w-40")
                 ui.button("Into Iceberg", on_click=ingest_customers_iceberg)
                 ui.button("Iceberg Table History", on_click=customer_data_history).props("outline")
                 ui.button("Iceberg Table Tail", on_click=customer_data_tail).props("outline")
+                ui.button("Code", on_click=batch_dialog.open, color="info").props("outline")
 
-            with ui.expansion("Stream", caption="Source code for consuming streaming data", group="ingest").classes("w-full"):
+            with ui.dialog().props("full-width") as stream_dialog, ui.card().classes("grow relative"):
+                ui.button(icon="close", on_click=stream_dialog.close).props("flat round dense").classes("absolute right-2 top-2")
                 ui.code(inspect.getsource(ingest_transactions)).classes("w-full mt-6")
                 ui.code(inspect.getsource(streams.consume)).classes("w-full")
                 ui.code(inspect.getsource(upsert_profile)).classes("w-full")
                 ui.code(inspect.getsource(tables.upsert_document)).classes("w-full")
 
             with ui.row().classes("w-full place-items-center"):
+                ui.label("Stream ingestion: ").classes("w-40")
                 ui.button("Stream", on_click=ingest_transactions).bind_enabled_from(app.storage.user, "busy", backward=lambda x: not x)
                 ui.button("Using Airflow", color='warning', on_click=not_implemented).props("outline").bind_enabled_from(app.storage.user, "busy", backward=lambda x: not x)
+                ui.button("Code", on_click=stream_dialog.open, color="info").props("outline")
             
+            ui.button("List Bronze", on_click=lambda: run_command_with_dialog(f"find /mapr/{get_cluster_name()}{DEMO['basedir']}/{DEMO['volumes']['bronze']}")).props('outline')
+
         with ui.expansion("Enrich & Clean", caption="Integrate with data catalogue and clean/enrich data into silver tier", group="flow"):
-            with ui.expansion("Code", caption="Source code for running the Cleaning tasks").classes("w-full"):
-                ui.code(inspect.getsource(refine_transaction)).classes("w-full mt-6")
+            with ui.dialog().props("full-width") as enrich_dialog, ui.card().classes("grow relative"):
+                ui.button(icon="close", on_click=enrich_dialog.close).props("flat round dense").classes("absolute right-2 top-2")
+                ui.code(inspect.getsource(refine_customers)).classes("w-full mt-6")
+                ui.code(inspect.getsource(refine_transaction)).classes("w-full")
 
             with ui.row().classes("w-full place-items-center"):
-                ui.button("Create Silver", on_click=not_implemented).bind_enabled_from(app.storage.user, "busy", backward=lambda x: not x)
+                ui.label("Data enrichment: ").classes("w-40")
+                ui.button("Customers", on_click=refine_customers).bind_enabled_from(app.storage.user, "busy", backward=lambda x: not x)
+                ui.button("Tail Customers", on_click=tail_silver_customers).props("outline")
+                ui.button("Transactions", on_click=refine_transaction).bind_enabled_from(app.storage.user, "busy", backward=lambda x: not x)
+                ui.button("Tail Transactions", on_click=tail_silver_transactions).props("outline")
+                ui.button("Code", on_click=enrich_dialog.open, color="info").props("outline")
+
+            ui.button("List Silver", on_click=lambda: run_command_with_dialog(f"find /mapr/{get_cluster_name()}{DEMO['basedir']}/{DEMO['volumes']['silver']}")).props('outline')
 
         with ui.expansion("Consolidate", caption="Create data lake for gold tier", group="flow"):
-            with ui.expansion("Code", caption="Source code for aggregation").classes("w-full"):
+            with ui.dialog().props("full-width") as aggregate_dialog, ui.card().classes("grow relative"):
+                ui.button(icon="close", on_click=aggregate_dialog.close).props("flat round dense").classes("absolute right-2 top-2")
                 ui.code(inspect.getsource(not_implemented)).classes("w-full mt-6")
 
             with ui.row().classes("w-full place-items-center"):
+                ui.label("Data aggregation: ").classes("w-40")
                 ui.button("Create Golden", on_click=not_implemented)
+                ui.button("Code", on_click=aggregate_dialog.open, color="info").props("outline")
+
+            ui.button("List Gold", on_click=lambda: run_command_with_dialog(f"find /mapr/{get_cluster_name()}{DEMO['basedir']}/{DEMO['volumes']['gold']}")).props('outline')
 
 
 def monitoring_charts():
     # Monitoring charts
     with ui.card().classes("flex-grow shrink sticky top-0"):
+        ui.label("Realtime Visibility").classes("uppercase")
         pass
-        # streams_chart = get_echart()
-        # streams_chart.run_chart_method(':showLoading', r'{text: "Waiting..."}',)
-        
-        # ui.timer(1.0, lambda c=streams_chart, s=stream_stats: run.io_bound(chart_listener, c, s), once=True)
+        streams_chart = get_echart()
+        streams_chart.run_chart_method(':showLoading', r'{text: "Waiting..."}',)
+        ui.timer(MON_REFRESH_INTERVAL, lambda c=streams_chart, s=mapr_monitoring: chart_listener(c, s), once=True)
 
         # topic_chart = get_echart()
         # topic_chart.run_chart_method(':showLoading', r'{text: "Waiting..."}',)

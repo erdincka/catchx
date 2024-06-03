@@ -66,7 +66,15 @@ async def ingest_customers_airflow():
 
 
 async def ingest_customers_iceberg():
+    """
+    Read customers.csv and ingest into iceberg table in "bronze" tier
+    """
+
+    tier = DEMO['volumes']['bronze']
+    tablename = DEMO['tables']['customers']
+
     csvpath = f"/mapr/{get_cluster_name()}{DEMO['basedir']}/{DEMO['tables']['customers']}.csv"
+
     try:
         with open(csvpath, "r", newline='') as csvfile:
             csv_reader = csv.DictReader(csvfile)
@@ -74,22 +82,25 @@ async def ingest_customers_iceberg():
             logger.info("Reading %s", csvpath)
 
             # Write into iceberg for Bronze tier (raw data)
-            if iceberger.write(tier=DEMO['volumes']['bronze'], tablename=DEMO['tables']['customers'], records=[cust for cust in csv_reader]):
-                ui.notify(f"Stored {len(csv_reader)} records in bronze volume with Iceberg", type='positive')
+            if iceberger.write(tier=tier, tablename=tablename, records=[cust for cust in csv_reader]):
+                ui.notify(f"Saved {tablename} into {tier} with Iceberg", type='positive')
+            else:
+                ui.notify("Failed to write into Iceberg table")
 
     except Exception as error:
         logger.debug("Failed to read customers.csv: %s", error)
 
-    finally:
-        ui.notify("Customer data ingested into bronze tier", type='positive')
-
 
 def customer_data_history():
+
+    tier = DEMO['volumes']['bronze']
+    tablename = DEMO['tables']['customers']
+
     with ui.dialog().props("full-width") as dialog, ui.card().classes("grow relative"):
         ui.button(icon="close", on_click=dialog.close).props("flat round dense").classes("absolute right-2 top-2")
-        result = ui.log().classes("w-full").style("white-space: pre-wrap")
+        result = ui.log().classes("w-full mt-6").style("white-space: pre-wrap")
 
-        for history in iceberger.history(tier=DEMO['volumes']['bronze'], tablename=DEMO['tables']['customers']):
+        for history in iceberger.history(tier=tier, tablename=tablename):
             result.push(history)
 
     dialog.on("close", lambda d=dialog: d.delete())
@@ -97,11 +108,15 @@ def customer_data_history():
 
 
 def customer_data_tail():
+
+    tier = DEMO['volumes']['bronze']
+    tablename = DEMO['tables']['customers']
+
     with ui.dialog().props("full-width") as dialog, ui.card().classes("grow relative"):
         ui.button(icon="close", on_click=dialog.close).props("flat round dense").classes("absolute right-2 top-2")
-        result = ui.log().classes("w-full").style("white-space: pre-wrap")
 
-        result.push(iceberger.tail(tier=DEMO['volumes']['bronze'], tablename=DEMO['tables']['customers']))
+        df = iceberger.tail(tier=tier, tablename=tablename)
+        ui.table.from_pandas(df).classes('w-full mt-6')
 
     dialog.on("close", lambda d=dialog: d.delete())
     dialog.open()
