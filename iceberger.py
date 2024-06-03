@@ -2,10 +2,10 @@ import logging
 import pyarrow as pa
 from pyiceberg.expressions import EqualTo
 
-from helpers import *
+from common import *
 
 logger = logging.getLogger("iceberger")
-
+logging.getLogger("pyiceberg.io").setLevel(logging.WARNING)
 
 def get_catalog():
     """Return the catalog, create if not exists"""
@@ -17,7 +17,7 @@ def get_catalog():
         catalog = SqlCatalog(
             "default",
             **{
-                "uri": f"sqlite:////mapr/{get_cluster_name()}{DEMO['basedir']}/iceberg.db",
+                "uri": f"sqlite:////mapr/{get_cluster_name()}{DATA_DOMAIN['basedir']}/iceberg.db",
                 "py-io-impl": "pyiceberg.io.pyarrow.PyArrowFileIO",
             },
         )
@@ -41,7 +41,7 @@ def write(tier: str, tablename: str, records: list) -> bool:
     :return bool: Success or failure
     """
 
-    warehouse_path = f"/mapr/{get_cluster_name()}{DEMO['basedir']}/{tier}/{tablename}"
+    warehouse_path = f"/mapr/{get_cluster_name()}{DATA_DOMAIN['basedir']}/{tier}/{tablename}"
 
     catalog = get_catalog()
 
@@ -119,7 +119,7 @@ def stats(tier: str):
 
     metrics = {}
 
-    for tablename in DEMO['tables']:
+    for tablename in DATA_DOMAIN['tables']:
 
         catalog = get_catalog()
 

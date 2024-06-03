@@ -1,25 +1,43 @@
 import asyncio
 import datetime
-import json
 import logging
 import os
 import tarfile
 
 import httpx
-import importlib_resources
 from nicegui import ui, events, app, binding
 from nicegui.events import ValueChangeEventArguments
 
-
-APP_NAME = "catchX"
-TITLE = "Fraud detection pipeline"
+APP_NAME = "DataMesh"
+TITLE = "Building a Hybrid Data Mesh"
 STORAGE_SECRET = "ezmer@1r0cks"
 
-DEMO = json.loads(importlib_resources.files().joinpath("catchx.json").read_text())
+DATA_DOMAIN = {
+  "name": "fraud",
+#   TODO: describe
+  "description": "What, why and how?",
+  "diagram": "datadomain.png",
+  "basedir": "/apps/fraud",
+  "volumes": {
+    "bronze": "bronze",
+    "silver": "silver",
+    "gold": "gold"
+  },
+  "stream": "incoming",
+  "topic": "transactions",
+  "tables": {
+    "profiles": "profiles",
+    "transactions": "transactions",
+    "customers": "customers",
+    "combined": "combined"
+  },
+  "link": "https://github.com/erdincka/catchx"
+}
 
 MAX_POLL_TIME = 2.0
 MON_REFRESH_INTERVAL = 1.0
 MON_REFRESH_INTERVAL3 = 3.0
+FETCH_RECORD_NUM = 20
 
 TRANSACTION_CATEGORIES = [
     "Entertainment",
@@ -106,13 +124,6 @@ async def run_command_with_dialog(command: str) -> None:
         cwd=os.path.dirname(os.path.abspath(__file__))
     )
 
-    # stdout, stderr = await process.communicate()
-
-    # if stdout:
-    #     result.push(stdout.decode())
-    # if stderr:
-    #     result.push(stderr.decode())
-
     # NOTE we need to read the output in chunks, otherwise the process will block
     while True:
         new = await process.stdout.read(4096)
@@ -140,10 +151,10 @@ async def run_command(command: str):
     yield f"Finished: {command}"
 
 
-async def command_to_log(command: str, uilog: ui.code):
-    uilog.content = ""
-    async for output in run_command(command):
-        uilog.content += output
+# async def command_to_log(command: str, uilog: ui.code):
+#     uilog.content = ""
+#     async for output in run_command(command):
+#         uilog.content += output
 
 
 def get_cluster_name():
@@ -154,13 +165,13 @@ async def create_demo_constructs():
     auth = (app.storage.general["MAPR_USER"], app.storage.general["MAPR_PASS"])
 
     # create base folder if not exists
-    basedir = f"/mapr/{get_cluster_name()}{DEMO['basedir']}"
+    basedir = f"/mapr/{get_cluster_name()}{DATA_DOMAIN['basedir']}"
     if not os.path.isdir(basedir):
         os.mkdir(basedir)
 
-    for vol in DEMO['volumes']:
+    for vol in DATA_DOMAIN['volumes']:
 
-        URL = f"https://{app.storage.general['cluster']}:8443/rest/volume/create?name={DEMO['volumes'][vol]}&path={DEMO['basedir']}/{DEMO['volumes'][vol]}&replication=1&minreplication=1&nsreplication=1&nsminreplication=1"
+        URL = f"https://{app.storage.general['cluster']}:8443/rest/volume/create?name={DATA_DOMAIN['volumes'][vol]}&path={DATA_DOMAIN['basedir']}/{DATA_DOMAIN['volumes'][vol]}&replication=1&minreplication=1&nsreplication=1&nsminreplication=1"
         async with httpx.AsyncClient(verify=False) as client:
             response = await client.post(URL, auth=auth)
 
@@ -176,7 +187,7 @@ async def create_demo_constructs():
                     ui.notify(f"{res['errors'][0]['desc']}", type='warning')
 
     # Create stream
-    URL = f"https://{app.storage.general['cluster']}:8443/rest/stream/create?path={DEMO['basedir']}/{DEMO['stream']}&ttl=38400&compression=lz4&produceperm=p&consumeperm=p&topicperm=p"
+    URL = f"https://{app.storage.general['cluster']}:8443/rest/stream/create?path={DATA_DOMAIN['basedir']}/{DATA_DOMAIN['stream']}&ttl=38400&compression=lz4&produceperm=p&consumeperm=p&topicperm=p"
     async with httpx.AsyncClient(verify=False) as client:
         response = await client.post(URL, auth=auth)
 
@@ -188,17 +199,17 @@ async def create_demo_constructs():
         else:
             res = response.json()
             if res['status'] == "OK":
-                ui.notify(f"Stream {DEMO['stream']} created", type='positive')
+                ui.notify(f"Stream {DATA_DOMAIN['stream']} created", type='positive')
             elif res['status'] == "ERROR":
-                ui.notify(f"Stream: {DEMO['stream']}: {res['errors'][0]['desc']}", type='warning')
+                ui.notify(f"Stream: {DATA_DOMAIN['stream']}: {res['errors'][0]['desc']}", type='warning')
 
 
 async def delete_volumes_and_stream():
     auth = (app.storage.general["MAPR_USER"], app.storage.general["MAPR_PASS"])
 
-    for vol in DEMO['volumes']:
+    for vol in DATA_DOMAIN['volumes']:
 
-        URL = f"https://{app.storage.general['cluster']}:8443/rest/volume/remove?name={DEMO['volumes'][vol]}"
+        URL = f"https://{app.storage.general['cluster']}:8443/rest/volume/remove?name={DATA_DOMAIN['volumes'][vol]}"
         async with httpx.AsyncClient(verify=False) as client:
             response = await client.post(URL, auth=auth)
 
@@ -215,7 +226,7 @@ async def delete_volumes_and_stream():
 
 
     # Delete stream
-    URL = f"https://{app.storage.general['cluster']}:8443/rest/stream/delete?path={DEMO['basedir']}/{DEMO['stream']}"
+    URL = f"https://{app.storage.general['cluster']}:8443/rest/stream/delete?path={DATA_DOMAIN['basedir']}/{DATA_DOMAIN['stream']}"
     async with httpx.AsyncClient(verify=False) as client:
         response = await client.post(URL, auth=auth)
 
@@ -226,16 +237,16 @@ async def delete_volumes_and_stream():
         else:
             res = response.json()
             if res['status'] == "OK":
-                ui.notify(f"Stream '{DEMO['stream']}' deleted", type='positive')
+                ui.notify(f"Stream '{DATA_DOMAIN['stream']}' deleted", type='positive')
             elif res['status'] == "ERROR":
-                ui.notify(f"Stream: {DEMO['stream']}: {res['errors'][0]['desc']}", type='warning')
+                ui.notify(f"Stream: {DATA_DOMAIN['stream']}: {res['errors'][0]['desc']}", type='warning')
 
     # delete mock data files
     for file in ["customers.csv", "transactions.csv"]:
-        os.remove(f"/mapr/{get_cluster_name()}{DEMO['basedir']}/{file}")
+        os.remove(f"/mapr/{get_cluster_name()}{DATA_DOMAIN['basedir']}/{file}")
 
     # delete base folder
-    basedir = f"/mapr/{get_cluster_name()}{DEMO['basedir']}"
+    basedir = f"/mapr/{get_cluster_name()}{DATA_DOMAIN['basedir']}"
     os.rmdir(basedir)
 
 

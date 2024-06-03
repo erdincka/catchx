@@ -4,7 +4,7 @@ from nicegui import run
 import country_converter as coco
 import pandas as pd
 
-from helpers import *
+from common import *
 import tables
 import iceberger
 
@@ -24,7 +24,7 @@ async def upsert_profile(transaction: dict):
     }
 
     # updated profile information is written to "silver" tier
-    table_path = f"{DEMO['basedir']}/{DEMO['volumes']['silver']}/{DEMO['tables']['profiles']}"
+    table_path = f"{DATA_DOMAIN['basedir']}/{DATA_DOMAIN['volumes']['silver']}/{DATA_DOMAIN['tables']['profiles']}"
 
     if tables.upsert_document(table_path=table_path, json_dict=profile):
         logger.debug("Updated profile: %s with score: %d", profile['_id'], profile['score'])
@@ -34,22 +34,21 @@ async def dummy_fraud_score():
     """Return a random scoring between 1 to 10 with adding a delay to simulate querying to an AI model"""
 
     # add delay
-    await asyncio.sleep(0.05)
+    await asyncio.sleep(0.02)
 
     # respond with a random probability
-    return random.randint(0, 10)
+    return random.randint(0, 100)
 
 
-# TODO: get customer ID from customers table
 def get_customer_id(from_account: str):
     """Find the customerID from customers table using account number"""
 
-    # TODO: This should be changed to silver tier, as reading ID from bronze (dirty) data is not ideal
-    found = iceberger.find_by_field(tier=DEMO['volumes']['bronze'], tablename=DEMO['tables']['customers'], field="account_number", value=from_account)
+    # NOTE: This should be reading from silver tier, as reading ID from bronze (dirty) data is not ideal
+    found = iceberger.find_by_field(tier=DATA_DOMAIN['volumes']['bronze'], tablename=DATA_DOMAIN['tables']['customers'], field="account_number", value=from_account)
 
     if found is not None:
-        # get first column (id) from first row
-        return found[0][0]
+        # get first column (id) from first row as string
+        return found[0][0].as_py()
 
     else: return None
 
@@ -66,12 +65,12 @@ async def refine_transactions():
     """
 
     # input table - iceberg
-    tier = DEMO['volumes']['bronze']
-    tablename = DEMO['tables']['transactions']
+    tier = DATA_DOMAIN['volumes']['bronze']
+    tablename = DATA_DOMAIN['tables']['transactions']
 
     # output table - maprdb binary
     # TODO: using DocumentDB here, change to BinaryDB
-    silver_transactions_table = f"{DEMO['basedir']}/{DEMO['volumes']['silver']}/{DEMO['tables']['transactions']}"
+    silver_transactions_table = f"{DATA_DOMAIN['basedir']}/{DATA_DOMAIN['volumes']['silver']}/{DATA_DOMAIN['tables']['transactions']}"
 
     df = iceberger.find_all(tier=tier, tablename=tablename)
     ui.notify(f"Found {df.count(axis=1).size} rows in {tablename}")
@@ -108,12 +107,12 @@ async def refine_customers():
     """
 
     # input table - iceberg
-    tier = DEMO['volumes']['bronze']
-    tablename = DEMO['tables']['customers']
+    tier = DATA_DOMAIN['volumes']['bronze']
+    tablename = DATA_DOMAIN['tables']['customers']
 
     # output table - maprdb binary
     # TODO: using DocumentDB here, change to BinaryDB
-    silver_customers_table = f"{DEMO['basedir']}/{DEMO['volumes']['silver']}/{DEMO['tables']['customers']}"
+    silver_customers_table = f"{DATA_DOMAIN['basedir']}/{DATA_DOMAIN['volumes']['silver']}/{DATA_DOMAIN['tables']['customers']}"
 
     cc = coco.CountryConverter()
 
@@ -181,9 +180,10 @@ def iceberg_table_tail(tier: str, tablename: str):
     dialog.on("close", lambda d=dialog: d.delete())
     dialog.open()
 
+
 def peek_documents(tablepath: str):
     """
-    Get 5 documents from DocumentDB table
+    Get `NUM_RECORDS` documents from DocumentDB table
 
     :param tablepath str: full path for the JSON table
     """
@@ -191,34 +191,106 @@ def peek_documents(tablepath: str):
     with ui.dialog().props("full-width") as dialog, ui.card().classes("grow relative"):
         ui.button(icon="close", on_click=dialog.close).props("flat round dense").classes("absolute right-2 top-2")
 
-        docs = tables.get_documents(table=tablepath, limit=5)
+        docs = tables.get_documents(table=tablepath, limit=FETCH_RECORD_NUM)
         ui.table.from_pandas(pd.DataFrame.from_dict(docs)).classes('w-full mt-6')
         
     dialog.on("close", lambda d=dialog: d.delete())
     dialog.open()
 
 
-# def detect_fraud(params: list, count: int):
-#     """
-#     Generator for randomly selected transactions to simulate fraud activity
+async def create_golden():
 
-#     """
-#     # params is not used
-#     table_path = f"{DEMO['basedir']}/{DEMO['volumes']['bronze']}/{DEMO['tables']['profiles']}"
+    app.storage.user["busy"] = True
+    
+    await run.io_bound(data_aggregation)
+    
+    app.storage.user["busy"] = False
 
-#     # just a simulation of query to the profiles table, 
-#     # if any doc is found with the number as their CHECK DIGITS in IBAN, we consider it as fraud!
-#     whereClause = {
-#         "$or":[
-#             {"$like":{"sender":f"GB{count}%"}},
-#             {"$like":{"receiver":f"GB{count}%"}}
-#         ]
-#     }
 
-#     for doc in tables.search_documents(app.storage.general.get('cluster', 'localhost'), table_path, whereClause):
+def data_aggregation():
+    """
+    Create golden data lake with consolidated customer and transaction information.
 
-#         logger.debug("DB GET RESPONSE: %s", doc)
+    Code generated by ChatGPT - 4o (June 2024)
 
-#         app.storage.general["counting"] = app.storage.general.get("counting", 0) + 1
-#         yield f"Fraud txn from {doc['sender']} to {doc['receiver']}"
-        
+    """
+
+    # inputs from "Silver" tier
+    profile_input_table = f"{DATA_DOMAIN['basedir']}/{DATA_DOMAIN['volumes']['silver']}/{DATA_DOMAIN['tables']['profiles']}"
+    customers_input_table = f"{DATA_DOMAIN['basedir']}/{DATA_DOMAIN['volumes']['silver']}/{DATA_DOMAIN['tables']['customers']}"
+    transactions_input_table = f"{DATA_DOMAIN['basedir']}/{DATA_DOMAIN['volumes']['silver']}/{DATA_DOMAIN['tables']['transactions']}"
+
+    # output table for combined data
+    combined_table = f"{DATA_DOMAIN['basedir']}/{DATA_DOMAIN['volumes']['gold']}/{DATA_DOMAIN['tables']['combined']}"
+
+    profiles_df = pd.DataFrame.from_dict(tables.get_documents(table=profile_input_table, limit=None))
+    customers_df = pd.DataFrame.from_dict(tables.get_documents(table=customers_input_table, limit=None))
+    transactions_df = pd.DataFrame.from_dict(tables.get_documents(table=transactions_input_table, limit=None))
+
+    # merge customers with profiles on _id
+    merged_df = pd.merge(customers_df, profiles_df, on="_id", how="left")
+    
+    # Group transactions by sender_account and receiver_account
+    sent_transactions = transactions_df.groupby('sender_account').agg(list).reset_index()
+    received_transactions = transactions_df.groupby('receiver_account').agg(list).reset_index()
+
+    # Merge the transactions with the merged customer-profile data
+    merged_df = pd.merge(merged_df, sent_transactions, left_on='account_number', right_on='sender_account', how='left', suffixes=('', '_sent'))
+    merged_df = pd.merge(merged_df, received_transactions, left_on='account_number', right_on='receiver_account', how='left', suffixes=('', '_received'))
+
+    # Fill NaN with empty lists for transactions
+    merged_df['amount_sent'] = merged_df['amount'].apply(lambda x: [] if pd.isna(x) else x)
+    merged_df['transaction_date_sent'] = merged_df['transaction_date'].apply(lambda x: [] if pd.isna(x) else x)
+    merged_df['receiver_account'] = merged_df['receiver_account'].apply(lambda x: [] if pd.isna(x) else x)
+    merged_df['amount_received'] = merged_df['amount_received'].apply(lambda x: [] if pd.isna(x) else x)
+    merged_df['transaction_date_received'] = merged_df['transaction_date_received'].apply(lambda x: [] if pd.isna(x) else x)
+    merged_df['sender_account'] = merged_df['sender_account'].apply(lambda x: [] if pd.isna(x) else x)
+    # update score from nan to None
+    merged_df['score'] = merged_df['score'].apply(lambda x: None if pd.isna(x) else x)
+
+    # Create a combined JSON structure
+    def create_combined_json(row):
+        return {
+            '_id': row['_id'],
+            'name': row['name'],
+            'address': row['address'],
+            'account_number': row['account_number'],
+            'score': row['score'],
+            'transactions_sent': [{'amount': a, 'transaction_date': t, 'receiver_account': r} for a, t, r in zip(row['amount_sent'], row['transaction_date_sent'], row['receiver_account'])],
+            'transactions_received': [{'amount': a, 'transaction_date': t, 'sender_account': s} for a, t, s in zip(row['amount_received'], row['transaction_date_received'], row['sender_account'])]
+        }
+
+    # Apply the function to the DataFrame
+    combined_data = merged_df.apply(create_combined_json, axis=1).tolist()
+
+    # Insert combined data into new JSON table
+    if tables.upsert_documents(table_path=combined_table, docs=combined_data):
+        logger.info("Created golden table with %d records", len(combined_data))
+    else:
+        logger.warning("Failed to write golden table at: %s", combined_table)
+
+
+def reporting():
+    not_implemented()
+    # Reports / Dashboards
+    # Profiles
+        # Statistics (mean, std, min, percentiles, max)
+        # top 10 by score
+    # profile_aggregate = df_profiles.describe()
+    # profile_top_10_by_score = df_profiles.sort_values("score", ascending = False).head(10)
+
+    # Customers
+        # Statistics (mean, std, min, percentiles, max)
+        # top 10 spenders
+        # top 10 receivers
+        # monthly spend per customer
+        # monthly recieved per customer
+        # top 10 txn (send + recieve)
+    # customers_aggregate = df_customers.describe()
+
+    # Transactions
+        # Statistics (mean, std, min, percentiles, max)
+        # txn per month
+        # amount per month
+    # transactions_aggregate = df_transactions.describe()
+

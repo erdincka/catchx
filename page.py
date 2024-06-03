@@ -2,7 +2,7 @@ import inspect
 from nicegui import ui, app
 
 from functions import *
-from helpers import *
+from common import *
 from ingestion import *
 from mock import *
 from monitoring import *
@@ -43,10 +43,10 @@ def footer():
     with ui.footer():
         with ui.row().classes("w-full items-center"):
             # Show endpoints
-            ui.label(f"Volumes: [ {' | '.join( DEMO['volumes'].values() )} ]").classes("tracking-wide uppercase")
-            ui.label(f"Tables: [ {' | '.join( DEMO['tables'] )} ]").classes("tracking-wide uppercase")
-            ui.label(f"Stream: [ { DEMO['stream'] } ]").classes("tracking-wide uppercase")
-            ui.label(f"Topic: [ { DEMO['topic'] } ]").classes("tracking-wide uppercase")
+            ui.label(f"Volumes: [ {' | '.join( DATA_DOMAIN['volumes'].values() )} ]").classes("tracking-wide uppercase")
+            ui.label(f"Tables: [ {' | '.join( DATA_DOMAIN['tables'] )} ]").classes("tracking-wide uppercase")
+            ui.label(f"Stream: [ { DATA_DOMAIN['stream'] } ]").classes("tracking-wide uppercase")
+            ui.label(f"Topic: [ { DATA_DOMAIN['topic'] } ]").classes("tracking-wide uppercase")
 
             ui.space()
 
@@ -65,13 +65,13 @@ def info():
         icon="info",
         caption="End to end data pipeline using Ezmeral Data Fabric for financial transactions",
     ).classes("w-full").classes("text-bold"):
-        ui.markdown(DEMO["description"]).classes("font-normal")
-        ui.image(f"/images/{DEMO['diagram']}").classes("object-scale-down g-10")
+        ui.markdown(DATA_DOMAIN["description"]).classes("font-normal")
+        ui.image(f"/images/{DATA_DOMAIN['diagram']}").classes("object-scale-down g-10")
         ui.link(
             "Source",
-            target=DEMO.get("link", ""),
+            target=DATA_DOMAIN.get("link", ""),
             new_tab=True,
-        ).bind_visibility_from(DEMO, "link", backward=lambda x: x is not None)
+        ).bind_visibility_from(DATA_DOMAIN, "link", backward=lambda x: x is not None)
 
 
 def demo_steps():
@@ -102,7 +102,7 @@ def demo_steps():
                 ui.button("Publish", on_click=publish_transactions)
                 ui.button("Code", on_click=publish_dialog.open, color="info").props("outline")
 
-            ui.button("List volume", on_click=lambda: run_command_with_dialog(f"ls -lA /mapr/{get_cluster_name()}{DEMO['basedir']}")).props('outline')
+            ui.button("List volume", on_click=lambda: run_command_with_dialog(f"ls -lA /mapr/{get_cluster_name()}{DATA_DOMAIN['basedir']}")).props('outline')
 
         with ui.expansion("Ingestion & ETL Processing", caption="Realtime processing on incoming data", group="flow"):
             with ui.dialog().props("full-width") as batch_dialog, ui.card().classes("grow relative"):
@@ -113,8 +113,8 @@ def demo_steps():
             with ui.row().classes("w-full place-items-center"):
                 ui.label("Batch ingestion: ").classes("w-40")
                 ui.button("Into Iceberg", on_click=ingest_customers_iceberg)
-                ui.button("Table History", on_click=lambda: iceberg_table_history(tier=DEMO['volumes']['bronze'], tablename=DEMO['tables']['customers'])).props("outline")
-                ui.button("Table Tail", on_click=lambda: iceberg_table_tail(tier=DEMO['volumes']['bronze'], tablename=DEMO['tables']['customers'])).props("outline")
+                ui.button("Table History", on_click=lambda: iceberg_table_history(tier=DATA_DOMAIN['volumes']['bronze'], tablename=DATA_DOMAIN['tables']['customers'])).props("outline")
+                ui.button("Table Tail", on_click=lambda: iceberg_table_tail(tier=DATA_DOMAIN['volumes']['bronze'], tablename=DATA_DOMAIN['tables']['customers'])).props("outline")
                 ui.button("Code", on_click=batch_dialog.open, color="info").props("outline")
 
             with ui.dialog().props("full-width") as stream_dialog, ui.card().classes("grow relative"):
@@ -127,12 +127,12 @@ def demo_steps():
             with ui.row().classes("w-full place-items-center"):
                 ui.label("Stream ingestion: ").classes("w-40")
                 ui.button("Stream", on_click=ingest_transactions).bind_enabled_from(app.storage.user, "busy", backward=lambda x: not x)
-                ui.button("Table History", on_click=lambda: iceberg_table_history(tier=DEMO['volumes']['bronze'], tablename=DEMO['tables']['transactions'])).props("outline")
-                ui.button("Table Tail", on_click=lambda: iceberg_table_tail(tier=DEMO['volumes']['bronze'], tablename=DEMO['tables']['transactions'])).props("outline")
+                ui.button("Table History", on_click=lambda: iceberg_table_history(tier=DATA_DOMAIN['volumes']['bronze'], tablename=DATA_DOMAIN['tables']['transactions'])).props("outline")
+                ui.button("Table Tail", on_click=lambda: iceberg_table_tail(tier=DATA_DOMAIN['volumes']['bronze'], tablename=DATA_DOMAIN['tables']['transactions'])).props("outline")
                 ui.button("Using Airflow", color='warning', on_click=not_implemented).props("outline").bind_enabled_from(app.storage.user, "busy", backward=lambda x: not x)
                 ui.button("Code", on_click=stream_dialog.open, color="info").props("outline")
             
-            ui.button("List Bronze", on_click=lambda: run_command_with_dialog(f"find /mapr/{get_cluster_name()}{DEMO['basedir']}/{DEMO['volumes']['bronze']}")).props('outline')
+            ui.button("List Bronze", on_click=lambda: run_command_with_dialog(f"find /mapr/{get_cluster_name()}{DATA_DOMAIN['basedir']}/{DATA_DOMAIN['volumes']['bronze']}")).props('outline')
 
         with ui.expansion("Enrich & Clean", caption="Integrate with data catalogue and clean/enrich data into silver tier", group="flow"):
             with ui.dialog().props("full-width") as enrich_dialog, ui.card().classes("grow relative"):
@@ -143,24 +143,29 @@ def demo_steps():
             with ui.row().classes("w-full place-items-center"):
                 ui.label("Data enrichment: ").classes("w-40")
                 ui.button("Customers", on_click=refine_customers).bind_enabled_from(app.storage.user, "busy", backward=lambda x: not x)
-                ui.button("Peek Customers", on_click=lambda: peek_documents(tablepath=f"{DEMO['basedir']}/{DEMO['volumes']['silver']}/{DEMO['tables']['customers']}")).props("outline")
                 ui.button("Transactions", on_click=refine_transactions).bind_enabled_from(app.storage.user, "busy", backward=lambda x: not x)
-                ui.button("Peek Transactions", on_click=lambda: peek_documents(f"{DEMO['basedir']}/{DEMO['volumes']['silver']}/{DEMO['tables']['transactions']}")).props("outline")
+
+            with ui.row().classes("w-full place-items-center"):
+                ui.label("Peek: ").classes("w-40")
+                ui.button("Profiles", on_click=lambda: peek_documents(tablepath=f"{DATA_DOMAIN['basedir']}/{DATA_DOMAIN['volumes']['silver']}/{DATA_DOMAIN['tables']['profiles']}")).props("outline")
+                ui.button("Customers", on_click=lambda: peek_documents(tablepath=f"{DATA_DOMAIN['basedir']}/{DATA_DOMAIN['volumes']['silver']}/{DATA_DOMAIN['tables']['customers']}")).props("outline")
+                ui.button("Transactions", on_click=lambda: peek_documents(f"{DATA_DOMAIN['basedir']}/{DATA_DOMAIN['volumes']['silver']}/{DATA_DOMAIN['tables']['transactions']}")).props("outline")
                 ui.button("Code", on_click=enrich_dialog.open, color="info").props("outline")
 
-            ui.button("List Silver", on_click=lambda: run_command_with_dialog(f"ls -lA /mapr/{get_cluster_name()}{DEMO['basedir']}/{DEMO['volumes']['silver']}")).props('outline')
+            ui.button("List Silver", on_click=lambda: run_command_with_dialog(f"ls -lA /mapr/{get_cluster_name()}{DATA_DOMAIN['basedir']}/{DATA_DOMAIN['volumes']['silver']}")).props('outline')
 
         with ui.expansion("Consolidate", caption="Create data lake for gold tier", group="flow"):
             with ui.dialog().props("full-width") as aggregate_dialog, ui.card().classes("grow relative"):
                 ui.button(icon="close", on_click=aggregate_dialog.close).props("flat round dense").classes("absolute right-2 top-2")
-                ui.code(inspect.getsource(not_implemented)).classes("w-full mt-6")
+                ui.code(inspect.getsource(data_aggregation)).classes("w-full mt-6")
 
             with ui.row().classes("w-full place-items-center"):
                 ui.label("Data aggregation: ").classes("w-40")
-                ui.button("Create Golden", on_click=not_implemented)
+                ui.button("Create Golden", on_click=create_golden).bind_enabled_from(app.storage.user, "busy", backward=lambda x: not x)
+                ui.button("Peek", on_click=lambda: peek_documents(f"{DATA_DOMAIN['basedir']}/{DATA_DOMAIN['volumes']['gold']}/{DATA_DOMAIN['tables']['combined']}")).props("outline")
                 ui.button("Code", on_click=aggregate_dialog.open, color="info").props("outline")
 
-            ui.button("List Gold", on_click=lambda: run_command_with_dialog(f"find /mapr/{get_cluster_name()}{DEMO['basedir']}/{DEMO['volumes']['gold']}")).props('outline')
+            ui.button("List Gold", on_click=lambda: run_command_with_dialog(f"ls -Al /mapr/{get_cluster_name()}{DATA_DOMAIN['basedir']}/{DATA_DOMAIN['volumes']['gold']}")).props('outline')
 
 
 def monitoring_charts():
@@ -235,15 +240,15 @@ def cluster_configuration_dialog():
             ui.label("required constructs for the demo")
             with ui.row().classes("w-full place-items-center"):
                 ui.button("Create", on_click=create_demo_constructs)
-                ui.button(f"List {DEMO['basedir']}", on_click=lambda: run_command_with_dialog(f"ls -la /mapr/{get_cluster_name()}{DEMO['basedir']}")).props('outline')
+                ui.button(f"List {DATA_DOMAIN['basedir']}", on_click=lambda: run_command_with_dialog(f"ls -la /mapr/{get_cluster_name()}{DATA_DOMAIN['basedir']}")).props('outline')
 
         ui.separator()
         with ui.card_section():
             ui.label("Show volumes").classes("text-lg w-full")
             with ui.row().classes("w-full place-items-center"):
                 ui.button("GNS", on_click=lambda: run_command_with_dialog("df -h /mapr; ls -lA /mapr/")).props('outline')
-                for vol in DEMO['volumes']:
-                    ui.button(f"List {vol}", on_click=lambda v=vol: run_command_with_dialog(f"find /mapr/{get_cluster_name()}{DEMO['basedir']}/{DEMO['volumes'][v]}")).props('outline')
+                for vol in DATA_DOMAIN['volumes']:
+                    ui.button(f"List {vol}", on_click=lambda v=vol: run_command_with_dialog(f"find /mapr/{get_cluster_name()}{DATA_DOMAIN['basedir']}/{DATA_DOMAIN['volumes'][v]}")).props('outline')
 
         ui.separator()
         with ui.card_section():

@@ -4,7 +4,7 @@ import uuid
 from faker import Faker
 
 from nicegui import run
-from helpers import *
+from common import *
 import streams
 
 
@@ -50,7 +50,7 @@ def create_csv_files():
     for _ in range(number_of_customers):
         customers.append(fake_customer())
 
-    with open(f"/mapr/{get_cluster_name()}{DEMO['basedir']}/{DEMO['tables']['customers']}.csv", "w", newline='') as csvfile:
+    with open(f"/mapr/{get_cluster_name()}{DATA_DOMAIN['basedir']}/{DATA_DOMAIN['tables']['customers']}.csv", "w", newline='') as csvfile:
         fieldnames = fake_customer().keys()
         writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
         writer.writeheader()
@@ -64,7 +64,7 @@ def create_csv_files():
         receiver = customers[random.randrange(number_of_customers)]['account_number']
         transactions.append(fake_transaction(sender, receiver))
 
-    with open(f"/mapr/{get_cluster_name()}{DEMO['basedir']}/{DEMO['tables']['transactions']}.csv", "w", newline='') as csvfile:
+    with open(f"/mapr/{get_cluster_name()}{DATA_DOMAIN['basedir']}/{DATA_DOMAIN['tables']['transactions']}.csv", "w", newline='') as csvfile:
         fieldnames = fake_transaction("X", "Y").keys()
         writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
         writer.writeheader()
@@ -74,15 +74,15 @@ def create_csv_files():
 
 
 async def peek_mocked_data():
-    await run_command_with_dialog(f"head /mapr/{get_cluster_name()}{DEMO['basedir']}/{DEMO['tables']['customers']}.csv /mapr/{get_cluster_name()}{DEMO['basedir']}/{DEMO['tables']['transactions']}.csv")
+    await run_command_with_dialog(f"tail /mapr/{get_cluster_name()}{DATA_DOMAIN['basedir']}/{DATA_DOMAIN['tables']['customers']}.csv /mapr/{get_cluster_name()}{DATA_DOMAIN['basedir']}/{DATA_DOMAIN['tables']['transactions']}.csv")
 
 
 async def publish_transactions():
-    stream_path = f"{DEMO['basedir']}/{DEMO['stream']}"
+    stream_path = f"{DATA_DOMAIN['basedir']}/{DATA_DOMAIN['stream']}"
     count = 0
     
     try:
-        with open(f"/mapr/{get_cluster_name()}{DEMO['basedir']}/transactions.csv", "r", newline='') as csvfile:
+        with open(f"/mapr/{get_cluster_name()}{DATA_DOMAIN['basedir']}/transactions.csv", "r", newline='') as csvfile:
             csv_reader = csv.DictReader(csvfile)
 
             for transaction in csv_reader:
@@ -90,12 +90,12 @@ async def publish_transactions():
                 if count == 50: break
                 if random.randrange(10) < 3: # ~30% to be selected randomly
 
-                    if await run.io_bound(streams.produce, stream_path, DEMO['topic'], json.dumps(transaction)):
+                    if await run.io_bound(streams.produce, stream_path, DATA_DOMAIN['topic'], json.dumps(transaction)):
                         logger.debug("Sent %s", transaction["id"])
                         # add delay
                         # await asyncio.sleep(0.2)
                     else:
-                        logger.warning("Failed to send transaction to %s", DEMO['topic'])
+                        logger.warning("Failed to send transaction to %s", DATA_DOMAIN['topic'])
 
                     count += 1
 
@@ -105,4 +105,4 @@ async def publish_transactions():
         logger.warning("Cannot read transactions: %s", error)
 
     finally:
-        ui.notify(f"Published {count} messages into {DEMO['topic']}", type='positive')
+        ui.notify(f"Published {count} messages into {DATA_DOMAIN['topic']}", type='positive')

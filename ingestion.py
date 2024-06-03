@@ -1,7 +1,7 @@
 import csv
 from nicegui import run
 
-from helpers import *
+from common import *
 import streams
 import iceberger
 from functions import upsert_profile
@@ -12,8 +12,8 @@ logger = logging.getLogger("ingestion")
 
 async def ingest_transactions():
 
-    stream_path = f"{DEMO['basedir']}/{DEMO['stream']}"
-    topic = DEMO['topic']
+    stream_path = f"{DATA_DOMAIN['basedir']}/{DATA_DOMAIN['stream']}"
+    topic = DATA_DOMAIN['topic']
     
     app.storage.user['busy'] = True
 
@@ -31,8 +31,8 @@ async def ingest_transactions():
     if len(transactions) > 0:
         # Write into iceberg for Bronze tier (raw data)
         logger.info("Writing %d transactions with iceberg", len(transactions))
-        if iceberger.write(DEMO['volumes']['bronze'], DEMO['tables']['transactions'], records=transactions):
-            ui.notify(f"Saved {len(transactions)} transactions in {DEMO['volumes']['bronze']} volume with Iceberg", type="positive")
+        if iceberger.write(DATA_DOMAIN['volumes']['bronze'], DATA_DOMAIN['tables']['transactions'], records=transactions):
+            ui.notify(f"Saved {len(transactions)} transactions in {DATA_DOMAIN['volumes']['bronze']} volume with Iceberg", type="positive")
 
     # release when done
     app.storage.user['busy'] = False
@@ -41,8 +41,8 @@ async def ingest_transactions():
 # SSE-TODO: read from stream, upsert profiles table, and write raw data into iceberg table
 async def ingest_transactions_spark():
 
-    stream_path = f"{DEMO['basedir']}/{DEMO['stream']}" # input
-    table_path = f"{DEMO['basedir']}/{DEMO['volumes']['bronze']}/{DEMO['tables']['profiles']}" # output
+    stream_path = f"{DATA_DOMAIN['basedir']}/{DATA_DOMAIN['stream']}" # input
+    table_path = f"{DATA_DOMAIN['basedir']}/{DATA_DOMAIN['volumes']['bronze']}/{DATA_DOMAIN['tables']['profiles']}" # output
     
     ### psuedo code below
     # spark.read_stream(stream_path).upsert_maprdb_binarytable(table=table_path).write_iceberg(schemaname=DEMO['volumes']['bronze'], tablename=DEMO['tables']['transactions'])
@@ -61,7 +61,7 @@ async def ingest_customers_airflow():
     """
     Read CSV file and ingest into Iceberg table
     """
-    csvpath = f"/mapr/{get_cluster_name()}{DEMO['basedir']}/{DEMO['tables']['customers']}.csv"
+    csvpath = f"/mapr/{get_cluster_name()}{DATA_DOMAIN['basedir']}/{DATA_DOMAIN['tables']['customers']}.csv"
 
     COUNT_OF_ROWS = 0
 
@@ -75,10 +75,10 @@ async def ingest_customers_iceberg():
     Read customers.csv and ingest into iceberg table in "bronze" tier
     """
 
-    tier = DEMO['volumes']['bronze']
-    tablename = DEMO['tables']['customers']
+    tier = DATA_DOMAIN['volumes']['bronze']
+    tablename = DATA_DOMAIN['tables']['customers']
 
-    csvpath = f"/mapr/{get_cluster_name()}{DEMO['basedir']}/{DEMO['tables']['customers']}.csv"
+    csvpath = f"/mapr/{get_cluster_name()}{DATA_DOMAIN['basedir']}/{DATA_DOMAIN['tables']['customers']}.csv"
 
     try:
         with open(csvpath, "r", newline='') as csvfile:

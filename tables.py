@@ -4,7 +4,7 @@ from mapr.ojai.ojai.OJAIDocumentStream import OJAIDocumentStream
 
 from nicegui import app 
 
-from helpers import *
+from common import *
 
 logger = logging.getLogger("tables")
 
@@ -74,8 +74,6 @@ def upsert_documents(table_path: str, docs: list):
         
         store.insert_or_replace(doc_stream=docs)
 
-        logger.debug("upsert done")
-
     except Exception as error:
         logger.warning(error)
         return False
@@ -143,7 +141,7 @@ def search_documents(table: str, selectClause: list, whereClause: dict):
         return doc
 
 
-def get_documents(table: str, limit: int = 10):
+def get_documents(table: str, limit: int = FETCH_RECORD_NUM):
     """
     Read n(limit) records from the table to peek data
 
@@ -161,15 +159,21 @@ def get_documents(table: str, limit: int = 10):
         table = connection.get_store(table)
 
         # Create a query to get the last n records based on the timestamp field
-        query = connection.new_query() \
-            .select('*') \
-            .limit(limit) \
-            .build()
+        if limit is not None:
+            query = connection.new_query() \
+                .select('*') \
+                .limit(limit) \
+                .build()
+        else:
+            query = connection.new_query() \
+                .select('*') \
+                .build()
 
         # Run the query and return the results as list
         return [doc for doc in table.find(query)]
 
     except Exception as error:
+        print(error)
         logger.warning("Failed to get document: %s", error)
         return []
 

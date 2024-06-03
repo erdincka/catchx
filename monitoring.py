@@ -3,7 +3,7 @@ import socket
 import httpx
 from nicegui import ui, app
 
-from helpers import *
+from common import *
 import iceberger
 import streams
 
@@ -119,8 +119,6 @@ def mapr_monitoring():
     for record in streams.consume(stream=stream_path, topic=metric_host_fqdn):
         metric = json.loads(record)
 
-        # logger.debug("Activity metric: %s", metric)
-
         series = []
         if metric[0]["metric"] in ["mapr.streams.produce_msgs", "mapr.streams.listen_msgs", "mapr.db.table.write_rows", "mapr.db.table.read_rows"]:
             logger.info("Found metric %s", metric[0])
@@ -136,8 +134,8 @@ def mapr_monitoring():
 
 
 async def topic_stats():
-    stream_path = f"{DEMO['basedir']}/{DEMO['stream']}"
-    topic = DEMO["topic"]
+    stream_path = f"{DATA_DOMAIN['basedir']}/{DATA_DOMAIN['stream']}"
+    topic = DATA_DOMAIN["topic"]
 
     if app.storage.general.get("cluster", None) is None:
         logger.debug("Cluster not configured, skipping.")
@@ -199,8 +197,8 @@ async def topic_stats():
 
 
 async def consumer_stats():
-    stream_path = f"{DEMO['basedir']}/{DEMO['stream']}"
-    topic = DEMO["topic"]
+    stream_path = f"{DATA_DOMAIN['basedir']}/{DATA_DOMAIN['stream']}"
+    topic = DATA_DOMAIN["topic"]
 
     if app.storage.general.get("cluster", None) is None:
         logger.debug("Cluster not configured, skipping.")
