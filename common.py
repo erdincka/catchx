@@ -8,7 +8,7 @@ import httpx
 from nicegui import ui, events, app, binding
 from nicegui.events import ValueChangeEventArguments
 
-APP_NAME = "DataMesh"
+APP_NAME = "Data Fabric"
 TITLE = "Building a Hybrid Data Mesh"
 STORAGE_SECRET = "ezmer@1r0cks"
 
@@ -17,7 +17,7 @@ DATA_DOMAIN = {
 #   TODO: describe
   "description": "What, why and how?",
   "diagram": "datadomain.png",
-  "basedir": "/apps/fraud",
+  "basedir": "/fraud",
   "volumes": {
     "bronze": "bronze",
     "silver": "silver",
@@ -165,7 +165,7 @@ async def create_demo_constructs():
     auth = (app.storage.general["MAPR_USER"], app.storage.general["MAPR_PASS"])
 
     # create base folder if not exists
-    basedir = f"/mapr/{get_cluster_name()}{DATA_DOMAIN['basedir']}"
+    basedir = f"/edfs/{get_cluster_name()}{DATA_DOMAIN['basedir']}"
     if not os.path.isdir(basedir):
         os.mkdir(basedir)
 
@@ -241,12 +241,12 @@ async def delete_volumes_and_stream():
             elif res['status'] == "ERROR":
                 ui.notify(f"Stream: {DATA_DOMAIN['stream']}: {res['errors'][0]['desc']}", type='warning')
 
-    # delete mock data files
-    for file in ["customers.csv", "transactions.csv"]:
-        os.remove(f"/mapr/{get_cluster_name()}{DATA_DOMAIN['basedir']}/{file}")
+    # delete mock data files and iceberg catalog
+    for file in ["customers.csv", "transactions.csv", "iceberg.db"]:
+        os.remove(f"/edfs/{get_cluster_name()}{DATA_DOMAIN['basedir']}/{file}")
 
     # delete base folder
-    basedir = f"/mapr/{get_cluster_name()}{DATA_DOMAIN['basedir']}"
+    basedir = f"/edfs/{get_cluster_name()}{DATA_DOMAIN['basedir']}"
     os.rmdir(basedir)
 
 

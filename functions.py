@@ -72,6 +72,10 @@ async def refine_transactions():
     # TODO: using DocumentDB here, change to BinaryDB
     silver_transactions_table = f"{DATA_DOMAIN['basedir']}/{DATA_DOMAIN['volumes']['silver']}/{DATA_DOMAIN['tables']['transactions']}"
 
+    if not os.path.exists(f"/edfs/{get_cluster_name()}{silver_transactions_table}"): # table not created yet
+        ui.notify(f"Input table not found: {silver_transactions_table}", type="warning")
+        return
+
     df = iceberger.find_all(tier=tier, tablename=tablename)
     ui.notify(f"Found {df.count(axis=1).size} rows in {tablename}")
 
@@ -114,6 +118,10 @@ async def refine_customers():
     # TODO: using DocumentDB here, change to BinaryDB
     silver_customers_table = f"{DATA_DOMAIN['basedir']}/{DATA_DOMAIN['volumes']['silver']}/{DATA_DOMAIN['tables']['customers']}"
 
+    if not os.path.exists(f"/edfs/{get_cluster_name()}{silver_customers_table}"): # table not created yet
+        ui.notify(f"Input table not found: {silver_customers_table}", type="warning")
+        return
+
     cc = coco.CountryConverter()
 
     df = iceberger.find_all(tier=tier, tablename=tablename)
@@ -152,6 +160,10 @@ def iceberg_table_history(tier: str, tablename: str):
     :param tablename str: iceberg table name
     """
 
+    if not os.path.exists(f"/edfs/{get_cluster_name()}{DATA_DOMAIN['basedir']}/{tier}/{tablename}"): # table not created yet
+        ui.notify(f"Table not found: {tier}/{tablename}", type="warning")
+        return
+
     with ui.dialog().props("full-width") as dialog, ui.card().classes("grow relative"):
         ui.button(icon="close", on_click=dialog.close).props("flat round dense").classes("absolute right-2 top-2")
         result = ui.log().classes("w-full mt-6").style("white-space: pre-wrap")
@@ -171,6 +183,10 @@ def iceberg_table_tail(tier: str, tablename: str):
     :param tablename str: iceberg table name
     """
 
+    if not os.path.exists(f"/edfs/{get_cluster_name()}{DATA_DOMAIN['basedir']}/{tier}/{tablename}"): # table not created yet
+        ui.notify(f"Table not found: {tier}/{tablename}", type="warning")
+        return
+
     with ui.dialog().props("full-width") as dialog, ui.card().classes("grow relative"):
         ui.button(icon="close", on_click=dialog.close).props("flat round dense").classes("absolute right-2 top-2")
 
@@ -188,6 +204,10 @@ def peek_documents(tablepath: str):
     :param tablepath str: full path for the JSON table
     """
 
+    if not os.path.exists(f"/edfs/{get_cluster_name()}{tablepath}"): # table not created yet
+        ui.notify(f"Table not found: {tablepath}", type="warning")
+        return
+
     with ui.dialog().props("full-width") as dialog, ui.card().classes("grow relative"):
         ui.button(icon="close", on_click=dialog.close).props("flat round dense").classes("absolute right-2 top-2")
 
@@ -202,7 +222,9 @@ async def create_golden():
 
     app.storage.user["busy"] = True
     
-    await run.io_bound(data_aggregation)
+    (msg, sev) = await run.io_bound(data_aggregation)
+
+    ui.notify(msg, type=sev)
     
     app.storage.user["busy"] = False
 
@@ -219,6 +241,10 @@ def data_aggregation():
     profile_input_table = f"{DATA_DOMAIN['basedir']}/{DATA_DOMAIN['volumes']['silver']}/{DATA_DOMAIN['tables']['profiles']}"
     customers_input_table = f"{DATA_DOMAIN['basedir']}/{DATA_DOMAIN['volumes']['silver']}/{DATA_DOMAIN['tables']['customers']}"
     transactions_input_table = f"{DATA_DOMAIN['basedir']}/{DATA_DOMAIN['volumes']['silver']}/{DATA_DOMAIN['tables']['transactions']}"
+
+    for input_file in [profile_input_table, customers_input_table, transactions_input_table]:
+        if not os.path.exists(f"/edfs/{get_cluster_name()}{input_file}"): # table not created yet
+            return (f"Input table not found: {input_file}", "warning")
 
     # output table for combined data
     combined_table = f"{DATA_DOMAIN['basedir']}/{DATA_DOMAIN['volumes']['gold']}/{DATA_DOMAIN['tables']['combined']}"
@@ -266,9 +292,10 @@ def data_aggregation():
     # Insert combined data into new JSON table
     if tables.upsert_documents(table_path=combined_table, docs=combined_data):
         logger.info("Created golden table with %d records", len(combined_data))
+        return (f"Created golden table with {len(combined_data)} records", 'positive')
     else:
         logger.warning("Failed to write golden table at: %s", combined_table)
-
+        return (f"Failed to write golden table at: {combined_table}", 'negative')
 
 def reporting():
     not_implemented()

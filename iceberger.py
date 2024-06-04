@@ -17,7 +17,7 @@ def get_catalog():
         catalog = SqlCatalog(
             "default",
             **{
-                "uri": f"sqlite:////mapr/{get_cluster_name()}{DATA_DOMAIN['basedir']}/iceberg.db",
+                "uri": f"sqlite:////edfs/{get_cluster_name()}{DATA_DOMAIN['basedir']}/iceberg.db",
                 "py-io-impl": "pyiceberg.io.pyarrow.PyArrowFileIO",
             },
         )
@@ -41,7 +41,7 @@ def write(tier: str, tablename: str, records: list) -> bool:
     :return bool: Success or failure
     """
 
-    warehouse_path = f"/mapr/{get_cluster_name()}{DATA_DOMAIN['basedir']}/{tier}/{tablename}"
+    warehouse_path = f"/edfs/{get_cluster_name()}{DATA_DOMAIN['basedir']}/{tier}/{tablename}"
 
     catalog = get_catalog()
 
@@ -92,7 +92,7 @@ def tail(tier: str, tablename: str):
 def history(tier: str, tablename: str):
     """Return list of snapshot history from tablename"""
 
-    # warehouse_path = f"/mapr/{get_cluster_name()}{DEMO['basedir']}/{tier}/{tablename}"
+    # warehouse_path = f"/edfs/{get_cluster_name()}{DEMO['basedir']}/{tier}/{tablename}"
 
     catalog = get_catalog()
 
