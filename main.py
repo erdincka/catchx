@@ -10,7 +10,7 @@ import gui
 # catch-all exceptions
 app.on_exception(gracefully_fail)
 
-app.add_static_files('/images', 'images')
+app.add_static_files(os.path.join(os.path.dirname(__file__), "images"), "images")
 
 set_logging()
 
@@ -65,4 +65,3 @@ if __name__ in {"__main__", "__mp_main__"}:
         reload=True,
         port=3000,
     )
-
