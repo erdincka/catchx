@@ -1,6 +1,5 @@
 import socket
 from mapr.ojai.storage.ConnectionFactory import ConnectionFactory
-from mapr.ojai.ojai.OJAIDocumentStream import OJAIDocumentStream
 
 from nicegui import app 
 
@@ -8,6 +7,8 @@ from common import *
 
 logger = logging.getLogger("tables")
 
+# suppress ojai connection logging
+logging.getLogger("mapr.ojai.storage.OJAIConnection").setLevel(logging.NOTSET)
 
 def get_connection():
     """
@@ -72,6 +73,8 @@ def upsert_documents(table_path: str, docs: list):
 
         logger.info("Upserting %d documents from list", len(docs))
         
+        print(type(docs))
+        print(docs[0])
         store.insert_or_replace(doc_stream=docs)
 
     except Exception as error:
@@ -94,7 +97,7 @@ def find_document_by_id(table: str, docid: str):
         # Get a store and assign it as a DocumentStore object
         store = connection.get_store(table)
 
-        # fetch the OJAI Document by its '_id' field
+        # fetch the OJAI Document by its 'id' field
         doc = store.find_by_id(docid)
 
     except Exception as error:
@@ -141,9 +144,9 @@ def search_documents(table: str, selectClause: list, whereClause: dict):
         return doc
 
 
-def get_documents(table: str, limit: int = FETCH_RECORD_NUM):
+def get_documents(table_path: str, limit: int = FETCH_RECORD_NUM):
     """
-    Read n(limit) records from the table to peek data
+    Read `limit` records from the table to peek data
 
     :param table str: full path for the JSON table
 
@@ -156,7 +159,7 @@ def get_documents(table: str, limit: int = FETCH_RECORD_NUM):
     try:
         connection = get_connection()
 
-        table = connection.get_store(table)
+        table_path = connection.get_store(table_path)
 
         # Create a query to get the last n records based on the timestamp field
         if limit is not None:
@@ -170,7 +173,7 @@ def get_documents(table: str, limit: int = FETCH_RECORD_NUM):
                 .build()
 
         # Run the query and return the results as list
-        return [doc for doc in table.find(query)]
+        return [doc for doc in table_path.find(query)]
 
     except Exception as error:
         print(error)

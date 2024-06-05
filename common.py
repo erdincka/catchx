@@ -23,8 +23,14 @@ DATA_DOMAIN = {
     "silver": "silver",
     "gold": "gold"
   },
-  "stream": "incoming",
-  "topic": "transactions",
+  "streams": {
+    "incoming": "incoming",
+    "monitoring": "monitoring"
+  },
+  "topics": {
+    "transactions": "transactions",
+    "cdc": "cdc"
+  },
   "tables": {
     "profiles": "profiles",
     "transactions": "transactions",
@@ -37,7 +43,7 @@ DATA_DOMAIN = {
 MAX_POLL_TIME = 2.0
 MON_REFRESH_INTERVAL = 1.0
 MON_REFRESH_INTERVAL3 = 3.0
-FETCH_RECORD_NUM = 20
+FETCH_RECORD_NUM = 15
 
 TRANSACTION_CATEGORIES = [
     "Entertainment",
@@ -161,7 +167,7 @@ def get_cluster_name():
     return app.storage.general.get('clusters', {}).get(app.storage.general.get('cluster', ''), '')
 
 
-async def create_demo_constructs():
+async def create_volumes_and_streams():
     auth = (app.storage.general["MAPR_USER"], app.storage.general["MAPR_PASS"])
 
     # create base folder if not exists
@@ -169,7 +175,7 @@ async def create_demo_constructs():
     if not os.path.isdir(basedir):
         os.mkdir(basedir)
 
-    for vol in DATA_DOMAIN['volumes']:
+    for vol in DATA_DOMAIN['volumes'].keys():
 
         URL = f"https://{app.storage.general['cluster']}:8443/rest/volume/create?name={DATA_DOMAIN['volumes'][vol]}&path={DATA_DOMAIN['basedir']}/{DATA_DOMAIN['volumes'][vol]}&replication=1&minreplication=1&nsreplication=1&nsminreplication=1"
         async with httpx.AsyncClient(verify=False) as client:
@@ -182,32 +188,33 @@ async def create_demo_constructs():
             else:
                 res = response.json()
                 if res['status'] == "OK":
-                    ui.notify(f"{res['messages']}", type='positive')
+                    ui.notify(f"{res['messages'][0]}", type='positive')
                 elif res['status'] == "ERROR":
                     ui.notify(f"{res['errors'][0]['desc']}", type='warning')
 
-    # Create stream
-    URL = f"https://{app.storage.general['cluster']}:8443/rest/stream/create?path={DATA_DOMAIN['basedir']}/{DATA_DOMAIN['stream']}&ttl=38400&compression=lz4&produceperm=p&consumeperm=p&topicperm=p"
-    async with httpx.AsyncClient(verify=False) as client:
-        response = await client.post(URL, auth=auth)
+    # Create streams
+    for stream in DATA_DOMAIN["streams"].keys():
+        URL = f"https://{app.storage.general['cluster']}:8443/rest/stream/create?path={DATA_DOMAIN['basedir']}/{DATA_DOMAIN['streams'][stream]}&ttl=38400&compression=lz4&produceperm=p&consumeperm=p&topicperm=p"
+        async with httpx.AsyncClient(verify=False) as client:
+            response = await client.post(URL, auth=auth)
 
-        if response is None or response.status_code != 200:
-            # possibly not an issue if stream already exists
-            logger.warning(f"REST failed for create stream: %s", vol)
-            logger.warning("Response: %s", response.text)
+            if response is None or response.status_code != 200:
+                # possibly not an issue if stream already exists
+                logger.warning(f"REST failed for create stream: %s", stream)
+                logger.warning("Response: %s", response.text)
 
-        else:
-            res = response.json()
-            if res['status'] == "OK":
-                ui.notify(f"Stream {DATA_DOMAIN['stream']} created", type='positive')
-            elif res['status'] == "ERROR":
-                ui.notify(f"Stream: {DATA_DOMAIN['stream']}: {res['errors'][0]['desc']}", type='warning')
+            else:
+                res = response.json()
+                if res['status'] == "OK":
+                    ui.notify(f"Stream \"{DATA_DOMAIN['streams'][stream]}\" created", type='positive')
+                elif res['status'] == "ERROR":
+                    ui.notify(f"Stream: \"{DATA_DOMAIN['streams'][stream]}\": {res['errors'][0]['desc']}", type='warning')
 
 
-async def delete_volumes_and_stream():
+async def delete_volumes_and_streams():
     auth = (app.storage.general["MAPR_USER"], app.storage.general["MAPR_PASS"])
 
-    for vol in DATA_DOMAIN['volumes']:
+    for vol in DATA_DOMAIN['volumes'].keys():
 
         URL = f"https://{app.storage.general['cluster']}:8443/rest/volume/remove?name={DATA_DOMAIN['volumes'][vol]}"
         async with httpx.AsyncClient(verify=False) as client:
@@ -220,26 +227,27 @@ async def delete_volumes_and_stream():
             else:
                 res = response.json()
                 if res['status'] == "OK":
-                    ui.notify(f"Volume {vol} deleted", type='positive')
+                    ui.notify(f"Volume '{vol}' deleted", type='positive')
                 elif res['status'] == "ERROR":
                     ui.notify(f"{vol}: {res['errors'][0]['desc']}", type='warning')
 
 
-    # Delete stream
-    URL = f"https://{app.storage.general['cluster']}:8443/rest/stream/delete?path={DATA_DOMAIN['basedir']}/{DATA_DOMAIN['stream']}"
-    async with httpx.AsyncClient(verify=False) as client:
-        response = await client.post(URL, auth=auth)
+    # Delete streams
+    for stream in DATA_DOMAIN["streams"].keys():
+        URL = f"https://{app.storage.general['cluster']}:8443/rest/stream/delete?path={DATA_DOMAIN['basedir']}/{DATA_DOMAIN['streams'][stream]}"
+        async with httpx.AsyncClient(verify=False) as client:
+            response = await client.post(URL, auth=auth)
 
-        if response is None or response.status_code != 200:
-            logger.warning(f"REST failed for delete stream: %s", vol)
-            logger.warning("Response: %s", response.text)
+            if response is None or response.status_code != 200:
+                logger.warning(f"REST failed for delete stream: %s", stream)
+                logger.warning("Response: %s", response.text)
 
-        else:
-            res = response.json()
-            if res['status'] == "OK":
-                ui.notify(f"Stream '{DATA_DOMAIN['stream']}' deleted", type='positive')
-            elif res['status'] == "ERROR":
-                ui.notify(f"Stream: {DATA_DOMAIN['stream']}: {res['errors'][0]['desc']}", type='warning')
+            else:
+                res = response.json()
+                if res['status'] == "OK":
+                    ui.notify(f"Stream '{DATA_DOMAIN['streams'][stream]}' deleted", type='positive')
+                elif res['status'] == "ERROR":
+                    ui.notify(f"Stream: {DATA_DOMAIN['streams'][stream]}: {res['errors'][0]['desc']}", type='warning')
 
     # delete mock data files and iceberg catalog
     for file in ["customers.csv", "transactions.csv", "iceberg.db"]:
@@ -248,6 +256,33 @@ async def delete_volumes_and_stream():
     # delete base folder
     basedir = f"/edfs/{get_cluster_name()}{DATA_DOMAIN['basedir']}"
     os.rmdir(basedir)
+
+
+async def check_cdc():
+    auth = (app.storage.general["MAPR_USER"], app.storage.general["MAPR_PASS"])
+
+    source_table_path = f"{DATA_DOMAIN['basedir']}/{DATA_DOMAIN['volumes']['bronze']}/{DATA_DOMAIN['tables']['transactions']}"
+
+    if not os.path.lexists(f"/edfs/{app.storage.general.get('cluster', '')}{source_table_path}"):
+        ui.notify(f"Table not found: {source_table_path}", type="warning")
+        return
+    
+    logger.info(source_table_path)
+
+    # URL = "http://<ipaddress>:8443/rest/table/changelog/add?path=<source-table-path>&changelog=<destination stream path>:<topic name>"
+    
+    URL = f"http://{app.storage.general['cluster']}:8443/rest/table/changelog/list?path={source_table_path}"
+
+    async with httpx.AsyncClient(verify=False) as client:
+        response = await client.get(URL, auth=auth)
+
+        if response is None or response.status_code != 200:
+            logger.warning(f"REST failed to check table changlog for: %s", source_table_path)
+            logger.warning("Response: %s", response.text)
+
+        else:
+            res = response.json()
+            logger.info(res)
 
 
 def set_logging():

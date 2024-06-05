@@ -134,9 +134,9 @@ def mapr_monitoring():
         }
 
 
-async def topic_stats():
-    stream_path = f"{DATA_DOMAIN['basedir']}/{DATA_DOMAIN['stream']}"
-    topic = DATA_DOMAIN["topic"]
+async def txn_topic_stats():
+    stream_path = f"{DATA_DOMAIN['basedir']}/{DATA_DOMAIN['streams']['incoming']}"
+    topic = DATA_DOMAIN["topics"]["transactions"]
 
     if app.storage.general.get("cluster", None) is None:
         logger.debug("Cluster not configured, skipping.")
@@ -197,9 +197,9 @@ async def topic_stats():
         logger.warning("Topic stat request error %s", error)
 
 
-async def consumer_stats():
-    stream_path = f"{DATA_DOMAIN['basedir']}/{DATA_DOMAIN['stream']}"
-    topic = DATA_DOMAIN["topic"]
+async def txn_consumer_stats():
+    stream_path = f"{DATA_DOMAIN['basedir']}/{DATA_DOMAIN['streams']['incoming']}"
+    topic = DATA_DOMAIN["topics"]["transactions"]
 
     if app.storage.general.get("cluster", None) is None:
         logger.debug("Cluster not configured, skipping.")

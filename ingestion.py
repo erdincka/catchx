@@ -4,6 +4,7 @@ from nicegui import run
 
 from common import *
 import streams
+import tables
 import iceberger
 from functions import upsert_profile
 import sparking
@@ -13,33 +14,42 @@ logger = logging.getLogger("ingestion")
 
 async def ingest_transactions():
 
-    stream_path = f"{DATA_DOMAIN['basedir']}/{DATA_DOMAIN['stream']}"
-    topic = DATA_DOMAIN['topic']
+    # Input stream
+    input_stream_path = f"{DATA_DOMAIN['basedir']}/{DATA_DOMAIN['streams']['incoming']}"
+    input_topic = DATA_DOMAIN['topics']['transactions']
     
-    if not os.path.isfile(f"/edfs/{get_cluster_name()}{stream_path}"): # stream not created yet
-        ui.notify(f"Stream not found {stream_path}", type="warning")
+    if not os.path.lexists(f"/edfs/{get_cluster_name()}{input_stream_path}"): # stream not created yet
+        ui.notify(f"Stream not found {input_stream_path}", type="warning")
         return
 
     app.storage.user['busy'] = True
 
+    # Output table
+    output_table_path = f"{DATA_DOMAIN['basedir']}/{DATA_DOMAIN['volumes']['bronze']}/{DATA_DOMAIN['tables']['transactions']}"
+    
     transactions = []
 
-    for record in await run.io_bound(streams.consume, stream=stream_path, topic=topic):
+    for record in await run.io_bound(streams.consume, stream=input_stream_path, topic=input_topic):
         txn = json.loads(record)
 
-        logger.debug("Ingesting transaction: %s", txn["id"])
+        logger.debug("Ingesting transaction: %s", txn["_id"])
 
         transactions.append(txn)
         # update the profile
         await upsert_profile(txn)
 
     if len(transactions) > 0:
-        # Write into iceberg for Bronze tier (raw data)
-        logger.info("Writing %d transactions with iceberg", len(transactions))
-        if iceberger.write(DATA_DOMAIN['volumes']['bronze'], DATA_DOMAIN['tables']['transactions'], records=transactions):
-            ui.notify(f"Saved {len(transactions)} transactions in {DATA_DOMAIN['volumes']['bronze']} volume with Iceberg", type="positive")
+        # Write into DocumentDB for Bronze tier (raw data) - this will allow CDC for fraud detection process
+        if tables.upsert_documents(table_path=output_table_path, docs=transactions):
+            ui.notify(f"Saved {len(transactions)} transactions in {output_table_path}", type="positive")
         else:
-            ui.notify(f"Failed to save table: {DATA_DOMAIN['tables']['transactions']} in {DATA_DOMAIN['volumes']['bronze']}", type='negative')
+            ui.notify(f"Failed to update table: {DATA_DOMAIN['tables']['transactions']} in {DATA_DOMAIN['volumes']['bronze']}", type='negative')
+        # # Write into iceberg for Bronze tier (raw data)
+        # logger.info("Writing %d transactions with iceberg", len(transactions))
+        # if iceberger.write(DATA_DOMAIN['volumes']['bronze'], DATA_DOMAIN['tables']['transactions'], records=transactions):
+        #     ui.notify(f"Saved {len(transactions)} transactions in {DATA_DOMAIN['volumes']['bronze']} volume with Iceberg", type="positive")
+        # else:
+        #     ui.notify(f"Failed to save table: {DATA_DOMAIN['tables']['transactions']} in {DATA_DOMAIN['volumes']['bronze']}", type='negative')
     # release when done
     app.storage.user['busy'] = False
 
@@ -47,7 +57,7 @@ async def ingest_transactions():
 # SSE-TODO: read from stream, upsert profiles table, and write raw data into iceberg table
 async def ingest_transactions_spark():
 
-    stream_path = f"{DATA_DOMAIN['basedir']}/{DATA_DOMAIN['stream']}" # input
+    stream_path = f"{DATA_DOMAIN['basedir']}/{DATA_DOMAIN['streams']['incoming']}" # input
     table_path = f"{DATA_DOMAIN['basedir']}/{DATA_DOMAIN['volumes']['bronze']}/{DATA_DOMAIN['tables']['profiles']}" # output
     
     ### psuedo code below

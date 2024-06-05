@@ -4,6 +4,7 @@ from map import meshmap
 from monitoring import *
 from functions import *
 from page import *
+import gui
 
 
 # catch-all exceptions
@@ -45,7 +46,7 @@ async def home():
 
     ui.separator()
 
-    # gui.ii()
+    gui.ii()
 
     # Main
     with ui.row().classes("w-full flex flex-nowrap relative"):

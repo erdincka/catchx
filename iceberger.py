@@ -7,6 +7,7 @@ from common import *
 logger = logging.getLogger("iceberger")
 logging.getLogger("pyiceberg.io").setLevel(logging.WARNING)
 
+
 def get_catalog():
     """Return the catalog, create if not exists"""
 
@@ -153,7 +154,19 @@ def find_all(tier: str, tablename: str):
 
 
 def find_by_field(tier: str, tablename: str, field: str, value: str):
-    """Find record(s) matching the field as arrow dataset"""
+    """
+    Find record(s) matching the field as arrow dataset
+
+    :param tier str: tier volume name used as iceberg namespace
+    
+    :param tablename str: iceberg table name in the namespace
+
+    :param field str: field in the table to match against
+
+    :param value str: `field` value to match
+
+    :return found `rows` or None
+    """
 
     catalog = get_catalog()
 
@@ -165,7 +178,7 @@ def find_by_field(tier: str, tablename: str, field: str, value: str):
 
             filtered = table.scan(
                 row_filter=EqualTo(field, value),
-                selected_fields=("id",),
+                selected_fields=("_id",),
                 # limit=1, # assuming no duplicates
             ).to_arrow()
 

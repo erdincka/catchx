@@ -1,4 +1,5 @@
 import asyncio
+import json
 import random
 from nicegui import run
 import country_converter as coco
@@ -27,17 +28,17 @@ async def upsert_profile(transaction: dict):
     table_path = f"{DATA_DOMAIN['basedir']}/{DATA_DOMAIN['volumes']['silver']}/{DATA_DOMAIN['tables']['profiles']}"
 
     if tables.upsert_document(table_path=table_path, json_dict=profile):
-        logger.debug("Updated profile: %s with score: %d", profile['_id'], profile['score'])
+        logger.debug("Updated profile: %s with score: %s", profile['_id'], profile['score'])
 
 
 async def dummy_fraud_score():
-    """Return a random scoring between 1 to 10 with adding a delay to simulate querying to an AI model"""
+    """Return a random percentile with adding a delay to simulate querying to an AI model"""
 
     # add delay
     await asyncio.sleep(0.02)
 
-    # respond with a random probability
-    return random.randint(0, 100)
+    # respond with a random probability, using string to avoid OJAI conversion to this \"score\": {\"$numberLong\": 46}}
+    return str(random.randint(0, 100))
 
 
 def get_customer_id(from_account: str):
@@ -70,35 +71,37 @@ async def refine_transactions():
 
     # output table - maprdb binary
     # TODO: using DocumentDB here, change to BinaryDB
-    silver_transactions_table = f"{DATA_DOMAIN['basedir']}/{DATA_DOMAIN['volumes']['silver']}/{DATA_DOMAIN['tables']['transactions']}"
+    silver_transactions_table = f"{DATA_DOMAIN['basedir']}/{DATA_DOMAIN['volumes']['silver']}/{tablename}"
 
-    if not os.path.exists(f"/edfs/{get_cluster_name()}{silver_transactions_table}"): # table not created yet
-        ui.notify(f"Input table not found: {silver_transactions_table}", type="warning")
+    if not os.path.lexists(f"/edfs/{get_cluster_name()}{DATA_DOMAIN['basedir']}/{tier}/{tablename}"): # table not created yet
+        ui.notify(f"Input table not found: {tablename} on {tier} volume", type="warning")
         return
 
-    df = iceberger.find_all(tier=tier, tablename=tablename)
+    app.storage.user["busy"] = True
+
+    # df = iceberger.find_all(tier=tier, tablename=tablename)
+    df = pd.DataFrame.from_dict(tables.get_documents(table_path=f"{DATA_DOMAIN['basedir']}/{tier}/{tablename}", limit=None))
     ui.notify(f"Found {df.count(axis=1).size} rows in {tablename}")
 
     # assign a random category to the transaction
     df['category'] = df.apply(lambda _: random.choice(TRANSACTION_CATEGORIES), axis=1)
 
     # use _id to comply with OJAI primary key
-    df.rename(columns={'id': '_id'}, inplace=True)
+    # df.rename(columns={'id': '_id'}, inplace=True)
 
     try:
         logger.info("Loading %s documents into %s", df.count(axis=1).size, silver_transactions_table)
         if await run.io_bound(tables.upsert_documents, table_path=silver_transactions_table, docs=df.to_dict("records")):
-            ui.notify("Succeed", type='positive')
+            ui.notify(f"Records are written to {silver_transactions_table}", type='positive')
         else:
-            ui.notify("Failed", type='negative')
-
+            ui.notify(f"Failed to save records in {silver_transactions_table}", type='negative')
 
     except Exception as error:
         logger.warning(error)
         ui.notify(f"Failed to write into table: {error}", type='negative')
 
     finally:
-        ui.notify(f"Customers are written to {silver_transactions_table}", type='positive')
+        app.storage.user["busy"] = False
 
 
 # SSE-TODO: for each customer with country_name empty, get country_code and add country_name field with converted name (GB -> Great Britain)
@@ -116,13 +119,15 @@ async def refine_customers():
 
     # output table - maprdb binary
     # TODO: using DocumentDB here, change to BinaryDB
-    silver_customers_table = f"{DATA_DOMAIN['basedir']}/{DATA_DOMAIN['volumes']['silver']}/{DATA_DOMAIN['tables']['customers']}"
+    silver_customers_table = f"{DATA_DOMAIN['basedir']}/{DATA_DOMAIN['volumes']['silver']}/{tablename}"
 
-    if not os.path.exists(f"/edfs/{get_cluster_name()}{silver_customers_table}"): # table not created yet
-        ui.notify(f"Input table not found: {silver_customers_table}", type="warning")
+    if not os.path.lexists(f"/edfs/{get_cluster_name()}{DATA_DOMAIN['basedir']}/{tier}/{tablename}"): # table not created yet
+        ui.notify(f"Input table not found: {tablename} on {tier}", type="warning")
         return
 
     cc = coco.CountryConverter()
+
+    app.storage.user["busy"] = True
 
     df = iceberger.find_all(tier=tier, tablename=tablename)
     ui.notify(f"Found {df.count(axis=1).size} rows in {tablename}")
@@ -134,22 +139,22 @@ async def refine_customers():
     last_n_chars = 8
     df["account_number"] = df["account_number"].astype(str).str[:-last_n_chars] + "*" * last_n_chars
 
-    # use _id to comply with OJAI primary key
+    # # use _id to comply with OJAI primary key
     df.rename(columns={'id': '_id'}, inplace=True)
 
     try:
         logger.info("Loading %s documents into %s", df.count(axis=1).size, silver_customers_table)
         if await run.io_bound(tables.upsert_documents, table_path=silver_customers_table, docs=df.to_dict("records")):
-            ui.notify("Succeed", type='positive')
+            ui.notify(f"Records are written to {silver_customers_table}", type='positive')
         else:
-            ui.notify("Failed", type='negative')
+            ui.notify(f"Failed to save records in {silver_customers_table}", type='negative')
         
     except Exception as error:
         logger.warning(error)
         ui.notify(f"Failed to write into table: {error}", type='negative')
 
     finally:
-        ui.notify(f"Customers are written to {silver_customers_table}", type='positive')
+        app.storage.user["busy"] = False
 
 
 def iceberg_table_history(tier: str, tablename: str):
@@ -191,7 +196,7 @@ def iceberg_table_tail(tier: str, tablename: str):
         ui.button(icon="close", on_click=dialog.close).props("flat round dense").classes("absolute right-2 top-2")
 
         df = iceberger.tail(tier=tier, tablename=tablename)
-        ui.table.from_pandas(df).classes('w-full mt-6')
+        ui.table.from_pandas(df).classes('w-full mt-6').props("dense")
 
     dialog.on("close", lambda d=dialog: d.delete())
     dialog.open()
@@ -199,20 +204,20 @@ def iceberg_table_tail(tier: str, tablename: str):
 
 def peek_documents(tablepath: str):
     """
-    Get `NUM_RECORDS` documents from DocumentDB table
+    Get `FETCH_RECORD_NUM` documents from DocumentDB table
 
     :param tablepath str: full path for the JSON table
     """
 
-    if not os.path.exists(f"/edfs/{get_cluster_name()}{tablepath}"): # table not created yet
+    if not os.path.lexists(f"/edfs/{get_cluster_name()}{tablepath}"): # table not created yet
         ui.notify(f"Table not found: {tablepath}", type="warning")
         return
 
     with ui.dialog().props("full-width") as dialog, ui.card().classes("grow relative"):
         ui.button(icon="close", on_click=dialog.close).props("flat round dense").classes("absolute right-2 top-2")
 
-        docs = tables.get_documents(table=tablepath, limit=FETCH_RECORD_NUM)
-        ui.table.from_pandas(pd.DataFrame.from_dict(docs)).classes('w-full mt-6')
+        docs = tables.get_documents(table_path=tablepath, limit=FETCH_RECORD_NUM)
+        ui.table.from_pandas(pd.DataFrame.from_dict(docs)).classes('w-full mt-6').props("dense")
         
     dialog.on("close", lambda d=dialog: d.delete())
     dialog.open()
@@ -243,15 +248,15 @@ def data_aggregation():
     transactions_input_table = f"{DATA_DOMAIN['basedir']}/{DATA_DOMAIN['volumes']['silver']}/{DATA_DOMAIN['tables']['transactions']}"
 
     for input_file in [profile_input_table, customers_input_table, transactions_input_table]:
-        if not os.path.exists(f"/edfs/{get_cluster_name()}{input_file}"): # table not created yet
+        if not os.path.lexists(f"/edfs/{get_cluster_name()}{input_file}"): # table not created yet
             return (f"Input table not found: {input_file}", "warning")
 
     # output table for combined data
     combined_table = f"{DATA_DOMAIN['basedir']}/{DATA_DOMAIN['volumes']['gold']}/{DATA_DOMAIN['tables']['combined']}"
 
-    profiles_df = pd.DataFrame.from_dict(tables.get_documents(table=profile_input_table, limit=None))
-    customers_df = pd.DataFrame.from_dict(tables.get_documents(table=customers_input_table, limit=None))
-    transactions_df = pd.DataFrame.from_dict(tables.get_documents(table=transactions_input_table, limit=None))
+    profiles_df = pd.DataFrame.from_dict(tables.get_documents(table_path=profile_input_table, limit=None))
+    customers_df = pd.DataFrame.from_dict(tables.get_documents(table_path=customers_input_table, limit=None))
+    transactions_df = pd.DataFrame.from_dict(tables.get_documents(table_path=transactions_input_table, limit=None))
 
     # merge customers with profiles on _id
     merged_df = pd.merge(customers_df, profiles_df, on="_id", how="left")
@@ -272,14 +277,14 @@ def data_aggregation():
     merged_df['transaction_date_received'] = merged_df['transaction_date_received'].apply(lambda x: [] if pd.isna(x) else x)
     merged_df['sender_account'] = merged_df['sender_account'].apply(lambda x: [] if pd.isna(x) else x)
     # update score from nan to None
-    merged_df['score'] = merged_df['score'].apply(lambda x: None if pd.isna(x) else x)
+    merged_df['score'] = merged_df['score'].apply(lambda x: "" if pd.isna(x) else x)
 
     # Create a combined JSON structure
     def create_combined_json(row):
         return {
             '_id': row['_id'],
-            'name': row['name'],
-            'address': row['address'],
+            'name': json.dumps(row['name']),
+            'address': json.dumps(row['address']),
             'account_number': row['account_number'],
             'score': row['score'],
             'transactions_sent': [{'amount': a, 'transaction_date': t, 'receiver_account': r} for a, t, r in zip(row['amount_sent'], row['transaction_date_sent'], row['receiver_account'])],
@@ -288,6 +293,7 @@ def data_aggregation():
 
     # Apply the function to the DataFrame
     combined_data = merged_df.apply(create_combined_json, axis=1).tolist()
+    print(combined_data)
 
     # Insert combined data into new JSON table
     if tables.upsert_documents(table_path=combined_table, docs=combined_data):
@@ -296,6 +302,7 @@ def data_aggregation():
     else:
         logger.warning("Failed to write golden table at: %s", combined_table)
         return (f"Failed to write golden table at: {combined_table}", 'negative')
+
 
 def reporting():
     not_implemented()

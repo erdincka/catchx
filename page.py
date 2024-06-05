@@ -38,20 +38,25 @@ def header():
 
 def footer():
     with ui.footer():
-        with ui.row().classes("w-full items-center"):
-            # Show endpoints
-            # ui.label(f"Volumes: [ {' | '.join( DATA_DOMAIN['volumes'].values() )} ]").classes("tracking-wide uppercase")
-            # ui.label(f"Tables: [ {' | '.join( DATA_DOMAIN['tables'] )} ]").classes("tracking-wide uppercase")
-            # ui.label(f"Stream: [ { DATA_DOMAIN['stream'] } ]").classes("tracking-wide uppercase")
-            # ui.label(f"Topic: [ { DATA_DOMAIN['topic'] } ]").classes("tracking-wide uppercase")
 
+        with ui.row().classes("w-full items-center"):
+
+            # Endpoints
             ui.label("Volumes:")
 
-            # GNS
-            with ui.button_group().props('push').classes("text-white"):
-                ui.button("GNS", on_click=lambda: run_command_with_dialog(f"ls -lA /edfs/{get_cluster_name()}{DATA_DOMAIN['basedir']}"))
-                for vol in DATA_DOMAIN['volumes'].items():
-                    ui.button(vol[0], on_click=lambda v=vol[1]: run_command_with_dialog(f"ls -lA /edfs/{get_cluster_name()}{DATA_DOMAIN['basedir']}/{v}"))
+            with ui.button_group().props('push color=dark'):
+                # GNS
+                ui.button("GNS", on_click=lambda: run_command_with_dialog("df -h /edfs; ls -lA /edfs/"))
+                # App folder
+                ui.button("Data Domain", on_click=lambda: run_command_with_dialog(f"ls -lA /edfs/{get_cluster_name()}{DATA_DOMAIN['basedir']}"))
+                # Volumes
+                ui.button(DATA_DOMAIN['volumes']['bronze'], on_click=lambda: run_command_with_dialog(f"ls -lAR /edfs/{get_cluster_name()}{DATA_DOMAIN['basedir']}/{DATA_DOMAIN['volumes']['bronze']}"))
+                ui.button(DATA_DOMAIN['volumes']['silver'], on_click=lambda: run_command_with_dialog(f"ls -lAR /edfs/{get_cluster_name()}{DATA_DOMAIN['basedir']}/{DATA_DOMAIN['volumes']['silver']}"))
+                ui.button(DATA_DOMAIN['volumes']['gold'], on_click=lambda: run_command_with_dialog(f"ls -lAR /edfs/{get_cluster_name()}{DATA_DOMAIN['basedir']}/{DATA_DOMAIN['volumes']['gold']}"))
+
+            ui.space()
+
+            ui.button("CDC", on_click=check_cdc)
 
             ui.space()
 
@@ -117,9 +122,9 @@ def demo_steps():
 
             with ui.row().classes("w-full place-items-center"):
                 ui.label("Batch ingestion: ").classes("w-40")
-                ui.button("Into Iceberg", on_click=ingest_customers_iceberg)
-                ui.button("Table History", on_click=lambda: iceberg_table_history(tier=DATA_DOMAIN['volumes']['bronze'], tablename=DATA_DOMAIN['tables']['customers'])).props("outline")
-                ui.button("Table Tail", on_click=lambda: iceberg_table_tail(tier=DATA_DOMAIN['volumes']['bronze'], tablename=DATA_DOMAIN['tables']['customers'])).props("outline")
+                ui.button("Customers", on_click=ingest_customers_iceberg)
+                ui.button("History", on_click=lambda: iceberg_table_history(tier=DATA_DOMAIN['volumes']['bronze'], tablename=DATA_DOMAIN['tables']['customers'])).props("outline")
+                ui.button("Tail", on_click=lambda: iceberg_table_tail(tier=DATA_DOMAIN['volumes']['bronze'], tablename=DATA_DOMAIN['tables']['customers'])).props("outline")
                 ui.button("Code", on_click=batch_dialog.open, color="info").props("outline")
 
             with ui.dialog().props("full-width") as stream_dialog, ui.card().classes("grow relative"):
@@ -131,9 +136,8 @@ def demo_steps():
 
             with ui.row().classes("w-full place-items-center"):
                 ui.label("Stream ingestion: ").classes("w-40")
-                ui.button("Stream", on_click=ingest_transactions).bind_enabled_from(app.storage.user, "busy", backward=lambda x: not x)
-                ui.button("Table History", on_click=lambda: iceberg_table_history(tier=DATA_DOMAIN['volumes']['bronze'], tablename=DATA_DOMAIN['tables']['transactions'])).props("outline")
-                ui.button("Table Tail", on_click=lambda: iceberg_table_tail(tier=DATA_DOMAIN['volumes']['bronze'], tablename=DATA_DOMAIN['tables']['transactions'])).props("outline")
+                ui.button("Transactions", on_click=ingest_transactions).bind_enabled_from(app.storage.user, "busy", backward=lambda x: not x)
+                ui.button("Peek", on_click=lambda: peek_documents(tablepath=f"{DATA_DOMAIN['basedir']}/{DATA_DOMAIN['volumes']['bronze']}/{DATA_DOMAIN['tables']['transactions']}")).props("outline")
                 ui.button("Using Airflow", color='warning', on_click=not_implemented).props("outline").bind_enabled_from(app.storage.user, "busy", backward=lambda x: not x)
                 ui.button("Code", on_click=stream_dialog.open, color="info").props("outline")
 
@@ -179,11 +183,11 @@ def monitoring_charts():
 
         topic_chart = get_echart()
         topic_chart.run_chart_method(':showLoading', r'{text: "Waiting..."}',)
-        ui.timer(MON_REFRESH_INTERVAL3, lambda c=topic_chart: update_chart(c, topic_stats))
+        ui.timer(MON_REFRESH_INTERVAL3, lambda c=topic_chart: update_chart(c, txn_topic_stats))
         
         consumer_chart = get_echart()
         consumer_chart.run_chart_method(':showLoading', r'{text: "Waiting..."}',)
-        ui.timer(MON_REFRESH_INTERVAL3, lambda c=consumer_chart: update_chart(c, consumer_stats))
+        ui.timer(MON_REFRESH_INTERVAL3, lambda c=consumer_chart: update_chart(c, txn_consumer_stats))
 
         # with ui.card_section().classes("w-full"):
         #     ui.label("Bronze tier")
@@ -198,21 +202,21 @@ def cluster_configuration_dialog():
         ui.button(icon="close", on_click=dialog.close).props("flat round dense").classes("absolute right-2 top-2")
 
         with ui.card_section().classes("w-full mt-6"):
-            ui.label("Upload client files").classes("text-lg w-full capitalize")
+            ui.label("Upload Client Files").classes("text-lg w-full")
             ui.label("config.tar and/or jwt_tokens.tar.gz").classes("text-sm text-italic")
             ui.upload(label="Upload", on_upload=upload_client_files, multiple=True, auto_upload=True, max_files=2).props("accept='application/x-tar,application/x-gzip' hide-upload-btn").classes("w-full")
 
         ui.separator()
         with ui.card_section():
             with ui.row().classes("w-full"):
-                ui.label("Select the hub").classes("text-lg")
+                ui.label("Select The Hub").classes("text-lg")
                 ui.space()
                 ui.button(icon="refresh", on_click=update_clusters).props("flat")
             ui.toggle(app.storage.general["clusters"]).bind_value(app.storage.general, "cluster")
 
         ui.separator()
         with ui.card_section():
-            ui.label("User credentials").classes("text-lg w-full")
+            ui.label("User Credentials").classes("text-lg w-full")
             ui.label("required for REST API and monitoring").classes("text-sm text-italic")
             with ui.row().classes("w-full place-items-center"):
                 ui.input("Username").bind_value(app.storage.general, "MAPR_USER")
@@ -228,7 +232,7 @@ def cluster_configuration_dialog():
 
         ui.separator()
         with ui.card_section():
-            ui.label("Configure and login").classes("text-lg w-full")
+            ui.label("Configure and Login").classes("text-lg w-full")
             ui.label("login if not using JWT").classes("text-sm text-italic")
             with ui.row().classes("w-full place-items-center"):
                 ui.button("configure.sh -R", on_click=lambda: run_command_with_dialog("/opt/mapr/server/configure.sh -R"))
@@ -237,25 +241,17 @@ def cluster_configuration_dialog():
 
         ui.separator()
         with ui.card_section():
-            ui.label("Create the volumes and the stream").classes("text-lg w-full")
-            ui.label("required constructs for the demo")
+            ui.label("Create the Entities").classes("text-lg w-full")
+            ui.label("required volumes and streams")
             with ui.row().classes("w-full place-items-center"):
-                ui.button("Create", on_click=create_demo_constructs)
+                ui.button("Create", on_click=create_volumes_and_streams)
                 ui.button(f"List {DATA_DOMAIN['basedir']}", on_click=lambda: run_command_with_dialog(f"ls -la /edfs/{get_cluster_name()}{DATA_DOMAIN['basedir']}")).props('outline')
 
         ui.separator()
         with ui.card_section():
-            ui.label("Show volumes").classes("text-lg w-full")
-            with ui.row().classes("w-full place-items-center"):
-                ui.button("GNS", on_click=lambda: run_command_with_dialog("df -h /edfs; ls -lA /edfs/")).props('outline')
-                for vol in DATA_DOMAIN['volumes']:
-                    ui.button(f"List {vol}", on_click=lambda v=vol: run_command_with_dialog(f"find /edfs/{get_cluster_name()}{DATA_DOMAIN['basedir']}/{DATA_DOMAIN['volumes'][v]}")).props('outline')
-
-        ui.separator()
-        with ui.card_section():
             ui.label("Delete All!").classes("text-lg")
-            ui.label("Will remove all volumes and the stream, all will be gone!").classes("text-sm text-italic")
-            ui.button("DELETE ALL!", on_click=delete_volumes_and_stream, color="negative")
+            ui.label("Will remove all volumes and streams, ALL DATA will be gone!").classes("text-sm text-italic")
+            ui.button("DELETE ALL!", on_click=delete_volumes_and_streams, color="negative")
 
     dialog.on("close", lambda d=dialog: d.delete())
     dialog.open()

@@ -14,13 +14,13 @@ def open_popup_for(element: str):
     if active_dialog:
         active_dialog.clear()
 
-    with ui.dialog(value=True).props(":backdrop-filter=saturate(80%) seamless position=right") as dialog, ui.card().classes("w-64 relative opacity-50"):
+    with ui.dialog(value=True).props("seamless position=right") as dialog, ui.card().classes("w-64 relative opacity-95"):
         ui.label(element.replace("_", " ").title())
         ui.space()
         ui.button(icon="close", on_click=dialog.close).props("flat round dense").classes("absolute right-2 top-2")
         with ui.card_actions():
             ui.button("Code", on_click=lambda: ui.notify(element))
-            ui.button("Zort", on_click=lambda: ui.notify("Zort")).props("outline")
+            ui.button("Noop", on_click=lambda: ui.notify("Nothing here!")).props("outline")
 
     # set existing dialog
     active_dialog = dialog
@@ -33,7 +33,7 @@ def open_popup_for(element: str):
 def ii():
     """Return demo steps marked on an interactive image"""
 
-    with ui.interactive_image("/images/DataPipeline.png", content='''
+    with ui.interactive_image("/images/datapipeline.png", content='''
         <rect id="publish_transactions" x="200" y="1470" rx="80" ry="80" width="360" height="360" fill="none" stroke="red" stroke-width:"5" pointer-events="all" cursor="pointer" />
         <rect id="create_csv_files" x="200" y="2400" rx="80" ry="80" width="360" height="360" fill="none" stroke="red" stroke-width:"5" pointer-events="all" cursor="pointer" />
         # ''')\

@@ -20,7 +20,7 @@ def fake_customer():
     # remove newline from address field
     profile['address'] = profile['address'].replace('\n', ' ')
     return {
-        "id": uuid.uuid4().hex,
+        "_id": uuid.uuid4().hex,
         **profile,
         "account_number": fake.iban(),
         "country_code": fake.current_country_code()
@@ -29,7 +29,7 @@ def fake_customer():
 
 def fake_transaction(sender: str, receiver: str):
     return {
-        "id": uuid.uuid4().hex,
+        "_id": uuid.uuid4().hex,
         "sender_account": sender,
         "receiver_account": receiver,
         "amount": round(fake.pyint(0, 10_000), 2),
@@ -43,8 +43,8 @@ def create_csv_files():
     Create customers and transactions CSV files with randomly generated data
     """
 
-    number_of_customers = 1_000
-    number_of_transactions = 10_000
+    number_of_customers = 100
+    number_of_transactions = 1_000
 
     # customers
     customers = []
@@ -78,8 +78,13 @@ async def peek_mocked_data():
     await run_command_with_dialog(f"tail /edfs/{get_cluster_name()}{DATA_DOMAIN['basedir']}/{DATA_DOMAIN['tables']['customers']}.csv /edfs/{get_cluster_name()}{DATA_DOMAIN['basedir']}/{DATA_DOMAIN['tables']['transactions']}.csv")
 
 
-async def publish_transactions():
-    stream_path = f"{DATA_DOMAIN['basedir']}/{DATA_DOMAIN['stream']}"
+async def publish_transactions(limit: int = 10):
+    """
+    Publish transactions from csv file into the topic
+    """    
+
+    stream_path = f"{DATA_DOMAIN['basedir']}/{DATA_DOMAIN['streams']['incoming']}"
+
     count = 0
     
     try:
@@ -87,24 +92,24 @@ async def publish_transactions():
             csv_reader = csv.DictReader(csvfile)
 
             for transaction in csv_reader:
-                # only publish randomly selected transactions, limited to 50
-                if count == 50: break
+                # only publish randomly selected transactions, and only 50 of them by default
+                if count == limit: break
                 if random.randrange(10) < 3: # ~30% to be selected randomly
 
-                    if await run.io_bound(streams.produce, stream_path, DATA_DOMAIN['topic'], json.dumps(transaction)):
-                        logger.debug("Sent %s", transaction["id"])
+                    if await run.io_bound(streams.produce, stream_path, DATA_DOMAIN['topics']['transactions'], json.dumps(transaction)):
+                        logger.debug("Sent %s", transaction["_id"])
                         # add delay
                         # await asyncio.sleep(0.2)
                     else:
-                        logger.warning("Failed to send transaction to %s", DATA_DOMAIN['topic'])
+                        logger.warning("Failed to send transaction to %s", DATA_DOMAIN['topics']['transactions'])
 
                     count += 1
 
-                else: logger.debug("Skipped transaction: %s", transaction["id"])
+                else: logger.debug("Skipped transaction: %s", transaction["_id"])
 
     except Exception as error:
         logger.warning("Cannot read transactions: %s", error)
         ui.notify(error, type='negative')
         return
 
-    ui.notify(f"Published {count} messages into {DATA_DOMAIN['topic']}", type='positive')
+    ui.notify(f"Published {count} messages into {DATA_DOMAIN['topics']['transactions']}", type='positive')
