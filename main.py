@@ -10,9 +10,11 @@ import gui
 # catch-all exceptions
 app.on_exception(gracefully_fail)
 
-app.add_static_files(os.path.join(os.path.dirname(__file__), "images"), "images")
+# serve images
+app.add_static_files("/images", local_directory="/app/images")
 
-set_logging()
+# configure the logging
+configure_logging()
 
 logger = logging.getLogger("main")
 

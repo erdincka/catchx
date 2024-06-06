@@ -245,12 +245,12 @@ def cluster_configuration_dialog():
             ui.label("required volumes and streams")
             with ui.row().classes("w-full place-items-center"):
                 ui.button("Create", on_click=create_volumes_and_streams)
-                ui.button(f"List {DATA_DOMAIN['basedir']}", on_click=lambda: run_command_with_dialog(f"ls -la /edfs/{get_cluster_name()}{DATA_DOMAIN['basedir']}")).props('outline')
+                ui.button("List Cluster /", on_click=lambda: run_command_with_dialog(f"ls -la /edfs/{get_cluster_name()}")).props('outline')
 
         ui.separator()
         with ui.card_section():
-            ui.label("Delete All!").classes("text-lg")
-            ui.label("Will remove all volumes and streams, ALL DATA will be gone!").classes("text-sm text-italic")
+            ui.label("Clean up!").classes("text-lg")
+            ui.label("Use when done with the demo. This ill remove all volumes and streams, ALL DATA will be gone!").classes("text-sm text-italic")
             ui.button("DELETE ALL!", on_click=delete_volumes_and_streams, color="negative")
 
     dialog.on("close", lambda d=dialog: d.delete())

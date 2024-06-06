@@ -2,6 +2,7 @@ import asyncio
 import datetime
 import logging
 import os
+import shutil
 import tarfile
 
 import httpx
@@ -231,7 +232,6 @@ async def delete_volumes_and_streams():
                 elif res['status'] == "ERROR":
                     ui.notify(f"{vol}: {res['errors'][0]['desc']}", type='warning')
 
-
     # Delete streams
     for stream in DATA_DOMAIN["streams"].keys():
         URL = f"https://{app.storage.general['cluster']}:8443/rest/stream/delete?path={DATA_DOMAIN['basedir']}/{DATA_DOMAIN['streams'][stream]}"
@@ -249,13 +249,9 @@ async def delete_volumes_and_streams():
                 elif res['status'] == "ERROR":
                     ui.notify(f"Stream: {DATA_DOMAIN['streams'][stream]}: {res['errors'][0]['desc']}", type='warning')
 
-    # delete mock data files and iceberg catalog
-    for file in ["customers.csv", "transactions.csv", "iceberg.db"]:
-        os.remove(f"/edfs/{get_cluster_name()}{DATA_DOMAIN['basedir']}/{file}")
-
-    # delete base folder
+    # delete app folder
     basedir = f"/edfs/{get_cluster_name()}{DATA_DOMAIN['basedir']}"
-    os.rmdir(basedir)
+    shutil.rmtree(basedir)
 
 
 async def check_cdc():
@@ -285,7 +281,7 @@ async def check_cdc():
             logger.info(res)
 
 
-def set_logging():
+def configure_logging():
     """
     Set up logging and supress third party errors
     """
