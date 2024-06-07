@@ -48,7 +48,7 @@ async def home():
 
     ui.separator()
 
-    gui.ii()
+    # gui.ii()
 
     # Main
     with ui.row().classes("w-full flex flex-nowrap relative"):

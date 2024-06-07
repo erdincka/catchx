@@ -73,8 +73,6 @@ def upsert_documents(table_path: str, docs: list):
 
         logger.info("Upserting %d documents from list", len(docs))
         
-        print(type(docs))
-        print(docs[0])
         store.insert_or_replace(doc_stream=docs)
 
     except Exception as error:
@@ -176,7 +174,6 @@ def get_documents(table_path: str, limit: int = FETCH_RECORD_NUM):
         return [doc for doc in table_path.find(query)]
 
     except Exception as error:
-        print(error)
         logger.warning("Failed to get document: %s", error)
         return []
 

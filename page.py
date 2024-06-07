@@ -3,6 +3,7 @@ from nicegui import ui, app
 
 from functions import *
 from common import *
+from iceberger import hive_catalog
 from ingestion import *
 from mock import *
 from monitoring import *
@@ -57,6 +58,7 @@ def footer():
             ui.space()
 
             ui.button("CDC", on_click=check_cdc)
+            ui.button("Hive Catalog", on_click=hive_catalog)
 
             ui.space()
 
@@ -151,13 +153,13 @@ def demo_steps():
                 ui.label("Data enrichment: ").classes("w-40")
                 ui.button("Customers", on_click=refine_customers).bind_enabled_from(app.storage.user, "busy", backward=lambda x: not x)
                 ui.button("Transactions", on_click=refine_transactions).bind_enabled_from(app.storage.user, "busy", backward=lambda x: not x)
+                ui.button("Code", on_click=enrich_dialog.open, color="info").props("outline")
 
             with ui.row().classes("w-full place-items-center"):
                 ui.label("Peek: ").classes("w-40")
                 ui.button("Profiles", on_click=lambda: peek_documents(tablepath=f"{DATA_DOMAIN['basedir']}/{DATA_DOMAIN['volumes']['silver']}/{DATA_DOMAIN['tables']['profiles']}")).props("outline")
                 ui.button("Customers", on_click=lambda: peek_documents(tablepath=f"{DATA_DOMAIN['basedir']}/{DATA_DOMAIN['volumes']['silver']}/{DATA_DOMAIN['tables']['customers']}")).props("outline")
                 ui.button("Transactions", on_click=lambda: peek_documents(f"{DATA_DOMAIN['basedir']}/{DATA_DOMAIN['volumes']['silver']}/{DATA_DOMAIN['tables']['transactions']}")).props("outline")
-                ui.button("Code", on_click=enrich_dialog.open, color="info").props("outline")
 
         with ui.expansion("Consolidate", caption="Create data lake for gold tier", group="flow"):
             with ui.dialog().props("full-width") as aggregate_dialog, ui.card().classes("grow relative"):

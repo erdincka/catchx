@@ -195,6 +195,7 @@ async def txn_topic_stats():
 
     except Exception as error:
         logger.warning("Topic stat request error %s", error)
+        await asyncio.sleep(30)
 
 
 async def txn_consumer_stats():
@@ -253,6 +254,8 @@ async def txn_consumer_stats():
     except Exception as error:
         # possibly not connected or topic not populated yet, just ignore it
         logger.debug("Consumer stat request error %s", error)
+        # delay for a while before retry
+        await asyncio.sleep(30)
 
 
 async def table_stats(tier: str):
@@ -265,7 +268,7 @@ async def table_stats(tier: str):
         ### get # of records in iceberg table "transactions"
         ### get # of records in json table "profiles"
         metrics = iceberger.stats(tier)
-        print(metrics)
+
         logger.debug("BRONZE STAT %s", metrics)
 
         series = []
