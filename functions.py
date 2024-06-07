@@ -270,33 +270,40 @@ def data_aggregation():
     merged_df = pd.merge(merged_df, received_transactions, left_on='account_number', right_on='receiver_account', how='left', suffixes=('', '_received'))
 
     # Fill NaN with empty lists for transactions
-    merged_df['amount_sent'] = merged_df['amount'].apply(lambda x: [] if pd.isna(x) else x)
-    merged_df['transaction_date_sent'] = merged_df['transaction_date'].apply(lambda x: [] if pd.isna(x) else x)
-    merged_df['receiver_account'] = merged_df['receiver_account'].apply(lambda x: [] if pd.isna(x) else x)
-    merged_df['amount_received'] = merged_df['amount_received'].apply(lambda x: [] if pd.isna(x) else x)
-    merged_df['transaction_date_received'] = merged_df['transaction_date_received'].apply(lambda x: [] if pd.isna(x) else x)
-    merged_df['sender_account'] = merged_df['sender_account'].apply(lambda x: [] if pd.isna(x) else x)
+    merged_df['amount_sent'] = merged_df['amount'].apply(lambda x: None if pd.isna(x) else x)
+    merged_df['transaction_date_sent'] = merged_df['transaction_date'].apply(lambda x: None if pd.isna(x) else x)
+    merged_df['receiver_account'] = merged_df['receiver_account'].apply(lambda x: None if pd.isna(x) else x)
+    merged_df['amount_received'] = merged_df['amount_received'].apply(lambda x: None if pd.isna(x) else x)
+    merged_df['transaction_date_received'] = merged_df['transaction_date_received'].apply(lambda x: None if pd.isna(x) else x)
+    merged_df['sender_account'] = merged_df['sender_account'].apply(lambda x: None if pd.isna(x) else x)
     # update score from nan to None
-    merged_df['score'] = merged_df['score'].apply(lambda x: "" if pd.isna(x) else x)
+    merged_df['score'] = pd.to_numeric(merged_df['score'], errors="coerce", downcast="integer").apply(lambda x: 0 if pd.isna(x) else x)
+    # Replace None with pd.NA for PyArrow compatibility
+    # merged_df = merged_df.applymap(lambda x: pd.NA if x is None else x)
+
+
+    # Helper function to ensure lists for JSON creation
+    def safe_zip(*args):
+        return zip(*(arg if (arg is not None and not pd.isna(arg)) else [] for arg in args))
 
     # Create a combined JSON structure
     def create_combined_json(row):
         return {
             '_id': row['_id'],
-            'name': json.dumps(row['name']),
-            'address': json.dumps(row['address']),
+            'name': row['name'],
+            'address': row['address'],
             'account_number': row['account_number'],
             'score': row['score'],
-            'transactions_sent': [{'amount': a, 'transaction_date': t, 'receiver_account': r} for a, t, r in zip(row['amount_sent'], row['transaction_date_sent'], row['receiver_account'])],
-            'transactions_received': [{'amount': a, 'transaction_date': t, 'sender_account': s} for a, t, s in zip(row['amount_received'], row['transaction_date_received'], row['sender_account'])]
+            # 'transactions_sent': [{'amount': a, 'transaction_date': t, 'receiver_account': r} for a, t, r in safe_zip(row['amount_sent'], row['transaction_date_sent'], row['receiver_account'])],
+            # 'transactions_received': [{'amount': a, 'transaction_date': t, 'sender_account': s} for a, t, s in safe_zip(row['amount_received'], row['transaction_date_received'], row['sender_account'])]
         }
 
     # Apply the function to the DataFrame
     combined_data = merged_df.apply(create_combined_json, axis=1).tolist()
-    print(combined_data)
 
     # Insert combined data into new JSON table
     if tables.upsert_documents(table_path=combined_table, docs=combined_data):
+    # if iceberger.write(DATA_DOMAIN['volumes']['gold'], DATA_DOMAIN['tables']['combined'], combined_data):
         logger.info("Created golden table with %d records", len(combined_data))
         return (f"Created golden table with {len(combined_data)} records", 'positive')
     else:

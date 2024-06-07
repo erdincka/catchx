@@ -5,7 +5,28 @@ from pyiceberg.expressions import EqualTo
 from common import *
 
 logger = logging.getLogger("iceberger")
-logging.getLogger("pyiceberg.io").setLevel(logging.WARNING)
+logging.getLogger("pyiceberg.io").setLevel(logging.DEBUG)
+
+
+def hive_cat():
+    try:
+        from pyiceberg import catalog
+        catalog = catalog.load_catalog(
+            "default",
+            **{
+                "uri": "hive://10.1.1.31:10000/default",
+                "ssl": True,
+                # "s3.endpoint": "",
+                # "s3.access-key-id": "2XVBOI33OQ9LYDZ1X5IPIRXMYVD8HWWN6938VNVDI03YHHBK4XP273GXD5BURQNQ44E14Y0SMCG7F7FJ9YK8HJ3EEOQR8VCA2",
+                # "s3.secret-access-key": "FGOGA7I2BVV99HFPNRFOAUF79WOSZBO4V6T0D0P1ZGHSFLUTQ275HIO",
+            },
+        )
+        print(catalog)
+        print(catalog.list_namespaces())
+
+    except Exception as error:
+        logger.warning("Iceberg Catalog error: %s", error)
+        ui.notify(f"Iceberg catalog error: {error}", type='negative')
 
 
 def get_catalog():
@@ -29,29 +50,6 @@ def get_catalog():
 
     finally:
         return catalog
-
-
-def hive_catalog():
-    try:
-        from pyiceberg.catalog.hive import HiveCatalog
-        catalog = HiveCatalog(
-            "default",
-            **{
-                "uri": f"thrift:{app.storage.general['cluster']}:9083",
-                "s3.endpoint": f"https://{app.storage.general['cluster']}:9000",
-                "s3.access-key-id": app.storage.general['S3_ACCESS_KEY'],
-                "s3.secret-access-key": app.storage.general['S3_SECRET_KEY']
-                # "py-io-impl": "pyiceberg.io.pyarrow.PyArrowFileIO",
-            },
-        )
-
-        catalog.create_namespace("default")
-        # ns = catalog.list_namespaces()
-        # catalog.list_tables("default")
-
-    except Exception as error:
-        logger.warning("Iceberg Hive Catalog error: %s", error)
-        ui.notify(f"Iceberg hive catalog error: {error}", type='negative')
 
 
 def write(tier: str, tablename: str, records: list) -> bool:

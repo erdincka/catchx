@@ -3,7 +3,7 @@ from nicegui import ui, app
 
 from functions import *
 from common import *
-from iceberger import hive_catalog
+from iceberger import hive_cat
 from ingestion import *
 from mock import *
 from monitoring import *
@@ -58,7 +58,7 @@ def footer():
             ui.space()
 
             ui.button("CDC", on_click=check_cdc)
-            ui.button("Hive Catalog", on_click=hive_catalog)
+            ui.button("Hive", on_click=hive_cat)
 
             ui.space()
 
