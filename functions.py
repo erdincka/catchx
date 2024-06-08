@@ -1,4 +1,5 @@
 import asyncio
+import json
 import random
 from nicegui import run
 import country_converter as coco
@@ -294,17 +295,24 @@ def data_aggregation():
             'address': row['address'],
             'account_number': row['account_number'],
             'score': row['score'],
-            # 'transactions_sent': [{'amount': a, 'transaction_date': t, 'receiver_account': r} for a, t, r in safe_zip(row['amount_sent'], row['transaction_date_sent'], row['receiver_account'])],
-            # 'transactions_received': [{'amount': a, 'transaction_date': t, 'sender_account': s} for a, t, s in safe_zip(row['amount_received'], row['transaction_date_received'], row['sender_account'])]
+            'transactions_sent': [{'amount': a, 'transaction_date': t, 'receiver_account': r} for a, t, r in safe_zip(row['amount_sent'], row['transaction_date_sent'], row['receiver_account'])],
+            'transactions_received': [{'amount': a, 'transaction_date': t, 'sender_account': s} for a, t, s in safe_zip(row['amount_received'], row['transaction_date_received'], row['sender_account'])]
         }
 
     # Apply the function to the DataFrame
-    combined_data = merged_df.apply(create_combined_json, axis=1).tolist()
+    df = merged_df.apply(create_combined_json, axis=1)
 
-    # Insert combined data into new JSON table
+    # Convert lists of dictionaries to JSON strings for SQL insertion    
+    df['transactions_sent'] = df['transactions_sent'].apply(json.dumps)
+    df['transactions_received'] = df['transactions_received'].apply(json.dumps)
+
+    # convert df to list[dict]
+    combined_data = df.to_list()
+
+    # Insert combined data into the 'gold' database
     # if tables.upsert_documents(table_path=combined_table, docs=combined_data):
     # if iceberger.write(DATA_DOMAIN['volumes']['gold'], DATA_DOMAIN['tables']['combined'], combined_data):
-    if mysqldb.insert(DATA_DOMAIN['name'], DATA_DOMAIN['tables']['combined'], combined_data):
+    if mysqldb.insert(dbname=DATA_DOMAIN['name'], tablename=DATA_DOMAIN['tables']['combined'], records=combined_data):
         logger.info("Created golden table with %d records", len(combined_data))
         return (f"Created golden table with {len(combined_data)} records", 'positive')
     else:

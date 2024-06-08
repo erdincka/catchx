@@ -9,9 +9,9 @@ mysqldb_password = 'catchx'
 logger = logging.getLogger("mysqldb")
 
 
-def get_db(dbname: str):
+def getdatabase(dbname: str):
     """
-    Get an existing database or create if it doesn't exist
+    Get the connection to an existing database or create if it doesn't exist and return the connection
 
     :param dbname str: name of the database to search or create
 
@@ -45,9 +45,56 @@ def get_db(dbname: str):
         logger.warning(error)
 
 
-def query(dbname: str, query: str):
+def ensuretable(dbname: str, tablename: str):
     """
-    Run any SQL query against the database
+    Create the `tablename` in `dbname` DB
+
+    :param dbname str: mysql database name
+    :param tablename str: table name in the database
+
+    :return bool: Success or failure
+    """
+
+    # create table if not exist
+
+    create_table_sql = f"""
+        CREATE TABLE IF NOT EXISTS {tablename} (
+            _id VARCHAR(255) PRIMARY KEY,
+            name VARCHAR(255),
+            address TEXT,
+            account_number VARCHAR(255),
+            score FLOAT,
+            transactions_sent JSON,
+            transactions_received JSON
+        );
+        """
+    
+    if dbquery(dbname=dbname, query=create_table_sql) is None:
+        return False
+
+    return True
+
+
+def droptable(dbname: str, tablename: str):
+    """
+    Drop the `tablename` in `dbname` DB
+
+    :param dbname str: mysql database name
+    :param tablename str: table name in the database
+
+    :return bool: Success or failure
+    """
+
+    drop_table_sql = f"DROP TABLE {tablename}"
+    if dbquery(dbname=dbname, query=drop_table_sql) is None:
+        return False
+
+    return True
+
+
+def dbquery(dbname: str, query: str):
+    """
+    Run SQL query against the database
 
     :param dbname str: Database name to connect/execute
 
@@ -56,7 +103,7 @@ def query(dbname: str, query: str):
     :return result str|list: query results
     """
 
-    connection = get_db(dbname=dbname)
+    connection = getdatabase(dbname=dbname)
 
     if connection is None: return # if failed to connect, no need to bother the rest
 
@@ -69,17 +116,17 @@ def query(dbname: str, query: str):
         results = cursor.fetchall()
 
     except Exception as error:
-        logger.warning(error)
+        logger.warning("Query '%s' failed: %s", query, error)
 
     finally:
         cursor.close()
-        logger.info("Mysql results for %s: %s", query, results)
+        logger.info("Query results for '%s': %s", query, results)
         return results
 
 
 def insert(dbname: str, tablename: str, records: list) -> bool:
     """
-    Insert `recrods` into the `tablename` in `dbname` DB
+    Insert `records` into the `tablename` in `dbname` DB
 
     :param dbname str: mysql database name
     :param tablename str: table name in the database
@@ -88,6 +135,33 @@ def insert(dbname: str, tablename: str, records: list) -> bool:
     :return bool: Success or failure
     """
 
-    print(records)
+    if not ensuretable(dbname=dbname, tablename=tablename): return False
 
-    return True
+    # Insert data into the table
+    insert_query = f"""
+    INSERT INTO {tablename} (_id, name, address, account_number, score, transactions_sent, transactions_received)
+    VALUES (%s, %s, %s, %s, %s, %s, %s)
+    """
+
+    connection = getdatabase(dbname=dbname)
+
+    if connection is None: return # if failed to connect, no need to bother the rest
+
+    results = None
+
+    cursor = connection.cursor()
+
+    try:
+        print([tuple(row) for row in records])
+        # cursor.executemany(insert_query, [tuple(row) for row in records])
+        # connection.commit()
+        logger.info("Insert %d records", cursor.rowcount)
+
+    except Exception as error:
+        logger.warning("Query '%s' failed: %s", insert_query, error)
+
+    finally:
+        cursor.close()
+        logger.info("Query results for '%s': %s", insert_query, results)
+
+
