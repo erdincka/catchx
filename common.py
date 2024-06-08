@@ -14,7 +14,7 @@ TITLE = "Building a Hybrid Data Mesh"
 STORAGE_SECRET = "ezmer@1r0cks"
 
 DATA_DOMAIN = {
-  "name": "fraud",
+  "name": "fraud", # make this a single word, used for volume and database names, no spaces or fancy characters
 #   TODO: describe
   "description": "What, why and how?",
   "diagram": "datadomain.png",

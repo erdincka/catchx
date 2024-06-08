@@ -1,5 +1,4 @@
 import asyncio
-import json
 import random
 from nicegui import run
 import country_converter as coco
@@ -8,6 +7,7 @@ import pandas as pd
 from common import *
 import tables
 import iceberger
+import mysqldb
 
 logger = logging.getLogger("functions")
 
@@ -302,8 +302,9 @@ def data_aggregation():
     combined_data = merged_df.apply(create_combined_json, axis=1).tolist()
 
     # Insert combined data into new JSON table
-    if tables.upsert_documents(table_path=combined_table, docs=combined_data):
+    # if tables.upsert_documents(table_path=combined_table, docs=combined_data):
     # if iceberger.write(DATA_DOMAIN['volumes']['gold'], DATA_DOMAIN['tables']['combined'], combined_data):
+    if mysqldb.insert(DATA_DOMAIN['name'], DATA_DOMAIN['tables']['combined'], combined_data):
         logger.info("Created golden table with %d records", len(combined_data))
         return (f"Created golden table with {len(combined_data)} records", 'positive')
     else:

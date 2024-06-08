@@ -3,12 +3,12 @@ from nicegui import ui, app
 
 from functions import *
 from common import *
-from iceberger import hive_cat
 from ingestion import *
 from mock import *
 from monitoring import *
 import streams
 import tables
+import mysqldb
 
 
 def app_init():
@@ -58,7 +58,6 @@ def footer():
             ui.space()
 
             ui.button("CDC", on_click=check_cdc)
-            ui.button("Hive", on_click=hive_cat)
 
             ui.space()
 

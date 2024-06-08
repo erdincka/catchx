@@ -19,3 +19,22 @@ You can also delete the stream, and then re-start from Step 2, so you can have c
 NOTE:
 
 You can open Log window by selecting the hamburger menu on the footer, and select to see "Debug" messages using the switch at the top-right corner.
+
+
+# REQUIREMENTS
+
+Setup Data Fabric cluster with Spark, create a user with volume, table and stream creation rights, as well as with audit monitoring (for monitoring charts). Or for demo environments, simply use `mapr` user.
+
+Setup MySQL (possibly used for Hive too), on Data Fabric cluster, and create/allow a user with remote connection, DB creation and permissions.
+
+```shell
+
+mysql -u root -p
+
+CREATE USER 'catchx'@'%' IDENTIFIED BY 'catchx';
+GRANT ALL ON *.* TO 'catchx'@'%' WITH GRANT OPTION;
+FLUSH PRIVILEGES;
+
+exit
+
+```
