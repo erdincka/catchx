@@ -45,7 +45,7 @@ def getdatabase(dbname: str):
         logger.warning(error)
 
 
-def ensuretable(dbname: str, tablename: str):
+def ensuretable(dbname: str, tablename: str, tableschema: str):
     """
     Create the `tablename` in `dbname` DB
 
@@ -55,19 +55,18 @@ def ensuretable(dbname: str, tablename: str):
     :return bool: Success or failure
     """
 
-    # create table if not exist
-
     create_table_sql = f"""
         CREATE TABLE IF NOT EXISTS {tablename} (
-            _id VARCHAR(255) PRIMARY KEY,
-            name VARCHAR(255),
-            address TEXT,
-            account_number VARCHAR(255),
-            score FLOAT,
-            transactions_sent JSON,
-            transactions_received JSON
+        {tableschema}
         );
         """
+            # _id VARCHAR(255) PRIMARY KEY,
+            # name VARCHAR(255),
+            # address TEXT,
+            # account_number VARCHAR(255),
+            # score FLOAT,
+            # transactions_sent JSON,
+            # transactions_received JSON
     
     if dbquery(dbname=dbname, query=create_table_sql) is None:
         return False

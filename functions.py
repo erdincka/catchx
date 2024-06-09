@@ -137,8 +137,10 @@ async def refine_customers():
     df['country_name'] = cc.pandas_convert(df['country_code'], src="ISO2", to="name_short")
 
     # mask last n characters from the account_number
-    last_n_chars = 8
-    df["account_number"] = df["account_number"].astype(str).str[:-last_n_chars] + "*" * last_n_chars
+    # last_n_chars = 8
+    # df["account_number"] = df["account_number"].astype(str).str[:-last_n_chars] + "*" * last_n_chars
+    # mask birthdate
+    df["birthdate"] = "*" * 8
 
     # # use _id to comply with OJAI primary key
     df.rename(columns={'id': '_id'}, inplace=True)
@@ -260,64 +262,26 @@ def data_aggregation():
     transactions_df = pd.DataFrame.from_dict(tables.get_documents(table_path=transactions_input_table, limit=None))
 
     # merge customers with profiles on _id
-    merged_df = pd.merge(customers_df, profiles_df, on="_id", how="left")
-    
-    # Group transactions by sender_account and receiver_account
-    sent_transactions = transactions_df.groupby('sender_account').agg(list).reset_index()
-    received_transactions = transactions_df.groupby('receiver_account').agg(list).reset_index()
+    merged_df = pd.merge(customers_df, profiles_df, on="_id", how="left").fillna({"score": 0})
 
-    # Merge the transactions with the merged customer-profile data
-    merged_df = pd.merge(merged_df, sent_transactions, left_on='account_number', right_on='sender_account', how='left', suffixes=('', '_sent'))
-    merged_df = pd.merge(merged_df, received_transactions, left_on='account_number', right_on='receiver_account', how='left', suffixes=('', '_received'))
+    # # Group transactions by sender_account and receiver_account
+    # sent_transactions = transactions_df.groupby('sender_account').agg(list).reset_index()
+    # received_transactions = transactions_df.groupby('receiver_account').agg(list).reset_index()
 
-    # Fill NaN with empty lists for transactions
-    merged_df['amount_sent'] = merged_df['amount'].apply(lambda x: None if pd.isna(x) else x)
-    merged_df['transaction_date_sent'] = merged_df['transaction_date'].apply(lambda x: None if pd.isna(x) else x)
-    merged_df['receiver_account'] = merged_df['receiver_account'].apply(lambda x: None if pd.isna(x) else x)
-    merged_df['amount_received'] = merged_df['amount_received'].apply(lambda x: None if pd.isna(x) else x)
-    merged_df['transaction_date_received'] = merged_df['transaction_date_received'].apply(lambda x: None if pd.isna(x) else x)
-    merged_df['sender_account'] = merged_df['sender_account'].apply(lambda x: None if pd.isna(x) else x)
-    # update score from nan to None
-    merged_df['score'] = pd.to_numeric(merged_df['score'], errors="coerce", downcast="integer").apply(lambda x: 0 if pd.isna(x) else x)
-    # Replace None with pd.NA for PyArrow compatibility
-    # merged_df = merged_df.applymap(lambda x: pd.NA if x is None else x)
+    # # Conver to dict to create sql compatible conversion
+    # customers = merged_df.to_dict('records')
 
+    # for customer in customers:
+    #     customer["sent_transactions"] = sent_transactions.loc[sent_transactions["sender_account"] == customer["account_number"]].to_dict("records")
+    #     customer["received_transactions"] = received_transactions.loc[received_transactions["receiver_account"] == customer["account_number"]].to_dict("records")
 
-    # Helper function to ensure lists for JSON creation
-    def safe_zip(*args):
-        return zip(*(arg if (arg is not None and not pd.isna(arg)) else [] for arg in args))
+    # print(customers)
 
-    # Create a combined JSON structure
-    def create_combined_json(row):
-        return {
-            '_id': row['_id'],
-            'name': row['name'],
-            'address': row['address'],
-            'account_number': row['account_number'],
-            'score': row['score'],
-            'transactions_sent': [{'amount': a, 'transaction_date': t, 'receiver_account': r} for a, t, r in safe_zip(row['amount_sent'], row['transaction_date_sent'], row['receiver_account'])],
-            'transactions_received': [{'amount': a, 'transaction_date': t, 'sender_account': s} for a, t, s in safe_zip(row['amount_received'], row['transaction_date_received'], row['sender_account'])]
-        }
+    mydb = f"mysql+pymysql://catchx:catchx@{app.storage.general['cluster']}/{DATA_DOMAIN['name']}"
+    num_customers = merged_df.to_sql(name="customers", con=mydb, if_exists='append')
+    num_transactions = transactions_df.to_sql(name="transactions", con=mydb, if_exists='append')
 
-    # Apply the function to the DataFrame
-    df = merged_df.apply(create_combined_json, axis=1)
-
-    # Convert lists of dictionaries to JSON strings for SQL insertion    
-    df['transactions_sent'] = df['transactions_sent'].apply(json.dumps)
-    df['transactions_received'] = df['transactions_received'].apply(json.dumps)
-
-    # convert df to list[dict]
-    combined_data = df.to_list()
-
-    # Insert combined data into the 'gold' database
-    # if tables.upsert_documents(table_path=combined_table, docs=combined_data):
-    # if iceberger.write(DATA_DOMAIN['volumes']['gold'], DATA_DOMAIN['tables']['combined'], combined_data):
-    if mysqldb.insert(dbname=DATA_DOMAIN['name'], tablename=DATA_DOMAIN['tables']['combined'], records=combined_data):
-        logger.info("Created golden table with %d records", len(combined_data))
-        return (f"Created golden table with {len(combined_data)} records", 'positive')
-    else:
-        logger.warning("Failed to write golden table at: %s", combined_table)
-        return (f"Failed to write golden table at: {combined_table}", 'negative')
+    return (f"{num_customers} customers and {num_transactions} transactions updated in {DATA_DOMAIN['volumes']['gold']} tier", 'positive')
 
 
 def reporting():
