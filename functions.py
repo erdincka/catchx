@@ -8,7 +8,6 @@ import pandas as pd
 from common import *
 import tables
 import iceberger
-import mysqldb
 
 logger = logging.getLogger("functions")
 
@@ -264,20 +263,8 @@ def data_aggregation():
     # merge customers with profiles on _id
     merged_df = pd.merge(customers_df, profiles_df, on="_id", how="left").fillna({"score": 0})
 
-    # # Group transactions by sender_account and receiver_account
-    # sent_transactions = transactions_df.groupby('sender_account').agg(list).reset_index()
-    # received_transactions = transactions_df.groupby('receiver_account').agg(list).reset_index()
-
-    # # Conver to dict to create sql compatible conversion
-    # customers = merged_df.to_dict('records')
-
-    # for customer in customers:
-    #     customer["sent_transactions"] = sent_transactions.loc[sent_transactions["sender_account"] == customer["account_number"]].to_dict("records")
-    #     customer["received_transactions"] = received_transactions.loc[received_transactions["receiver_account"] == customer["account_number"]].to_dict("records")
-
-    # print(customers)
-
-    mydb = f"mysql+pymysql://catchx:catchx@{app.storage.general['cluster']}/{DATA_DOMAIN['name']}"
+    # Append customers and transactions in the gold tier rdbms
+    mydb = f"mysql+pymysql://{app.storage.general['MYSQL_USER']}:{app.storage.general['MYSQL_PASS']}@{app.storage.general['cluster']}/{DATA_DOMAIN['name']}"
     num_customers = merged_df.to_sql(name="customers", con=mydb, if_exists='append')
     num_transactions = transactions_df.to_sql(name="transactions", con=mydb, if_exists='append')
 

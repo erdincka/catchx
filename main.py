@@ -27,7 +27,7 @@ async def home():
     header()
 
     # Data Mesh
-    with ui.expansion("Data Mesh", caption="Build a globally distributed mesh with federated data domains", icon="dashboard").classes("w-full").bind_value(app.storage.user, "meshview"):
+    with ui.expansion("Data Mesh", caption="Build a globally distributed mesh with federated data domains", group="navigation", icon="dashboard").classes("w-full").bind_value(app.storage.user, "meshview"):
         # meshmap()
         # TODO: proper/better description below
         ui.markdown("""
@@ -44,7 +44,19 @@ async def home():
     ui.separator()
 
     # Documentation / Intro
-    info()
+    with ui.expansion( 
+        "Data Domain",
+        icon="info",
+        group="navigation",
+        caption="End to end data pipeline using Ezmeral Data Fabric for financial transaction processing",
+    ).classes("w-full").classes("text-bold"):
+        ui.markdown(DATA_DOMAIN["description"]).classes("font-normal")
+        ui.image(f"/images/{DATA_DOMAIN['diagram']}").classes("object-scale-down g-10")
+        ui.link(
+            "Source",
+            target=DATA_DOMAIN.get("link", ""),
+            new_tab=True,
+        ).bind_visibility_from(DATA_DOMAIN, "link", backward=lambda x: x is not None)
 
     ui.separator()
 

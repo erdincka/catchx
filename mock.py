@@ -23,7 +23,7 @@ def fake_customer():
         "_id": uuid.uuid4().hex,
         **profile,
         "account_number": fake.iban(),
-        "country_code": fake.current_country_code()
+        "country_code": fake.country_code() #fake.current_country_code()
     }
 
 

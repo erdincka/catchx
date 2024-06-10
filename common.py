@@ -17,7 +17,7 @@ DATA_DOMAIN = {
   "name": "fraud", # make this a single word, used for volume and database names, no spaces or fancy characters
 #   TODO: describe
   "description": "What, why and how?",
-  "diagram": "datadomain.png",
+  "diagram": "datapipeline.png",
   "basedir": "/fraud",
   "volumes": {
     "bronze": "bronze",
@@ -26,11 +26,10 @@ DATA_DOMAIN = {
   },
   "streams": {
     "incoming": "incoming",
-    "monitoring": "monitoring"
+    "monitoring": "monitoring" # designated for change log data capture
   },
   "topics": {
     "transactions": "transactions",
-    "cdc": "cdc"
   },
   "tables": {
     "profiles": "profiles",
@@ -196,6 +195,11 @@ async def create_volumes_and_streams():
     # Create streams
     for stream in DATA_DOMAIN["streams"].keys():
         URL = f"https://{app.storage.general['cluster']}:8443/rest/stream/create?path={DATA_DOMAIN['basedir']}/{DATA_DOMAIN['streams'][stream]}&ttl=38400&compression=lz4&produceperm=p&consumeperm=p&topicperm=p"
+
+        # ensure monitoring is used for changelog
+        if stream == "monitoring":
+            URL += "&ischangelog=true&defaultpartitions=1"
+
         async with httpx.AsyncClient(verify=False) as client:
             response = await client.post(URL, auth=auth)
 
@@ -254,31 +258,53 @@ async def delete_volumes_and_streams():
     shutil.rmtree(basedir)
 
 
-async def check_cdc():
+# This is not used due to complexity of its setup
+# requires gateway node configuration and DNS modification
+async def enable_cdc(source_table_path: str, destination_stream_topic: str):
     auth = (app.storage.general["MAPR_USER"], app.storage.general["MAPR_PASS"])
 
-    source_table_path = f"{DATA_DOMAIN['basedir']}/{DATA_DOMAIN['volumes']['bronze']}/{DATA_DOMAIN['tables']['transactions']}"
-
-    if not os.path.lexists(f"/edfs/{app.storage.general.get('cluster', '')}{source_table_path}"):
+    if not os.path.lexists(f"/edfs/{get_cluster_name()}{source_table_path}"):
         ui.notify(f"Table not found: {source_table_path}", type="warning")
         return
     
-    logger.info(source_table_path)
-
-    # URL = "http://<ipaddress>:8443/rest/table/changelog/add?path=<source-table-path>&changelog=<destination stream path>:<topic name>"
+    logger.debug("Check for changelog on: %s", source_table_path)
     
-    URL = f"http://{app.storage.general['cluster']}:8443/rest/table/changelog/list?path={source_table_path}"
+    URL = f"https://{app.storage.general['cluster']}:8443/rest/table/changelog/list?path={source_table_path}&changelog={destination_stream_topic}"
 
-    async with httpx.AsyncClient(verify=False) as client:
-        response = await client.get(URL, auth=auth)
+    try:
+        async with httpx.AsyncClient(verify=False) as client:
+            response = await client.get(URL, auth=auth)
 
-        if response is None or response.status_code != 200:
-            logger.warning(f"REST failed to check table changlog for: %s", source_table_path)
-            logger.warning("Response: %s", response.text)
+            if response is None or response.status_code != 200:
+                logger.warning("REST failed to check table changelog for: %s", source_table_path)
+                logger.warning("Response: %s", response.text)
 
-        else:
-            res = response.json()
-            logger.info(res)
+            else:
+                res = response.json()
+                if res["status"] == "ERROR":
+                    logger.warning("CDC check failed with: %s", res["errors"])
+
+                logger.debug("CDC check: %s", res)
+
+                if res["total"] == 0:
+                    # create CDC 
+                    URL = f"https://{app.storage.general['cluster']}:8443/rest/table/changelog/add?path={source_table_path}&changelog={destination_stream_topic}&useexistingtopic=true"
+
+                    response = await client.get(URL, auth=auth)
+
+                    if response is None or response.status_code != 200:
+                        logger.warning("REST failed to add changlog for: %s on %s", source_table_path, destination_stream_topic)
+                        logger.warning("Response: %s", response.text)
+
+                    else:
+                        res = response.json()
+                        if res["status"] == "ERROR":
+                            logger.warning("CDC add failed with: %s", res["errors"])
+
+                    logger.info(response.text)
+                
+    except Exception as error:
+        logger.warning(error)
 
 
 def configure_logging():

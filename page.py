@@ -8,7 +8,6 @@ from mock import *
 from monitoring import *
 import streams
 import tables
-import mysqldb
 
 
 def app_init():
@@ -57,9 +56,8 @@ def footer():
 
             ui.space()
 
-            ui.button("CDC", on_click=check_cdc)
-
-            ui.space()
+            # ui.button("CDC", on_click=lambda: enable_cdc(source_table_path=f"{DATA_DOMAIN['basedir']}/{DATA_DOMAIN['volumes']['bronze']}/{DATA_DOMAIN['tables']['transactions']}", destination_stream_topic=f"{DATA_DOMAIN['basedir']}/{DATA_DOMAIN['streams']['monitoring']}:{DATA_DOMAIN['topics']['transactions']}"))
+            # ui.space()
 
             ui.switch(on_change=toggle_debug).tooltip("Debug").props("color=dark keep-color")
 
@@ -70,21 +68,6 @@ def footer():
             ui.icon("check_circle", size="2em", color="green").bind_visibility_from(
                 app.storage.user, "busy", lambda x: not x
             ).tooltip("Ready")
-
-
-def info():
-    with ui.expansion( 
-        "Data Domain",
-        icon="info",
-        caption="End to end data pipeline using Ezmeral Data Fabric for financial transaction processing",
-    ).classes("w-full").classes("text-bold"):
-        ui.markdown(DATA_DOMAIN["description"]).classes("font-normal")
-        ui.image(f"/images/{DATA_DOMAIN['diagram']}").classes("object-scale-down g-10")
-        ui.link(
-            "Source",
-            target=DATA_DOMAIN.get("link", ""),
-            new_tab=True,
-        ).bind_visibility_from(DATA_DOMAIN, "link", backward=lambda x: x is not None)
 
 
 def demo_steps():
@@ -164,11 +147,12 @@ def demo_steps():
             with ui.dialog().props("full-width") as aggregate_dialog, ui.card().classes("grow relative"):
                 ui.button(icon="close", on_click=aggregate_dialog.close).props("flat round dense").classes("absolute right-2 top-2")
                 ui.code(inspect.getsource(data_aggregation)).classes("w-full mt-6")
+                ui.code(inspect.getsource(tables.get_documents)).classes("w-full mt-6")
 
             with ui.row().classes("w-full place-items-center"):
                 ui.label("Data aggregation: ").classes("w-40")
-                ui.button("Create Golden", on_click=create_golden).bind_enabled_from(app.storage.user, "busy", backward=lambda x: not x)
-                ui.button("Peek", on_click=lambda: peek_documents(f"{DATA_DOMAIN['basedir']}/{DATA_DOMAIN['volumes']['gold']}/{DATA_DOMAIN['tables']['combined']}")).props("outline")
+                ui.button("Create Golden", on_click=create_golden).bind_enabled_from(app.storage.user, "busy", backward=lambda x: not x).bind_visibility_from(app.storage.general, 'MYSQL_PASS', backward=lambda x: x is not None and len(x) > 0)
+                # ui.button("Peek", on_click=lambda: peek_documents(f"{DATA_DOMAIN['basedir']}/{DATA_DOMAIN['volumes']['gold']}/{DATA_DOMAIN['tables']['combined']}")).props("outline")
                 ui.button("Code", on_click=aggregate_dialog.open, color="info").props("outline")
 
 
@@ -209,10 +193,9 @@ def cluster_configuration_dialog():
 
         ui.separator()
         with ui.card_section():
-            with ui.row().classes("w-full"):
+            with ui.row().classes("w-full place-items-center mt-4"):
                 ui.label("Select The Hub").classes("text-lg")
-                ui.space()
-                ui.button(icon="refresh", on_click=update_clusters).props("flat")
+                ui.button(icon="refresh", on_click=update_clusters).props("flat round")
             ui.toggle(app.storage.general["clusters"]).bind_value(app.storage.general, "cluster")
 
         ui.separator()
@@ -225,17 +208,34 @@ def cluster_configuration_dialog():
 
             ui.space()
 
-            ui.label("S3 Credentials").classes("text-lg w-full")
+            ui.label("S3 Credentials").classes("text-lg w-full mt-4")
             ui.label("for iceberg and spark").classes("text-sm text-italic")
             with ui.row().classes("w-full place-items-center"):
                 ui.input("Access Key").bind_value(app.storage.general, "S3_ACCESS_KEY")
                 ui.input("Secret Key", password=True, password_toggle_button=True).bind_value(app.storage.general, "S3_SECRET_KEY")
 
+            ui.space()
+            with ui.dialog() as mysql_user_dialog, ui.card():
+                mysql_user_script = """
+                CREATE USER 'catchx'@'%' IDENTIFIED BY 'catchx';
+                GRANT ALL ON *.* TO 'catchx'@'%' WITH GRANT OPTION;
+                FLUSH PRIVILEGES;
+                """
+                ui.code(content=mysql_user_script, language="shell")
+
+            with ui.row().classes("w-full place-items-center mt-4"):
+                ui.label("MysqlDB Credentials").classes("text-lg")
+                ui.button(icon="info", on_click=mysql_user_dialog.open).props("flat round")
+            ui.label("for gold tier RDBMS").classes("text-sm text-italic")
+            with ui.row().classes("w-full place-items-center mt-4"):
+                ui.input("Username").bind_value(app.storage.general, "MYSQL_USER")
+                ui.input("Password", password=True, password_toggle_button=True).bind_value(app.storage.general, "MYSQL_PASS")
+
         ui.separator()
         with ui.card_section():
             ui.label("Configure and Login").classes("text-lg w-full")
             ui.label("login if not using JWT").classes("text-sm text-italic")
-            with ui.row().classes("w-full place-items-center"):
+            with ui.row().classes("w-full place-items-center mt-4"):
                 ui.button("configure.sh -R", on_click=lambda: run_command_with_dialog("/opt/mapr/server/configure.sh -R"))
                 ui.button("maprlogin", on_click=lambda: run_command_with_dialog(f"echo {app.storage.general['MAPR_PASS']} | maprlogin password -user {app.storage.general['MAPR_USER']}"))
                 ui.button("remount /edfs", on_click=lambda: run_command_with_dialog(f"[ -d /edfs ] && umount -l /edfs; [ -d /edfs ] || mkdir /edfs; mount -t nfs -o nolock,soft {app.storage.general['cluster']}:/mapr /edfs"))
@@ -244,15 +244,15 @@ def cluster_configuration_dialog():
         with ui.card_section():
             ui.label("Create the Entities").classes("text-lg w-full")
             ui.label("required volumes and streams")
-            with ui.row().classes("w-full place-items-center"):
+            with ui.row().classes("w-full place-items-center mt-4"):
                 ui.button("Create", on_click=create_volumes_and_streams)
                 ui.button("List Cluster /", on_click=lambda: run_command_with_dialog(f"ls -la /edfs/{get_cluster_name()}")).props('outline')
 
         ui.separator()
         with ui.card_section():
             ui.label("Clean up!").classes("text-lg")
-            ui.label("Use when done with the demo. This ill remove all volumes and streams, ALL DATA will be gone!").classes("text-sm text-italic")
-            ui.button("DELETE ALL!", on_click=delete_volumes_and_streams, color="negative")
+            ui.label("Use when done with the demo. This will remove all volumes and streams, ALL DATA will be gone!").classes("text-sm text-italic")
+            ui.button("DELETE ALL!", on_click=delete_volumes_and_streams, color="negative").classes("mt-4")
 
     dialog.on("close", lambda d=dialog: d.delete())
     dialog.open()
