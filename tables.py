@@ -121,6 +121,8 @@ def search_documents(table: str, selectClause: list, whereClause: dict):
         query = {"$select": selectClause,
                 "$where": whereClause }
 
+        logger.info("Query: %s", query)
+
         # options for find request
         options = {
             'ojai.mapr.query.result-as-document': True

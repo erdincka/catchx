@@ -155,7 +155,7 @@ async def txn_topic_stats():
             else:
                 metrics = response.json()
                 if not metrics["status"] == "ERROR":
-                    # logger.debug(metrics)
+                    logger.debug(metrics)
 
                     series = []
                     for m in metrics["data"]:
@@ -228,7 +228,7 @@ async def txn_consumer_stats():
                                 f"{m['consumergroup']}_{m['partitionid']}_lag(s)": float(
                                     m["consumerlagmillis"]
                                 )
-                                / 1000
+                                / 1000 # convert millis to seconds
                             }
                         )
                         series.append(

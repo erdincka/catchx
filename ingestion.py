@@ -1,12 +1,13 @@
 import csv
 import json
 from nicegui import run
+import pandas as pd
 
 from common import *
 import streams
 import tables
 import iceberger
-from functions import upsert_profile
+from functions import dummy_fraud_score, upsert_profile
 import sparking
 
 logger = logging.getLogger("ingestion")
@@ -125,7 +126,7 @@ async def fraud_detection():
     The query result will be an update to the "silver" "profile" database.
     """
 
-    input_topic = {DATA_DOMAIN['topics']['transactions']}
+    input_topic = DATA_DOMAIN['topics']['transactions']
     input_stream = f"{DATA_DOMAIN['basedir']}/{DATA_DOMAIN['streams']['incoming']}"
     output_table = f"{DATA_DOMAIN['basedir']}/{DATA_DOMAIN['volumes']['silver']}/{DATA_DOMAIN['tables']['profiles']}"
 
@@ -133,9 +134,30 @@ async def fraud_detection():
         ui.notify(f"Stream not found {input_stream}", type="warning")
         return
 
+    # Gold table to update if fraud found
+    mydb = f"mysql+pymysql://{app.storage.general['MYSQL_USER']}:{app.storage.general['MYSQL_PASS']}@{app.storage.general['cluster']}/{DATA_DOMAIN['name']}"
+
+    fraud_count = 0
+
     for record in await run.io_bound(streams.consume, stream=input_stream, topic=input_topic, consumer_group="fraud"):
         txn = json.loads(record)
 
-        logger.info("Checking transaction for fraud: %s", txn["_id"])
+        logger.debug("Checking transaction for fraud: %s", txn["_id"])
 
+        # Where the actual scoring mechanism should work
+        calculated_fraud_score = await dummy_fraud_score()
+
+        if int(calculated_fraud_score) > 85:
+            ui.notify(f"Possible fraud in transaction between accounts {txn['sender_account']} and {txn['receiver_account']}", type='negative')
+            # Write to gold/reporting tier
+            possible_fraud = pd.DataFrame.from_dict([txn])
+            possible_fraud["score"] = calculated_fraud_score
+            fraud_count += possible_fraud.to_sql(name="fraud_activity", con=mydb, if_exists='append')
+
+            # and update score for the profiles - not implemented                
  
+        else:
+            logger.debug("Non fraudulant transaction %s", txn["_id"])
+
+    # ui.notify(f"{fraud_count} fraud reported", type='warning')
+

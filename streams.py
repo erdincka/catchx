@@ -25,6 +25,8 @@ def produce(stream: str, topic: str, message: str):
 def consume(stream: str, topic: str, consumer_group: str):
     from confluent_kafka import Consumer, KafkaError
 
+    logger.debug("Stream: %s\nTopic: %s", stream, topic)
+
     consumer = Consumer(
         {"group.id": consumer_group, "default.topic.config": {"auto.offset.reset": "earliest"}}
     )
@@ -45,9 +47,6 @@ def consume(stream: str, topic: str, consumer_group: str):
                 raise EOFError
             # silently ignore other errors
             else: logger.warning(message.error())
-
-            # add delay
-            # sleep(0.1)
 
     except Exception as error:
         logger.warning(error)
