@@ -2,6 +2,7 @@ import asyncio
 import datetime
 import logging
 import os
+import random
 import shutil
 import tarfile
 
@@ -9,9 +10,8 @@ import httpx
 from nicegui import ui, events, app, binding
 from nicegui.events import ValueChangeEventArguments
 import pandas as pd
-from sqlalchemy import MetaData, create_engine, text
+from sqlalchemy import create_engine, text
 
-from mock import create_csv_files
 
 APP_NAME = "Data Fabric"
 TITLE = "Building a Hybrid Data Mesh"
@@ -161,14 +161,18 @@ async def run_command(command: str):
     yield f"Finished: {command}"
 
 
-# async def command_to_log(command: str, uilog: ui.code):
-#     uilog.content = ""
-#     async for output in run_command(command):
-#         uilog.content += output
-
-
 def get_cluster_name():
     return app.storage.general.get('clusters', {}).get(app.storage.general.get('cluster', ''), '')
+
+
+async def dummy_fraud_score():
+    """Return a random percentile with adding a delay to simulate querying to an AI model"""
+
+    # add delay
+    await asyncio.sleep(0.02)
+
+    # respond with a random probability, using string to avoid OJAI conversion to this \"score\": {\"$numberLong\": 46}}
+    return str(random.randint(0, 100))
 
 
 async def create_volumes_and_streams():

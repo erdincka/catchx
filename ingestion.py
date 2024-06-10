@@ -7,7 +7,7 @@ from common import *
 import streams
 import tables
 import iceberger
-from functions import dummy_fraud_score, upsert_profile
+from functions import upsert_profile
 import sparking
 
 logger = logging.getLogger("ingestion")
@@ -107,12 +107,15 @@ async def ingest_customers_iceberg():
             # Write into iceberg for Bronze tier (raw data)
             if iceberger.write(tier=tier, tablename=tablename, records=[cust for cust in csv_reader]):
                 ui.notify(f"Saved {tablename} into {tier} with Iceberg", type='positive')
+                return True
             else:
                 ui.notify("Failed to write into Iceberg table")
+                return False
 
     except Exception as error:
         logger.warning("Failed to read customers.csv: %s", error)
         ui.notify(error, type='negative')
+        return False
 
     finally:
         app.storage.user['busy'] = False

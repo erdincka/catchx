@@ -58,8 +58,7 @@ def footer():
             ui.space()
 
             # ui.button("CDC", on_click=lambda: enable_cdc(source_table_path=f"{DATA_DOMAIN['basedir']}/{DATA_DOMAIN['volumes']['bronze']}/{DATA_DOMAIN['tables']['transactions']}", destination_stream_topic=f"{DATA_DOMAIN['basedir']}/{DATA_DOMAIN['streams']['monitoring']}:{DATA_DOMAIN['topics']['transactions']}"))
-            ui.button("Light up!", on_click=run_pipeline).props("")
-            ui.space()
+            # ui.space()
 
             ui.switch(on_change=toggle_debug).tooltip("Debug").props("color=dark keep-color")
 

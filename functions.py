@@ -1,11 +1,10 @@
-import asyncio
-import json
 import random
 from nicegui import run
 import country_converter as coco
 import pandas as pd
 
 from common import *
+from mock import *
 import tables
 import iceberger
 
@@ -29,16 +28,6 @@ async def upsert_profile(transaction: dict):
 
     if tables.upsert_document(table_path=table_path, json_dict=profile):
         logger.debug("Updated profile: %s with score: %s", profile['_id'], profile['score'])
-
-
-async def dummy_fraud_score():
-    """Return a random percentile with adding a delay to simulate querying to an AI model"""
-
-    # add delay
-    await asyncio.sleep(0.02)
-
-    # respond with a random probability, using string to avoid OJAI conversion to this \"score\": {\"$numberLong\": 46}}
-    return str(random.randint(0, 100))
 
 
 def get_customer_id(from_account: str):
