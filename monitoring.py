@@ -117,7 +117,7 @@ def mapr_monitoring():
 
     metric_host_fqdn = socket.getfqdn(app.storage.general['cluster'])
 
-    for record in streams.consume(stream=stream_path, topic=metric_host_fqdn):
+    for record in streams.consume(stream=stream_path, topic=metric_host_fqdn, consumer_group="monitoring"):
         metric = json.loads(record)
 
         series = []
@@ -218,7 +218,7 @@ async def txn_consumer_stats():
 
             else:
                 metrics = response.json()
-                # logger.debug(metrics)
+                logger.debug(metrics)
 
                 if not metrics["status"] == "ERROR":
                     series = []

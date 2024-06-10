@@ -29,7 +29,7 @@ async def ingest_transactions():
     
     transactions = []
 
-    for record in await run.io_bound(streams.consume, stream=input_stream_path, topic=input_topic):
+    for record in await run.io_bound(streams.consume, stream=input_stream_path, topic=input_topic, consumer_group="ingestion"):
         txn = json.loads(record)
 
         logger.debug("Ingesting transaction: %s", txn["_id"])
@@ -115,3 +115,27 @@ async def ingest_customers_iceberg():
 
     finally:
         app.storage.user['busy'] = False
+
+
+async def fraud_detection():
+    """
+    Simulate an AI inference query to all incoming transactions.
+    Reading from "incoming" data stream.
+
+    The query result will be an update to the "silver" "profile" database.
+    """
+
+    input_topic = {DATA_DOMAIN['topics']['transactions']}
+    input_stream = f"{DATA_DOMAIN['basedir']}/{DATA_DOMAIN['streams']['incoming']}"
+    output_table = f"{DATA_DOMAIN['basedir']}/{DATA_DOMAIN['volumes']['silver']}/{DATA_DOMAIN['tables']['profiles']}"
+
+    if not os.path.lexists(f"/edfs/{get_cluster_name()}{input_stream}"): # stream not created yet
+        ui.notify(f"Stream not found {input_stream}", type="warning")
+        return
+
+    for record in await run.io_bound(streams.consume, stream=input_stream, topic=input_topic, consumer_group="fraud"):
+        txn = json.loads(record)
+
+        logger.info("Checking transaction for fraud: %s", txn["_id"])
+
+ 

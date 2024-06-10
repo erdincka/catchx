@@ -22,11 +22,11 @@ def produce(stream: str, topic: str, message: str):
     return True
 
 
-def consume(stream: str, topic: str):
+def consume(stream: str, topic: str, consumer_group: str):
     from confluent_kafka import Consumer, KafkaError
 
     consumer = Consumer(
-        {"group.id": "ezdemo_cg", "default.topic.config": {"auto.offset.reset": "earliest"}}
+        {"group.id": consumer_group, "default.topic.config": {"auto.offset.reset": "earliest"}}
     )
 
     try:
@@ -36,7 +36,7 @@ def consume(stream: str, topic: str):
         while True:
             message = consumer.poll(timeout=MAX_POLL_TIME)
 
-            if message is None: continue
+            if message is None: raise EOFError
 
             if not message.error(): yield message.value().decode("utf-8")
 

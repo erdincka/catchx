@@ -28,7 +28,6 @@ async def home():
 
     # Data Mesh
     with ui.expansion("Data Mesh", caption="Build a globally distributed mesh with federated data domains", group="navigation", icon="dashboard").classes("w-full").bind_value(app.storage.user, "meshview"):
-        # meshmap()
         # TODO: proper/better description below
         ui.markdown("""
             Create a globally distributed Data Mesh architecture using HPE Ezmeral Data Fabric.
@@ -61,6 +60,7 @@ async def home():
     ui.separator()
 
     # gui.ii()
+    # meshmap()
 
     # Main
     with ui.row().classes("w-full flex flex-nowrap relative"):

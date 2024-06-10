@@ -155,6 +155,16 @@ def demo_steps():
                 # ui.button("Peek", on_click=lambda: peek_documents(f"{DATA_DOMAIN['basedir']}/{DATA_DOMAIN['volumes']['gold']}/{DATA_DOMAIN['tables']['combined']}")).props("outline")
                 ui.button("Code", on_click=aggregate_dialog.open, color="info").props("outline")
 
+        with ui.expansion("Check transactions for Fraud", caption="Process every transaction and check for fraud", group="flow"):
+            with ui.dialog().props("full-width") as fraud_detection_dialog, ui.card().classes("grow relative"):
+                ui.button(icon="close", on_click=fraud_detection_dialog.close).props("flat round dense").classes("absolute right-2 top-2")
+                ui.code(inspect.getsource(fraud_detection)).classes("w-full mt-6")
+
+            with ui.row().classes("w-full place-items-center"):
+                ui.label("Run Fraud Detection against AI app: ").classes("w-40")
+                ui.button("Run", on_click=fraud_detection)
+                ui.button("Code", on_click=fraud_detection_dialog.open, color="info").props("outline")
+
 
 def monitoring_charts():
     # Monitoring charts
