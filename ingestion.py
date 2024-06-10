@@ -138,6 +138,7 @@ async def fraud_detection():
     mydb = f"mysql+pymysql://{app.storage.general['MYSQL_USER']}:{app.storage.general['MYSQL_PASS']}@{app.storage.general['cluster']}/{DATA_DOMAIN['name']}"
 
     fraud_count = 0
+    non_fraud_count = 0
 
     for record in await run.io_bound(streams.consume, stream=input_stream, topic=input_topic, consumer_group="fraud"):
         txn = json.loads(record)
@@ -147,7 +148,7 @@ async def fraud_detection():
         # Where the actual scoring mechanism should work
         calculated_fraud_score = await dummy_fraud_score()
 
-        if int(calculated_fraud_score) > 85:
+        if int(calculated_fraud_score) > 75:
             ui.notify(f"Possible fraud in transaction between accounts {txn['sender_account']} and {txn['receiver_account']}", type='negative')
             # Write to gold/reporting tier
             possible_fraud = pd.DataFrame.from_dict([txn])
@@ -157,7 +158,8 @@ async def fraud_detection():
             # and update score for the profiles - not implemented                
  
         else:
+            non_fraud_count += 1
             logger.debug("Non fraudulant transaction %s", txn["_id"])
 
-    # ui.notify(f"{fraud_count} fraud reported", type='warning')
+    ui.notify(f"Reported {fraud_count} fraud and {non_fraud_count} valid transactions", type='warning')
 

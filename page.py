@@ -44,7 +44,7 @@ def footer():
             # Endpoints
             ui.label("Volumes:")
 
-            with ui.button_group().props('push color=dark'):
+            with ui.button_group().props('flat color=dark'):
                 # GNS
                 ui.button("GNS", on_click=lambda: run_command_with_dialog("df -h /edfs; ls -lA /edfs/"))
                 # App folder
@@ -52,12 +52,14 @@ def footer():
                 # Volumes
                 ui.button(DATA_DOMAIN['volumes']['bronze'], on_click=lambda: run_command_with_dialog(f"ls -lAR /edfs/{get_cluster_name()}{DATA_DOMAIN['basedir']}/{DATA_DOMAIN['volumes']['bronze']}"))
                 ui.button(DATA_DOMAIN['volumes']['silver'], on_click=lambda: run_command_with_dialog(f"ls -lAR /edfs/{get_cluster_name()}{DATA_DOMAIN['basedir']}/{DATA_DOMAIN['volumes']['silver']}"))
-                ui.button(DATA_DOMAIN['volumes']['gold'], on_click=lambda: run_command_with_dialog(f"ls -lAR /edfs/{get_cluster_name()}{DATA_DOMAIN['basedir']}/{DATA_DOMAIN['volumes']['gold']}"))
+                ui.button(DATA_DOMAIN['volumes']['gold'], on_click=show_mysql_tables)
+                # ui.button(DATA_DOMAIN['volumes']['gold'], on_click=lambda: run_command_with_dialog(f"ls -lAR /edfs/{get_cluster_name()}{DATA_DOMAIN['basedir']}/{DATA_DOMAIN['volumes']['gold']}"))
 
             ui.space()
 
             # ui.button("CDC", on_click=lambda: enable_cdc(source_table_path=f"{DATA_DOMAIN['basedir']}/{DATA_DOMAIN['volumes']['bronze']}/{DATA_DOMAIN['tables']['transactions']}", destination_stream_topic=f"{DATA_DOMAIN['basedir']}/{DATA_DOMAIN['streams']['monitoring']}:{DATA_DOMAIN['topics']['transactions']}"))
-            # ui.space()
+            ui.button("Light up!", on_click=run_pipeline).props("")
+            ui.space()
 
             ui.switch(on_change=toggle_debug).tooltip("Debug").props("color=dark keep-color")
 
@@ -98,7 +100,7 @@ def demo_steps():
                 ui.button("Publish", on_click=publish_transactions)
                 ui.button("Code", on_click=publish_dialog.open, color="info").props("outline")
 
-        with ui.expansion("Ingestion & ETL Processing", caption="Realtime processing on incoming data", group="flow"):
+        with ui.expansion("Ingestion & ETL Processing (Bronze)", caption="Realtime processing on incoming data", group="flow"):
             with ui.dialog().props("full-width") as batch_dialog, ui.card().classes("grow relative"):
                 ui.button(icon="close", on_click=batch_dialog.close).props("flat round dense").classes("absolute right-2 top-2")
                 ui.code(inspect.getsource(ingest_customers_iceberg)).classes("w-full mt-6")
@@ -125,7 +127,7 @@ def demo_steps():
                 ui.button("Using Airflow", color='warning', on_click=not_implemented).props("outline").bind_enabled_from(app.storage.user, "busy", backward=lambda x: not x)
                 ui.button("Code", on_click=stream_dialog.open, color="info").props("outline")
 
-        with ui.expansion("Enrich & Clean", caption="Integrate with data catalogue and clean/enrich data into silver tier", group="flow"):
+        with ui.expansion("Enrich & Clean (Silver)", caption="Integrate with data catalogue and clean/enrich data into silver tier", group="flow"):
             with ui.dialog().props("full-width") as enrich_dialog, ui.card().classes("grow relative"):
                 ui.button(icon="close", on_click=enrich_dialog.close).props("flat round dense").classes("absolute right-2 top-2")
                 ui.code(inspect.getsource(refine_customers)).classes("w-full mt-6")
@@ -143,7 +145,7 @@ def demo_steps():
                 ui.button("Customers", on_click=lambda: peek_documents(tablepath=f"{DATA_DOMAIN['basedir']}/{DATA_DOMAIN['volumes']['silver']}/{DATA_DOMAIN['tables']['customers']}")).props("outline")
                 ui.button("Transactions", on_click=lambda: peek_documents(f"{DATA_DOMAIN['basedir']}/{DATA_DOMAIN['volumes']['silver']}/{DATA_DOMAIN['tables']['transactions']}")).props("outline")
 
-        with ui.expansion("Consolidate", caption="Create data lake for gold tier", group="flow"):
+        with ui.expansion("Consolidate (Gold)", caption="Create data lake for gold tier", group="flow"):
             with ui.dialog().props("full-width") as aggregate_dialog, ui.card().classes("grow relative"):
                 ui.button(icon="close", on_click=aggregate_dialog.close).props("flat round dense").classes("absolute right-2 top-2")
                 ui.code(inspect.getsource(data_aggregation)).classes("w-full mt-6")

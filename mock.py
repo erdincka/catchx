@@ -46,32 +46,38 @@ def create_csv_files():
     number_of_customers = 100
     number_of_transactions = 1_000
 
-    # customers
-    customers = []
-    for _ in range(number_of_customers):
-        customers.append(fake_customer())
+    try:
+        # customers
+        customers = []
+        for _ in range(number_of_customers):
+            customers.append(fake_customer())
 
-    with open(f"/edfs/{get_cluster_name()}{DATA_DOMAIN['basedir']}/{DATA_DOMAIN['tables']['customers']}.csv", "w", newline='') as csvfile:
-        fieldnames = fake_customer().keys()
-        writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
-        writer.writeheader()
-        writer.writerows(customers)
-        
-    # transactions
-    transactions = []
-    for _ in range(number_of_transactions):
-        # generate transaction with randomly selected sender and reciever accounts
-        sender = customers[random.randrange(number_of_customers)]['account_number']
-        receiver = customers[random.randrange(number_of_customers)]['account_number']
-        transactions.append(fake_transaction(sender, receiver))
+        with open(f"/edfs/{get_cluster_name()}{DATA_DOMAIN['basedir']}/{DATA_DOMAIN['tables']['customers']}.csv", "w", newline='') as csvfile:
+            fieldnames = fake_customer().keys()
+            writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+            writer.writeheader()
+            writer.writerows(customers)
+            
+        # transactions
+        transactions = []
+        for _ in range(number_of_transactions):
+            # generate transaction with randomly selected sender and reciever accounts
+            sender = customers[random.randrange(number_of_customers)]['account_number']
+            receiver = customers[random.randrange(number_of_customers)]['account_number']
+            transactions.append(fake_transaction(sender, receiver))
 
-    with open(f"/edfs/{get_cluster_name()}{DATA_DOMAIN['basedir']}/{DATA_DOMAIN['tables']['transactions']}.csv", "w", newline='') as csvfile:
-        fieldnames = fake_transaction("X", "Y").keys()
-        writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
-        writer.writeheader()
-        writer.writerows(transactions)
+        with open(f"/edfs/{get_cluster_name()}{DATA_DOMAIN['basedir']}/{DATA_DOMAIN['tables']['transactions']}.csv", "w", newline='') as csvfile:
+            fieldnames = fake_transaction("X", "Y").keys()
+            writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+            writer.writeheader()
+            writer.writerows(transactions)
 
-    ui.notify(f"Created files with {len(customers)} customers and {len(transactions)} transactions", type='positive')
+        ui.notify(f"Created files with {len(customers)} customers and {len(transactions)} transactions", type='positive')
+        return True
+    
+    except Exception as error:
+        logger.warning(error)
+        return False
 
 
 async def peek_mocked_data():

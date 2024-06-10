@@ -8,6 +8,10 @@ import tarfile
 import httpx
 from nicegui import ui, events, app, binding
 from nicegui.events import ValueChangeEventArguments
+import pandas as pd
+from sqlalchemy import MetaData, create_engine, text
+
+from mock import create_csv_files
 
 APP_NAME = "Data Fabric"
 TITLE = "Building a Hybrid Data Mesh"
@@ -255,9 +259,38 @@ async def delete_volumes_and_streams():
 
     # delete app folder
     basedir = f"/edfs/{get_cluster_name()}{DATA_DOMAIN['basedir']}"
-    shutil.rmtree(basedir)
+    if os.path.isdir(basedir): 
+        shutil.rmtree(basedir)
+        ui.notify(f"{basedir} removed from {get_cluster_name()}")
+
+    # remove tables from mysql
+    mydb = f"mysql+pymysql://{app.storage.general['MYSQL_USER']}:{app.storage.general['MYSQL_PASS']}@{app.storage.general['cluster']}/{DATA_DOMAIN['name']}"
+    engine = create_engine(mydb)
+    with engine.connect() as conn:
+        conn.execute(text("DROP TABLE IF EXISTS customers;"))
+        conn.execute(text("DROP TABLE IF EXISTS transactions;"))
+        conn.execute(text("DROP TABLE IF EXISTS fraud_activity;"))
+        conn.commit()
+        ui.notify("Tables removed from mysql db", type='warning')
 
 
+def show_mysql_tables():
+    mydb = f"mysql+pymysql://{app.storage.general['MYSQL_USER']}:{app.storage.general['MYSQL_PASS']}@{app.storage.general['cluster']}/{DATA_DOMAIN['name']}"
+    engine = create_engine(mydb)
+    with engine.connect() as conn:
+        tables = conn.execute(text("SHOW TABLES"))
+        peek_tables = {}
+        for table in tables:
+            peek_tables[table[0]] = pd.read_sql(f"SELECT * FROM {table[0]} LIMIT 5", con=mydb)
+            logger.debug("%s: %s", table[0], peek_tables[table[0]])
+
+        with ui.dialog().props("full-width") as mysql_tables, ui.card().classes("grow relative"):
+            ui.button(icon="close", on_click=mysql_tables.close).props("flat round dense").classes("absolute right-2 top-2")
+            for table in peek_tables.keys():
+                ui.table.from_pandas(peek_tables[table], title=table).classes('w-full mt-6').props("dense")
+
+        mysql_tables.open()
+    
 # This is not used due to complexity of its setup
 # requires gateway node configuration and DNS modification
 async def enable_cdc(source_table_path: str, destination_stream_topic: str):
