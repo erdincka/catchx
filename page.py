@@ -256,7 +256,8 @@ def cluster_configuration_dialog():
             ui.label("Create the Entities").classes("text-lg w-full")
             ui.label("required volumes and streams")
             with ui.row().classes("w-full place-items-center mt-4"):
-                ui.button("Create", on_click=create_volumes_and_streams)
+                ui.button("Volumes", on_click=create_volumes)
+                ui.button("Streams", on_click=create_streams)
                 ui.button("List Cluster /", on_click=lambda: run_command_with_dialog(f"ls -la /edfs/{get_cluster_name()}")).props('outline')
 
         ui.separator()

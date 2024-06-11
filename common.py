@@ -84,7 +84,15 @@ def upload_client_files(e: events.UploadEventArguments):
         
         with tarfile.open(f"/tmp/{filename}", "r") as tf:
             if "conf" in filename:
-                tf.extractall(path="/opt/mapr/conf")
+                # tf.extractall(path="/opt/mapr/conf")
+                if "conf/mapr-clusters.conf" in tf.getnames(): ## compatible with 7.7
+                    tf.extract("conf/mapr-clusters.conf", path="/opt/mapr/") 
+                    tf.extract("conf/ssl_truststore", path="/opt/mapr/")
+                    tf.extract("conf/ssl_truststore.pem", path="/opt/mapr/")
+                else: ## compatible with 7.5
+                    tf.extract("mapr-clusters.conf", path="/opt/mapr/conf/")
+                    tf.extract("ssl_truststore", path="/opt/mapr/conf")
+
                 # Refresh cluster list in UI
                 update_clusters()
                 ui.navigate.reload()
@@ -111,8 +119,10 @@ def update_clusters():
                 # dict { 'value1': 'name1' } formatted cluster list, compatible to ui.select options
                 cls = { t[2].split(":")[0] : t[0] }
                 app.storage.general["clusters"].update(cls)
+            logger.info("Found clusters: %s", app.storage.general['clusters'])
             # select first cluster to avoid null value
             app.storage.general["cluster"] = next(iter(app.storage.general["clusters"]))
+            logger.info("Set cluster: %s", app.storage.general['cluster'])
     except Exception as error:
         logger.warning("Failed to update clusters: %s", error)
 
@@ -162,7 +172,9 @@ async def run_command(command: str):
 
 
 def get_cluster_name():
-    return app.storage.general.get('clusters', {}).get(app.storage.general.get('cluster', ''), '')
+    clustername = app.storage.general.get('clusters', {}).get(app.storage.general.get('cluster', ''), '')
+    if clustername != "":
+        return clustername
 
 
 async def dummy_fraud_score():
@@ -175,7 +187,11 @@ async def dummy_fraud_score():
     return str(random.randint(0, 100))
 
 
-async def create_volumes_and_streams():
+async def create_volumes():
+    """
+    Create an app folder and create volumes in it, as defined in DATA_DOMAIN['volumes']
+    """
+    
     auth = (app.storage.general["MAPR_USER"], app.storage.general["MAPR_PASS"])
 
     # create base folder if not exists
@@ -186,21 +202,33 @@ async def create_volumes_and_streams():
     for vol in DATA_DOMAIN['volumes'].keys():
 
         URL = f"https://{app.storage.general['cluster']}:8443/rest/volume/create?name={DATA_DOMAIN['volumes'][vol]}&path={DATA_DOMAIN['basedir']}/{DATA_DOMAIN['volumes'][vol]}&replication=1&minreplication=1&nsreplication=1&nsminreplication=1"
-        async with httpx.AsyncClient(verify=False) as client:
-            response = await client.post(URL, auth=auth)
 
-            if response is None or response.status_code != 200:
-                logger.warning(f"REST failed for create volume: %s", vol)
-                logger.warning("Response: %s", response.text)
+        logger.info("REST call to: %s", URL)
 
-            else:
-                res = response.json()
-                if res['status'] == "OK":
-                    ui.notify(f"{res['messages'][0]}", type='positive')
-                elif res['status'] == "ERROR":
-                    ui.notify(f"{res['errors'][0]['desc']}", type='warning')
+        try:
+            async with httpx.AsyncClient(verify=False, timeout=10) as client:
+                response = await client.post(URL, auth=auth)
 
-    # Create streams
+                if response is None or response.status_code != 200:
+                    logger.warning(f"REST failed for create volume: %s", vol)
+                    logger.warning("Response: %s", response.text)
+
+                else:
+                    res = response.json()
+                    if res['status'] == "OK":
+                        ui.notify(f"{res['messages'][0]}", type='positive')
+                    elif res['status'] == "ERROR":
+                        ui.notify(f"{res['errors'][0]['desc']}", type='warning')
+
+        except Exception as error:
+            logger.warning("Failed to connect %s! Please manually set /opt/mapr/conf/mapr-clusters.conf file with the hostname/ip address of the apiserver!", URL)
+            ui.notify(f"Failed to connect to REST. Please manually set /opt/mapr/conf/mapr-clusters.conf file with the hostname/ip address of the apiserver!", type='warning')
+            return
+
+
+async def create_streams():
+    auth = (app.storage.general["MAPR_USER"], app.storage.general["MAPR_PASS"])
+
     for stream in DATA_DOMAIN["streams"].keys():
         URL = f"https://{app.storage.general['cluster']}:8443/rest/stream/create?path={DATA_DOMAIN['basedir']}/{DATA_DOMAIN['streams'][stream]}&ttl=38400&compression=lz4&produceperm=p&consumeperm=p&topicperm=p"
 
@@ -208,21 +236,26 @@ async def create_volumes_and_streams():
         if stream == "monitoring":
             URL += "&ischangelog=true&defaultpartitions=1"
 
-        async with httpx.AsyncClient(verify=False) as client:
-            response = await client.post(URL, auth=auth)
+        try:
+            async with httpx.AsyncClient(verify=False) as client:
+                response = await client.post(URL, auth=auth)
 
-            if response is None or response.status_code != 200:
-                # possibly not an issue if stream already exists
-                logger.warning(f"REST failed for create stream: %s", stream)
-                logger.warning("Response: %s", response.text)
+                if response is None or response.status_code != 200:
+                    # possibly not an issue if stream already exists
+                    logger.warning(f"REST failed for create stream: %s", stream)
+                    logger.warning("Response: %s", response.text)
 
-            else:
-                res = response.json()
-                if res['status'] == "OK":
-                    ui.notify(f"Stream \"{DATA_DOMAIN['streams'][stream]}\" created", type='positive')
-                elif res['status'] == "ERROR":
-                    ui.notify(f"Stream: \"{DATA_DOMAIN['streams'][stream]}\": {res['errors'][0]['desc']}", type='warning')
+                else:
+                    res = response.json()
+                    if res['status'] == "OK":
+                        ui.notify(f"Stream \"{DATA_DOMAIN['streams'][stream]}\" created", type='positive')
+                    elif res['status'] == "ERROR":
+                        ui.notify(f"Stream: \"{DATA_DOMAIN['streams'][stream]}\": {res['errors'][0]['desc']}", type='warning')
 
+        except Exception as error:
+            logger.warning("Failed to connect %s: %s", URL, type(error))
+            ui.notify(f"Failed to connect to REST: {error}", type='warning')
+            return
 
 async def delete_volumes_and_streams():
     auth = (app.storage.general["MAPR_USER"], app.storage.general["MAPR_PASS"])
