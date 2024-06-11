@@ -1,3 +1,16 @@
+
+# Data Fabric demo app
+
+`docker run -d -t --name catchx -p 3000:3000 --cap-add sys_admin erdincka/catchx`
+
+`docker exec -it catchx bash`
+
+```shell
+cd app
+python3 main.py
+```
+
+
 # Fraud Detection use case demo with Ezmeral Data Fabric
 
 Uses Data Fabric to process incoming transactions (faked) via streams, and then storing relevant information into JSON Tables (a simple ETL step). Final step is to simulate a fraud detection ML model inferencing on incoming messages.

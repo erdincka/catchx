@@ -22,6 +22,8 @@ async def upsert_profile(transaction: dict):
         "_id": get_customer_id(transaction['receiver_account']),
         "score": await dummy_fraud_score()
     }
+    # skip unmatched records (txn records left from previous data sets, ie, new customer csv ingested)
+    if profile['_id'] == None: return
 
     # updated profile information is written to "silver" tier
     table_path = f"{DATA_DOMAIN['basedir']}/{DATA_DOMAIN['volumes']['silver']}/{DATA_DOMAIN['tables']['profiles']}"
@@ -36,7 +38,8 @@ def get_customer_id(from_account: str):
     # NOTE: This should be reading from silver tier, as reading ID from bronze (dirty) data is not ideal
     found = iceberger.find_by_field(tier=DATA_DOMAIN['volumes']['bronze'], tablename=DATA_DOMAIN['tables']['customers'], field="account_number", value=from_account)
 
-    if found is not None:
+    if found is not None and len(found) > 0:
+        logger.debug(found)
         # get first column (id) from first row as string
         return found[0][0].as_py()
 
@@ -263,7 +266,7 @@ def data_aggregation():
 def reporting():
     not_implemented()
     # Reports / Dashboards
-    # Profiles
+    # Profiles (silver)
         # Statistics (mean, std, min, percentiles, max)
         # top 10 by score
     # profile_aggregate = df_profiles.describe()
@@ -281,6 +284,6 @@ def reporting():
     # Transactions
         # Statistics (mean, std, min, percentiles, max)
         # txn per month
-        # amount per month
+        # amount per month per currency
     # transactions_aggregate = df_transactions.describe()
 

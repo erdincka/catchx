@@ -44,7 +44,7 @@ def footer():
             # Endpoints
             ui.label("Volumes:")
 
-            with ui.button_group().props('flat color=dark'):
+            with ui.button_group().props('push color=dark'):
                 # GNS
                 ui.button("GNS", on_click=lambda: run_command_with_dialog("df -h /edfs; ls -lA /edfs/"))
                 # App folder

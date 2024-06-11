@@ -83,8 +83,8 @@ def upload_client_files(e: events.UploadEventArguments):
             f.write(e.content.read())
         
         with tarfile.open(f"/tmp/{filename}", "r") as tf:
-            if "config" in filename:
-                tf.extractall(path="/opt/mapr")
+            if "conf" in filename:
+                tf.extractall(path="/opt/mapr/conf")
                 # Refresh cluster list in UI
                 update_clusters()
                 ui.navigate.reload()
