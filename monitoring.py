@@ -7,6 +7,7 @@ from nicegui import ui, app
 from common import *
 import iceberger
 import streams
+import tables
 
 logger = logging.getLogger("monitoring")
 
@@ -75,8 +76,21 @@ async def chart_listener(chart: ui.echart, metric_generator, *args):
 
 
 async def update_chart(chart: ui.echart, metric_caller, *args):
+    """
+    Update the chart by running the caller function
+
+    :param chart ui.Chart: chart to add metrics to, it must be initialised
+    :param metric_caller function: coroutine that will get the metrics
+    :param args any: passed to caller function
+
+    :returns None
+    """
+
     metric = await metric_caller(*args)
+
     if metric:
+        logger.debug("Got metric from %s: %s", metric_caller.__name__, metric)
+
         chart.options["xAxis"]["data"].append(metric["time"])
         chart.options["title"]["text"] = metric["name"].title()
 
@@ -86,7 +100,6 @@ async def update_chart(chart: ui.echart, metric_caller, *args):
                 chart.options["series"].append(new_series())
 
             chart_series = chart.options["series"][idx]
-
             for key in serie.keys():
                 if not chart_series.get("name", None):
                     chart_series["name"] = key
@@ -122,7 +135,7 @@ def mapr_monitoring():
 
         series = []
         if metric[0]["metric"] in ["mapr.streams.produce_msgs", "mapr.streams.listen_msgs", "mapr.db.table.write_rows", "mapr.db.table.read_rows"]:
-            logger.info("Found metric %s", metric[0])
+            logger.debug("Found metric %s", metric[0])
 
             series.append(
                 { metric[0]["metric"]: metric[0]["value"] }
@@ -134,7 +147,7 @@ def mapr_monitoring():
         }
 
 
-async def txn_topic_stats():
+async def incoming_topic_stats():
     stream_path = f"{DATA_DOMAIN['basedir']}/{DATA_DOMAIN['streams']['incoming']}"
     topic = DATA_DOMAIN["topics"]["transactions"]
 
@@ -173,17 +186,17 @@ async def txn_topic_stats():
                         #         ).total_seconds()
                         #     }
                         # )
-                        series.append(
-                            {
-                                "consumerLag(s)": (
-                                    dt_from_iso(m["maxtimestamp"])
-                                    - dt_from_iso(m["mintimestampacrossconsumers"])
-                                ).total_seconds()
-                            }
-                        )
+                        # series.append(
+                        #     {
+                        #         "consumerLag(s)": (
+                        #             dt_from_iso(m["maxtimestamp"])
+                        #             - dt_from_iso(m["mintimestampacrossconsumers"])
+                        #         ).total_seconds()
+                        #     }
+                        # )
                     # logger.info("Metrics %s", series)
                     return {
-                        "name": topic,
+                        "name": "Incoming",
                         "time": datetime.datetime.fromtimestamp(
                             metrics["timestamp"] / (10**3)
                         ).strftime("%H:%M:%S"),
@@ -258,34 +271,98 @@ async def txn_consumer_stats():
         await asyncio.sleep(30)
 
 
-async def table_stats(tier: str):
+async def bronze_stats():
     if app.storage.general.get("cluster", None) is None:
         logger.debug("Cluster not configured, skipping.")
         return
+
+    series = []
     
+    ttable = f"/edfs/{get_cluster_name()}{DATA_DOMAIN['basedir']}/{DATA_DOMAIN['volumes']['bronze']}/{DATA_DOMAIN['tables']['transactions']}"
+    ctable = f"/edfs/{get_cluster_name()}{DATA_DOMAIN['basedir']}/{DATA_DOMAIN['volumes']['bronze']}/{DATA_DOMAIN['tables']['customers']}"
+
     try:
-        ### get # of records in iceberg table "customers"
-        ### get # of records in iceberg table "transactions"
-        ### get # of records in json table "profiles"
-        metrics = iceberger.stats(tier)
+        if os.path.lexists(ttable):
+            series.append({ "transactions": len(tables.get_documents(ttable, limit=None)) })
+        if os.path.isdir(ctable): # isdir for iceberg tables
+            series.append({ "customers": len(iceberger.find_all(DATA_DOMAIN['volumes']['bronze'], DATA_DOMAIN['tables']['customers'])) })
 
-        logger.debug("BRONZE STAT %s", metrics)
-
-        series = []
-        series.append(metrics)
-        # for m in metrics:
-        #     series.append(
-        #         {
-        #             f"{m['name']}": float(m['value'])
-        #         }
-        #     )
-
-        return {
-            "name": tier.capitalize(),
-            "time": datetime.datetime.now().strftime("%H:%M:%S"),
-            "values": series,
-        }
+        # Don't update metrics for empty results
+        if len(series) == 0: return
 
     except Exception as error:
-        logger.debug("%s stat get error %s", tier, error)
+        logger.warning("STAT get error %s", error)
+        return 
+        
+    return {
+        "name": DATA_DOMAIN['volumes']['bronze'],
+        "time": datetime.datetime.now().strftime("%H:%M:%S"),
+        "values": series,
+    }
+
+
+async def silver_stats():
+    if app.storage.general.get("cluster", None) is None:
+        logger.debug("Cluster not configured, skipping.")
+        return
+
+    series = []
+
+    ptable = f"/edfs/{get_cluster_name()}{DATA_DOMAIN['basedir']}/{DATA_DOMAIN['volumes']['silver']}/{DATA_DOMAIN['tables']['profiles']}"
+    ttable = f"/edfs/{get_cluster_name()}{DATA_DOMAIN['basedir']}/{DATA_DOMAIN['volumes']['silver']}/{DATA_DOMAIN['tables']['transactions']}"
+    ctable = f"/edfs/{get_cluster_name()}{DATA_DOMAIN['basedir']}/{DATA_DOMAIN['volumes']['silver']}/{DATA_DOMAIN['tables']['customers']}"
+
+    try:
+        if os.path.lexists(ptable):
+            series.append({ "profiles": len(tables.get_documents(ptable, limit=None)) })
+        if os.path.lexists(ttable):
+            series.append({ "transactions": len(tables.get_documents(ttable, limit=None)) })
+        if os.path.lexists(ctable):
+            series.append({ "customers": len(tables.get_documents(ctable, limit=None)) })
+
+        # Don't update metrics for empty results
+        if len(series) == 0: return
+
+    except Exception as error:
+        logger.warning("STAT get error %s", error)
+        return
+    
+    return {
+        "name": DATA_DOMAIN['volumes']['silver'],
+        "time": datetime.datetime.now().strftime("%H:%M:%S"),
+        "values": series,
+    }
+
+
+async def gold_stats():
+    if app.storage.general.get("cluster", None) is None:
+        logger.debug("Cluster not configured, skipping.")
+        return
+
+    series = []
+    
+    try:
+        mydb = f"mysql+pymysql://{app.storage.general['MYSQL_USER']}:{app.storage.general['MYSQL_PASS']}@{app.storage.general['cluster']}/{DATA_DOMAIN['name']}"
+        engine = create_engine(mydb)
+        with engine.connect() as conn:
+            for t in conn.execute(text("SHOW TABLES LIKE 'fraud_activity';")):
+                logger.info(t)
+
+        # series.append({ "fraud_activity": pd.read_sql(f"SELECT COUNT('_id') FROM fraud_activity", con=mydb).values[:1].flat[0] })
+        # series.append({ DATA_DOMAIN['tables']['transactions']: pd.read_sql(f"SELECT COUNT('_id') FROM {DATA_DOMAIN['tables']['transactions']}", con=mydb).values[:1].flat[0] })
+        # series.append({ DATA_DOMAIN['tables']['customers']: pd.read_sql(f"SELECT COUNT('_id') FROM {DATA_DOMAIN['tables']['customers']}", con=mydb).values[:1].flat[0] })
+
+        # Don't update metrics for empty results
+        if len(series) == 0: return
+
+    except Exception as error:
+        logger.warning("STAT get error %s", error)
+        return
+    
+    return {
+        "name": DATA_DOMAIN['volumes']['gold'],
+        "time": datetime.datetime.now().strftime("%H:%M:%S"),
+        "values": series,
+    }
+
 

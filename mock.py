@@ -23,7 +23,7 @@ def fake_customer():
         "_id": uuid.uuid4().hex,
         **profile,
         "account_number": fake.iban(),
-        "country_code": fake.country_code() #fake.current_country_code()
+        "country_code": fake.current_country_code()
     }
 
 
@@ -43,7 +43,7 @@ def create_csv_files():
     Create customers and transactions CSV files with randomly generated data
     """
 
-    number_of_customers = 100
+    number_of_customers = 200
     number_of_transactions = 1_000
 
     try:

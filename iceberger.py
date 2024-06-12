@@ -135,30 +135,16 @@ def history(tier: str, tablename: str):
         ]
 
 
-# TODO: need a better way to monitor table statistics
-def stats(tier: str):
-    """Return table statistics"""
-
-    metrics = {}
-
-    for tablename in DATA_DOMAIN['tables']:
-
-        catalog = get_catalog()
-
-        if catalog is not None:
-
-            table = catalog.load_table(f'{tier}.{tablename}')
-            df = table.scan().to_pandas()
-
-            metrics.update({ tablename: len(df) })
-
-    return metrics
-
-
 def find_all(tier: str, tablename: str):
-    """Return pandas dataframe of all records"""
+    """
+    Return pandas dataframe of all records
+    
+    :param tier str: tier volume name used as iceberg namespace
+    
+    :param tablename str: iceberg table name in the namespace
 
-    df = None
+    :returns DataFrame: all records, or None
+    """
 
     catalog = get_catalog()
 
@@ -166,12 +152,11 @@ def find_all(tier: str, tablename: str):
         try:
             table = catalog.load_table(f'{tier}.{tablename}')
             df = table.scan().to_pandas()
+            return df
 
         except Exception as error:
-            logger.warning("Failed to scan table %s", table)
-
-        finally:
-            return df
+            logger.warning("Failed to scan table %s: %s", "cust", error)
+            return None
 
 
 def find_by_field(tier: str, tablename: str, field: str, value: str):

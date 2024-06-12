@@ -255,6 +255,9 @@ def data_aggregation():
     # merge customers with profiles on _id
     merged_df = pd.merge(customers_df, profiles_df, on="_id", how="left").fillna({"score": 0})
 
+    merged_df['postcode'] = merged_df['address'].str.extract(r'([A-Z]?\d(:? \d[A-Z]{2})?|[A-Z]\d{2}(:? \d[A-Z]{2})?|[A-Z]{2}\d(:? \d[A-Z]{2})?|[A-Z]{2}\d{2}(:? \d[A-Z]{2})?|[A-Z]\d[A-Z](:? \d[A-Z]{2})?|[A-Z]{2}\d[A-Z](:? \d[A-Z]{2})?),\s*$')
+    merged_df.drop(['name', 'birthdate', 'mail', 'username', 'address'], axis=1, inplace=True)
+
     # Append customers and transactions in the gold tier rdbms
     mydb = f"mysql+pymysql://{app.storage.general['MYSQL_USER']}:{app.storage.general['MYSQL_PASS']}@{app.storage.general['cluster']}/{DATA_DOMAIN['name']}"
     num_customers = merged_df.to_sql(name="customers", con=mydb, if_exists='append')

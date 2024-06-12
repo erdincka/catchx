@@ -47,6 +47,8 @@ DATA_DOMAIN = {
 MAX_POLL_TIME = 2.0
 MON_REFRESH_INTERVAL = 1.0
 MON_REFRESH_INTERVAL3 = 3.0
+MON_REFRESH_INTERVAL5 = 5.0
+MON_REFRESH_INTERVAL10 = 10.0
 FETCH_RECORD_NUM = 15
 
 TRANSACTION_CATEGORIES = [
@@ -191,9 +193,10 @@ async def create_volumes():
     """
     Create an app folder and create volumes in it, as defined in DATA_DOMAIN['volumes']
     """
-    
+
     auth = (app.storage.general["MAPR_USER"], app.storage.general["MAPR_PASS"])
 
+    app.storage.user['busy'] = True
     # create base folder if not exists
     basedir = f"/edfs/{get_cluster_name()}{DATA_DOMAIN['basedir']}"
     if not os.path.isdir(basedir):
@@ -203,7 +206,7 @@ async def create_volumes():
 
         URL = f"https://{app.storage.general['cluster']}:8443/rest/volume/create?name={DATA_DOMAIN['volumes'][vol]}&path={DATA_DOMAIN['basedir']}/{DATA_DOMAIN['volumes'][vol]}&replication=1&minreplication=1&nsreplication=1&nsminreplication=1"
 
-        logger.info("REST call to: %s", URL)
+        logger.debug("REST call to: %s", URL)
 
         try:
             async with httpx.AsyncClient(verify=False, timeout=10) as client:
@@ -218,12 +221,14 @@ async def create_volumes():
                     if res['status'] == "OK":
                         ui.notify(f"{res['messages'][0]}", type='positive')
                     elif res['status'] == "ERROR":
-                        ui.notify(f"{res['errors'][0]['desc']}", type='warning')
+                        ui.notify(f"{res['errors'][0]['desc']}", type='negative')
 
         except Exception as error:
             logger.warning("Failed to connect %s! Please manually set /opt/mapr/conf/mapr-clusters.conf file with the hostname/ip address of the apiserver!", URL)
             ui.notify(f"Failed to connect to REST. Please manually set /opt/mapr/conf/mapr-clusters.conf file with the hostname/ip address of the apiserver!", type='warning')
             return
+
+    app.storage.user['busy'] = False
 
 
 async def create_streams():
@@ -236,6 +241,7 @@ async def create_streams():
         if stream == "monitoring":
             URL += "&ischangelog=true&defaultpartitions=1"
 
+        app.storage.user['busy'] = True
         try:
             async with httpx.AsyncClient(verify=False) as client:
                 response = await client.post(URL, auth=auth)
@@ -250,15 +256,21 @@ async def create_streams():
                     if res['status'] == "OK":
                         ui.notify(f"Stream \"{DATA_DOMAIN['streams'][stream]}\" created", type='positive')
                     elif res['status'] == "ERROR":
-                        ui.notify(f"Stream: \"{DATA_DOMAIN['streams'][stream]}\": {res['errors'][0]['desc']}", type='warning')
+                        ui.notify(f"Stream: \"{DATA_DOMAIN['streams'][stream]}\": {res['errors'][0]['desc']}", type='negative')
 
         except Exception as error:
             logger.warning("Failed to connect %s: %s", URL, type(error))
-            ui.notify(f"Failed to connect to REST: {error}", type='warning')
+            ui.notify(f"Failed to connect to REST: {error}", type='negative')
             return
+        
+        finally:
+            app.storage.user['busy'] = False
+
 
 async def delete_volumes_and_streams():
     auth = (app.storage.general["MAPR_USER"], app.storage.general["MAPR_PASS"])
+
+    app.storage.user['busy'] = True
 
     for vol in DATA_DOMAIN['volumes'].keys():
 
@@ -273,9 +285,9 @@ async def delete_volumes_and_streams():
             else:
                 res = response.json()
                 if res['status'] == "OK":
-                    ui.notify(f"Volume '{vol}' deleted", type='positive')
+                    ui.notify(f"Volume '{vol}' deleted", type='warning')
                 elif res['status'] == "ERROR":
-                    ui.notify(f"{vol}: {res['errors'][0]['desc']}", type='warning')
+                    ui.notify(f"{vol}: {res['errors'][0]['desc']}", type='negative')
 
     # Delete streams
     for stream in DATA_DOMAIN["streams"].keys():
@@ -290,25 +302,39 @@ async def delete_volumes_and_streams():
             else:
                 res = response.json()
                 if res['status'] == "OK":
-                    ui.notify(f"Stream '{DATA_DOMAIN['streams'][stream]}' deleted", type='positive')
+                    ui.notify(f"Stream '{DATA_DOMAIN['streams'][stream]}' deleted", type='warning')
                 elif res['status'] == "ERROR":
-                    ui.notify(f"Stream: {DATA_DOMAIN['streams'][stream]}: {res['errors'][0]['desc']}", type='warning')
+                    ui.notify(f"Stream: {DATA_DOMAIN['streams'][stream]}: {res['errors'][0]['desc']}", type='negative')
 
     # delete app folder
-    basedir = f"/edfs/{get_cluster_name()}{DATA_DOMAIN['basedir']}"
-    if os.path.isdir(basedir): 
-        shutil.rmtree(basedir)
-        ui.notify(f"{basedir} removed from {get_cluster_name()}")
+    try:
+        basedir = f"/edfs/{get_cluster_name()}{DATA_DOMAIN['basedir']}"
+        if os.path.exists(f"{basedir}/iceberg.db"):
+            os.unlink(f"{basedir}/iceberg.db")
+
+        if os.path.isdir(basedir): 
+            shutil.rmtree(basedir, ignore_errors=True)
+            ui.notify(f"{basedir} removed from {get_cluster_name()}", type="warning")
+
+    except Exception as error:
+        logger.warning(error)
 
     # remove tables from mysql
     mydb = f"mysql+pymysql://{app.storage.general['MYSQL_USER']}:{app.storage.general['MYSQL_PASS']}@{app.storage.general['cluster']}/{DATA_DOMAIN['name']}"
-    engine = create_engine(mydb)
-    with engine.connect() as conn:
-        conn.execute(text("DROP TABLE IF EXISTS customers;"))
-        conn.execute(text("DROP TABLE IF EXISTS transactions;"))
-        conn.execute(text("DROP TABLE IF EXISTS fraud_activity;"))
-        conn.commit()
-        ui.notify("Tables removed from mysql db", type='warning')
+    try:
+        engine = create_engine(mydb)
+        with engine.connect() as conn:
+            conn.execute(text("DROP TABLE IF EXISTS customers;"))
+            conn.execute(text("DROP TABLE IF EXISTS transactions;"))
+            conn.execute(text("DROP TABLE IF EXISTS fraud_activity;"))
+            conn.commit()
+            ui.notify("Database cleared", type='warning')
+
+    except Exception as error:
+        logger.warning(error)
+        ui.notify(f"Failed to remove db tables: {error}", type='negative')
+
+    app.storage.user['busy'] = False
 
 
 def show_mysql_tables():
@@ -398,6 +424,8 @@ def configure_logging():
     logging.getLogger("watchfiles").setLevel(logging.FATAL)
 
     logging.getLogger("faker").setLevel(logging.FATAL)
+
+    logging.getLogger("pyiceberg.io").setLevel(logging.WARNING)
 
     # https://sam.hooke.me/note/2023/10/nicegui-binding-propagation-warning/
     binding.MAX_PROPAGATION_TIME = 0.05

@@ -151,7 +151,7 @@ async def fraud_detection():
         # Where the actual scoring mechanism should work
         calculated_fraud_score = await dummy_fraud_score()
 
-        if int(calculated_fraud_score) > 75:
+        if int(calculated_fraud_score) > 85:
             ui.notify(f"Possible fraud in transaction between accounts {txn['sender_account']} and {txn['receiver_account']}", type='negative')
             # Write to gold/reporting tier
             possible_fraud = pd.DataFrame.from_dict([txn])

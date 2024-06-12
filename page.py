@@ -33,7 +33,7 @@ def header():
 
         with ui.row().classes("place-items-center"):
             ui.button("Data Hub", on_click=cluster_configuration_dialog).props("outline color=white")
-            ui.link(target=f"https://{app.storage.general.get('cluster', 'localhost')}:8443/app/mcs", new_tab=True).bind_text_from(app.storage.general, "cluster", backward=lambda x: app.storage.general["clusters"].get(x, "localhost") if x else "None").classes("text-white hover:text-blue-600")
+            ui.link(target=f"https://{app.storage.general.get('MAPR_USER', 'mapr')}:{app.storage.general.get('MAPR_PASS', 'mapr123')}@{app.storage.general.get('cluster', 'localhost')}:8443/app/mcs", new_tab=True).bind_text_from(app.storage.general, "cluster", backward=lambda x: app.storage.general["clusters"].get(x, "localhost") if x else "None").classes("text-white hover:text-blue-600")
 
 
 def footer():
@@ -44,7 +44,7 @@ def footer():
             # Endpoints
             ui.label("Volumes:")
 
-            with ui.button_group().props('push color=dark'):
+            with ui.button_group().props('flat color=dark'):
                 # GNS
                 ui.button("GNS", on_click=lambda: run_command_with_dialog("df -h /edfs; ls -lA /edfs/"))
                 # App folder
@@ -96,7 +96,7 @@ def demo_steps():
 
             with ui.row().classes("w-full place-items-center"):
                 ui.label("Publish to Kafka stream: ").classes("w-40")
-                ui.button("Publish", on_click=publish_transactions)
+                ui.button("Publish", on_click=publish_transactions).bind_enabled_from(app.storage.user, "busy", backward=lambda x: not x)
                 ui.button("Code", on_click=publish_dialog.open, color="info").props("outline")
 
         with ui.expansion("Ingestion & ETL Processing (Bronze)", caption="Realtime processing on incoming data", group="flow"):
@@ -107,7 +107,7 @@ def demo_steps():
 
             with ui.row().classes("w-full place-items-center"):
                 ui.label("Batch ingestion: ").classes("w-40")
-                ui.button("Customers", on_click=ingest_customers_iceberg)
+                ui.button("Customers", on_click=ingest_customers_iceberg).bind_enabled_from(app.storage.user, "busy", backward=lambda x: not x)
                 ui.button("History", on_click=lambda: iceberg_table_history(tier=DATA_DOMAIN['volumes']['bronze'], tablename=DATA_DOMAIN['tables']['customers'])).props("outline")
                 ui.button("Tail", on_click=lambda: iceberg_table_tail(tier=DATA_DOMAIN['volumes']['bronze'], tablename=DATA_DOMAIN['tables']['customers'])).props("outline")
                 ui.button("Code", on_click=batch_dialog.open, color="info").props("outline")
@@ -172,24 +172,33 @@ def monitoring_charts():
     with ui.card().classes("flex-grow shrink sticky top-0"):
         ui.label("Realtime Visibility").classes("uppercase")
 
-        # monitor using /var/mapr/mapr.monitoring/metricstreams/0
+        # # monitor using /var/mapr/mapr.monitoring/metricstreams/0
         # streams_chart = get_echart()
         # streams_chart.run_chart_method(':showLoading', r'{text: "Waiting..."}',)
         # ui.timer(MON_REFRESH_INTERVAL, lambda c=streams_chart, s=mapr_monitoring: chart_listener(c, s), once=True)
 
-        topic_chart = get_echart()
-        topic_chart.run_chart_method(':showLoading', r'{text: "Waiting..."}',)
-        ui.timer(MON_REFRESH_INTERVAL3, lambda c=topic_chart: update_chart(c, txn_topic_stats))
+        incoming_chart = get_echart()
+        incoming_chart.run_chart_method(':showLoading', r'{text: "Waiting..."}',)
+        ui.timer(MON_REFRESH_INTERVAL3, lambda c=incoming_chart: update_chart(c, incoming_topic_stats))
         
-        consumer_chart = get_echart()
-        consumer_chart.run_chart_method(':showLoading', r'{text: "Waiting..."}',)
-        ui.timer(MON_REFRESH_INTERVAL3, lambda c=consumer_chart: update_chart(c, txn_consumer_stats))
+        # TODO: embed grafana dashboard
+        # https://10.1.1.31:3000/d/pUfMqVUIz/demo-monitoring?orgId=1
 
-        # with ui.card_section().classes("w-full"):
-        #     ui.label("Bronze tier")
-        #     bronze_chart = get_echart()
-        #     bronze_chart.run_chart_method(':showLoading', r'{text: "Waiting..."}',)
-        #     ui.timer(MON_REFRESH_INTERVAL3, lambda c=bronze_chart: update_chart(c, table_stats, "bronze"))
+        # consumer_chart = get_echart()
+        # consumer_chart.run_chart_method(':showLoading', r'{text: "Waiting..."}',)
+        # ui.timer(MON_REFRESH_INTERVAL3, lambda c=consumer_chart: update_chart(c, txn_consumer_stats))
+
+        # bronze_chart = get_echart()
+        # bronze_chart.run_chart_method(':showLoading', r'{text: "Waiting..."}',)
+        # ui.timer(MON_REFRESH_INTERVAL5, lambda c=bronze_chart: update_chart(c, bronze_stats))
+
+        # silver_chart = get_echart()
+        # silver_chart.run_chart_method(':showLoading', r'{text: "Waiting..."}',)
+        # ui.timer(MON_REFRESH_INTERVAL5 + 1, lambda c=silver_chart: update_chart(c, silver_stats))
+
+        # gold_chart = get_echart()
+        # gold_chart.run_chart_method(':showLoading', r'{text: "Waiting..."}',)
+        # ui.timer(MON_REFRESH_INTERVAL5 + 2, lambda c=gold_chart: update_chart(c, gold_stats))
 
 
 def cluster_configuration_dialog():
@@ -256,15 +265,15 @@ def cluster_configuration_dialog():
             ui.label("Create the Entities").classes("text-lg w-full")
             ui.label("required volumes and streams")
             with ui.row().classes("w-full place-items-center mt-4"):
-                ui.button("Volumes", on_click=create_volumes)
-                ui.button("Streams", on_click=create_streams)
+                ui.button("Volumes", on_click=create_volumes).bind_enabled_from(app.storage.user, "busy", backward=lambda x: not x)
+                ui.button("Streams", on_click=create_streams).bind_enabled_from(app.storage.user, "busy", backward=lambda x: not x)
                 ui.button("List Cluster /", on_click=lambda: run_command_with_dialog(f"ls -la /edfs/{get_cluster_name()}")).props('outline')
 
         ui.separator()
         with ui.card_section():
             ui.label("Clean up!").classes("text-lg")
             ui.label("Use when done with the demo. This will remove all volumes and streams, ALL DATA will be gone!").classes("text-sm text-italic")
-            ui.button("DELETE ALL!", on_click=delete_volumes_and_streams, color="negative").classes("mt-4")
+            ui.button("DELETE ALL!", on_click=delete_volumes_and_streams, color="negative").classes("mt-4").bind_enabled_from(app.storage.user, "busy", backward=lambda x: not x)
 
     dialog.on("close", lambda d=dialog: d.delete())
     dialog.open()

@@ -60,7 +60,7 @@ def upsert_documents(table_path: str, docs: list):
     Update or insert a document into the OJAI store (table)
 
     :param table_path str: full table path under the selected cluster
-    :param json_dict dict: JSON serializable object to insert/update
+    :param docs list[dict]: list of JSON serializable objects to insert/update
 
     :return bool: result of operation
 
@@ -150,7 +150,7 @@ def get_documents(table_path: str, limit: int = FETCH_RECORD_NUM):
 
     :param table str: full path for the JSON table
 
-    :param limit int: Number of records to return, default is 10
+    :param limit int: Number of records to return, default is 10, if None, returns all documents
 
     :returns list[doc]: list of documents as JSON objects
 
