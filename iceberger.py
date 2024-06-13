@@ -3,6 +3,7 @@ import pyarrow as pa
 from pyiceberg.expressions import EqualTo
 
 from common import *
+from nicegui import ui
 
 logger = logging.getLogger("iceberger")
 logging.getLogger("pyiceberg.io").setLevel(logging.DEBUG)

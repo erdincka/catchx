@@ -8,7 +8,6 @@ import streams
 import tables
 import iceberger
 from functions import upsert_profile
-import sparking
 
 logger = logging.getLogger("ingestion")
 

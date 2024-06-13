@@ -189,17 +189,17 @@ def monitoring_charts():
         # consumer_chart.run_chart_method(':showLoading', r'{text: "Waiting..."}',)
         # ui.timer(MON_REFRESH_INTERVAL3, lambda c=consumer_chart: update_chart(c, txn_consumer_stats))
 
-        # bronze_chart = get_echart()
-        # bronze_chart.run_chart_method(':showLoading', r'{text: "Waiting..."}',)
-        # ui.timer(MON_REFRESH_INTERVAL10, lambda c=bronze_chart: update_chart(c, bronze_stats))
+        bronze_chart = get_echart()
+        bronze_chart.run_chart_method(':showLoading', r'{text: "Waiting..."}',)
+        ui.timer(MON_REFRESH_INTERVAL10, lambda c=bronze_chart: update_chart(c, bronze_stats))
 
-        # silver_chart = get_echart()
-        # silver_chart.run_chart_method(':showLoading', r'{text: "Waiting..."}',)
-        # ui.timer(2 * MON_REFRESH_INTERVAL10, lambda c=silver_chart: update_chart(c, silver_stats))
+        silver_chart = get_echart()
+        silver_chart.run_chart_method(':showLoading', r'{text: "Waiting..."}',)
+        ui.timer(2 * MON_REFRESH_INTERVAL10, lambda c=silver_chart: update_chart(c, silver_stats))
 
-        # gold_chart = get_echart()
-        # gold_chart.run_chart_method(':showLoading', r'{text: "Waiting..."}',)
-        # ui.timer(MON_REFRESH_INTERVAL5 + 2, lambda c=gold_chart: update_chart(c, gold_stats))
+        gold_chart = get_echart()
+        gold_chart.run_chart_method(':showLoading', r'{text: "Waiting..."}',)
+        ui.timer(2 * MON_REFRESH_INTERVAL10 + 5, lambda c=gold_chart: update_chart(c, gold_stats))
 
 
 def cluster_configuration_dialog():

@@ -3,7 +3,6 @@ import datetime
 import logging
 import os
 import random
-import shutil
 import tarfile
 
 import httpx
@@ -267,76 +266,6 @@ async def create_streams():
             app.storage.user['busy'] = False
 
 
-async def delete_volumes_and_streams():
-    auth = (app.storage.general["MAPR_USER"], app.storage.general["MAPR_PASS"])
-
-    app.storage.user['busy'] = True
-
-    for vol in DATA_DOMAIN['volumes'].keys():
-
-        URL = f"https://{app.storage.general['cluster']}:8443/rest/volume/remove?name={DATA_DOMAIN['volumes'][vol]}"
-        async with httpx.AsyncClient(verify=False) as client:
-            response = await client.post(URL, auth=auth)
-
-            if response is None or response.status_code != 200:
-                logger.warning("REST failed for delete volume: %s", vol)
-                logger.warning("Response: %s", response.text)
-
-            else:
-                res = response.json()
-                if res['status'] == "OK":
-                    ui.notify(f"Volume '{vol}' deleted", type='warning')
-                elif res['status'] == "ERROR":
-                    ui.notify(f"{vol}: {res['errors'][0]['desc']}", type='negative')
-
-    # Delete streams
-    for stream in DATA_DOMAIN["streams"].keys():
-        URL = f"https://{app.storage.general['cluster']}:8443/rest/stream/delete?path={DATA_DOMAIN['basedir']}/{DATA_DOMAIN['streams'][stream]}"
-        async with httpx.AsyncClient(verify=False) as client:
-            response = await client.post(URL, auth=auth)
-
-            if response is None or response.status_code != 200:
-                logger.warning(f"REST failed for delete stream: %s", stream)
-                logger.warning("Response: %s", response.text)
-
-            else:
-                res = response.json()
-                if res['status'] == "OK":
-                    ui.notify(f"Stream '{DATA_DOMAIN['streams'][stream]}' deleted", type='warning')
-                elif res['status'] == "ERROR":
-                    ui.notify(f"Stream: {DATA_DOMAIN['streams'][stream]}: {res['errors'][0]['desc']}", type='negative')
-
-    # delete app folder
-    try:
-        basedir = f"/edfs/{get_cluster_name()}{DATA_DOMAIN['basedir']}"
-        if os.path.exists(f"{basedir}/iceberg.db"):
-            os.unlink(f"{basedir}/iceberg.db")
-
-        if os.path.isdir(basedir): 
-            shutil.rmtree(basedir, ignore_errors=True)
-            ui.notify(f"{basedir} removed from {get_cluster_name()}", type="warning")
-
-    except Exception as error:
-        logger.warning(error)
-
-    # remove tables from mysql
-    mydb = f"mysql+pymysql://{app.storage.general['MYSQL_USER']}:{app.storage.general['MYSQL_PASS']}@{app.storage.general['cluster']}/{DATA_DOMAIN['name']}"
-    try:
-        engine = create_engine(mydb)
-        with engine.connect() as conn:
-            conn.execute(text("DROP TABLE IF EXISTS customers;"))
-            conn.execute(text("DROP TABLE IF EXISTS transactions;"))
-            conn.execute(text("DROP TABLE IF EXISTS fraud_activity;"))
-            conn.commit()
-            ui.notify("Database cleared", type='warning')
-
-    except Exception as error:
-        logger.warning(error)
-        ui.notify(f"Failed to remove db tables: {error}", type='negative')
-
-    app.storage.user['busy'] = False
-
-
 def show_mysql_tables():
     mydb = f"mysql+pymysql://{app.storage.general['MYSQL_USER']}:{app.storage.general['MYSQL_PASS']}@{app.storage.general['cluster']}/{DATA_DOMAIN['name']}"
     engine = create_engine(mydb)
@@ -409,7 +338,7 @@ def configure_logging():
     """
 
     logging.basicConfig(level=logging.INFO,
-                    format="%(asctime)s:%(levelname)s:%(name)s (%(funcName)s): %(message)s",
+                    format="%(asctime)s:%(levelname)s:%(name)s (%(funcName)s:%(lineno)d): %(message)s",
                     datefmt='%H:%M:%S')
 
     # INSECURE REQUESTS ARE OK in Lab

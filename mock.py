@@ -23,6 +23,7 @@ def fake_customer():
         "_id": uuid.uuid4().hex,
         **profile,
         "account_number": fake.iban(),
+        "county": fake.county(),
         "country_code": fake.current_country_code()
     }
 
@@ -93,6 +94,11 @@ async def publish_transactions(limit: int = 10):
 
     count = 0
     
+    # return if stream not created
+    if not os.path.lexists(f"/edfs/{get_cluster_name()}{stream_path}"):
+        ui.notify(f"Stream not created {stream_path}", type="warning")
+        return 
+
     try:
         with open(f"/edfs/{get_cluster_name()}{DATA_DOMAIN['basedir']}/transactions.csv", "r", newline='') as csvfile:
             csv_reader = csv.DictReader(csvfile)
