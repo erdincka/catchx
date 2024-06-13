@@ -58,6 +58,7 @@ def footer():
             ui.space()
 
             # ui.button("CDC", on_click=lambda: enable_cdc(source_table_path=f"{DATA_DOMAIN['basedir']}/{DATA_DOMAIN['volumes']['bronze']}/{DATA_DOMAIN['tables']['transactions']}", destination_stream_topic=f"{DATA_DOMAIN['basedir']}/{DATA_DOMAIN['streams']['monitoring']}:{DATA_DOMAIN['topics']['transactions']}"))
+            ui.switch("Lights on!", on_change=lights_on).props("flat outline color=dark keep-color").bind_value(app.storage.general, "lightson")
             # ui.space()
 
             ui.switch(on_change=toggle_debug).tooltip("Debug").props("color=dark keep-color")
@@ -190,11 +191,11 @@ def monitoring_charts():
 
         # bronze_chart = get_echart()
         # bronze_chart.run_chart_method(':showLoading', r'{text: "Waiting..."}',)
-        # ui.timer(MON_REFRESH_INTERVAL5, lambda c=bronze_chart: update_chart(c, bronze_stats))
+        # ui.timer(MON_REFRESH_INTERVAL10, lambda c=bronze_chart: update_chart(c, bronze_stats))
 
         # silver_chart = get_echart()
         # silver_chart.run_chart_method(':showLoading', r'{text: "Waiting..."}',)
-        # ui.timer(MON_REFRESH_INTERVAL5 + 1, lambda c=silver_chart: update_chart(c, silver_stats))
+        # ui.timer(2 * MON_REFRESH_INTERVAL10, lambda c=silver_chart: update_chart(c, silver_stats))
 
         # gold_chart = get_echart()
         # gold_chart.run_chart_method(':showLoading', r'{text: "Waiting..."}',)
@@ -278,3 +279,29 @@ def cluster_configuration_dialog():
     dialog.on("close", lambda d=dialog: d.delete())
     dialog.open()
 
+
+
+async def lights_on():
+
+    if create_csv_files():
+        while app.storage.general.get("lightson", False):
+
+            app.storage.general["lightson"] = True
+
+            await publish_transactions(limit=random.randrange(5, 10))
+
+            await ingest_customers_iceberg()
+
+            await ingest_transactions()
+
+            await refine_customers()
+
+            await refine_transactions()
+
+            await create_golden()
+
+            await fraud_detection()
+
+            await asyncio.sleep(MON_REFRESH_INTERVAL10)
+
+            

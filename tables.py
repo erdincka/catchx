@@ -159,7 +159,7 @@ def get_documents(table_path: str, limit: int = FETCH_RECORD_NUM):
     try:
         connection = get_connection()
 
-        table_path = connection.get_store(table_path)
+        table = connection.get_store(table_path)
 
         # Create a query to get the last n records based on the timestamp field
         if limit is not None:
@@ -173,7 +173,7 @@ def get_documents(table_path: str, limit: int = FETCH_RECORD_NUM):
                 .build()
 
         # Run the query and return the results as list
-        return [doc for doc in table_path.find(query)]
+        return [doc for doc in table.find(query)]
 
     except Exception as error:
         logger.warning("Failed to get document: %s", error)

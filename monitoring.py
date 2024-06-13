@@ -278,13 +278,13 @@ async def bronze_stats():
 
     series = []
     
-    ttable = f"/edfs/{get_cluster_name()}{DATA_DOMAIN['basedir']}/{DATA_DOMAIN['volumes']['bronze']}/{DATA_DOMAIN['tables']['transactions']}"
-    ctable = f"/edfs/{get_cluster_name()}{DATA_DOMAIN['basedir']}/{DATA_DOMAIN['volumes']['bronze']}/{DATA_DOMAIN['tables']['customers']}"
+    ttable = f"{DATA_DOMAIN['basedir']}/{DATA_DOMAIN['volumes']['bronze']}/{DATA_DOMAIN['tables']['transactions']}"
+    ctable = f"{DATA_DOMAIN['basedir']}/{DATA_DOMAIN['volumes']['bronze']}/{DATA_DOMAIN['tables']['customers']}"
 
     try:
-        if os.path.lexists(ttable):
+        if os.path.lexists(f"/edfs/{get_cluster_name()}{ttable}"):
             series.append({ "transactions": len(tables.get_documents(ttable, limit=None)) })
-        if os.path.isdir(ctable): # isdir for iceberg tables
+        if os.path.isdir(f"/edfs/{get_cluster_name()}{ctable}"): # isdir for iceberg tables
             series.append({ "customers": len(iceberger.find_all(DATA_DOMAIN['volumes']['bronze'], DATA_DOMAIN['tables']['customers'])) })
 
         # Don't update metrics for empty results
@@ -308,16 +308,16 @@ async def silver_stats():
 
     series = []
 
-    ptable = f"/edfs/{get_cluster_name()}{DATA_DOMAIN['basedir']}/{DATA_DOMAIN['volumes']['silver']}/{DATA_DOMAIN['tables']['profiles']}"
-    ttable = f"/edfs/{get_cluster_name()}{DATA_DOMAIN['basedir']}/{DATA_DOMAIN['volumes']['silver']}/{DATA_DOMAIN['tables']['transactions']}"
-    ctable = f"/edfs/{get_cluster_name()}{DATA_DOMAIN['basedir']}/{DATA_DOMAIN['volumes']['silver']}/{DATA_DOMAIN['tables']['customers']}"
+    ptable = f"{DATA_DOMAIN['basedir']}/{DATA_DOMAIN['volumes']['silver']}/{DATA_DOMAIN['tables']['profiles']}"
+    ttable = f"{DATA_DOMAIN['basedir']}/{DATA_DOMAIN['volumes']['silver']}/{DATA_DOMAIN['tables']['transactions']}"
+    ctable = f"{DATA_DOMAIN['basedir']}/{DATA_DOMAIN['volumes']['silver']}/{DATA_DOMAIN['tables']['customers']}"
 
     try:
-        if os.path.lexists(ptable):
+        if os.path.lexists(f"/edfs/{get_cluster_name()}{ptable}"):
             series.append({ "profiles": len(tables.get_documents(ptable, limit=None)) })
-        if os.path.lexists(ttable):
+        if os.path.lexists(f"/edfs/{get_cluster_name()}{ttable}"):
             series.append({ "transactions": len(tables.get_documents(ttable, limit=None)) })
-        if os.path.lexists(ctable):
+        if os.path.lexists(f"/edfs/{get_cluster_name()}{ctable}"):
             series.append({ "customers": len(tables.get_documents(ctable, limit=None)) })
 
         # Don't update metrics for empty results

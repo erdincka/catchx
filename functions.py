@@ -1,4 +1,5 @@
 import random
+import re
 from nicegui import run
 import country_converter as coco
 import pandas as pd
@@ -255,7 +256,10 @@ def data_aggregation():
     # merge customers with profiles on _id
     merged_df = pd.merge(customers_df, profiles_df, on="_id", how="left").fillna({"score": 0})
 
-    merged_df['postcode'] = merged_df['address'].str.extract(r'([A-Z]?\d(:? \d[A-Z]{2})?|[A-Z]\d{2}(:? \d[A-Z]{2})?|[A-Z]{2}\d(:? \d[A-Z]{2})?|[A-Z]{2}\d{2}(:? \d[A-Z]{2})?|[A-Z]\d[A-Z](:? \d[A-Z]{2})?|[A-Z]{2}\d[A-Z](:? \d[A-Z]{2})?),\s*$')
+    # extract postcode
+    # re_string = r'([A-Z]?\d(:? \d[A-Z]{2})?|[A-Z]\d{2}(:? \d[A-Z]{2})?|[A-Z]{2}\d(:? \d[A-Z]{2})?|[A-Z]{2}\d{2}(:? \d[A-Z]{2})?|[A-Z]\d[A-Z](:? \d[A-Z]{2})?|[A-Z]{2}\d[A-Z](:? \d[A-Z]{2})?),\s*$'
+    re_string = r"\b(?:(?:[A-Z][A-HJ-Y]?[0-9][0-9A-Z]?|ASCN|STHL|TDCU|BBND|[BFS]IQ{2}|GX11|PCRN|TKCA) ?[0-9][A-Z]{2}|GIR ?0A{2}|SAN ?TA1|AI-?[0-9]{4}|BFPO[ -]?[0-9]{2,3}|MSR[ -]?1(?:1[12]|[23][135])0|VG[ -]?11[1-6]0|[A-Z]{2} ? [0-9]{2}|KY[1-3][ -]?[0-2][0-9]{3})\b"
+    merged_df['postcode'] = [re.search(re_string, str(x), flags=re.IGNORECASE).group() for x in merged_df['address']]
     merged_df.drop(['name', 'birthdate', 'mail', 'username', 'address'], axis=1, inplace=True)
 
     # Append customers and transactions in the gold tier rdbms
