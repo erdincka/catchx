@@ -46,18 +46,18 @@ def footer():
 
             with ui.button_group().props('flat color=dark'):
                 # GNS
-                ui.button("GNS", on_click=lambda: run_command_with_dialog("df -h /edfs; ls -lA /edfs/"))
+                ui.button("GNS", on_click=lambda: run_command_with_dialog(f"df -h {MOUNT_PATH}; ls -lA {MOUNT_PATH}"))
                 # App folder
-                ui.button("Data Domain", on_click=lambda: run_command_with_dialog(f"ls -lA /edfs/{get_cluster_name()}{DATA_DOMAIN['basedir']}"))
+                ui.button("Data Domain", on_click=lambda: run_command_with_dialog(f"ls -lA {MOUNT_PATH}{get_cluster_name()}{BASEDIR}"))
                 # Volumes
-                ui.button(DATA_DOMAIN['volumes']['bronze'], on_click=lambda: run_command_with_dialog(f"ls -lAR /edfs/{get_cluster_name()}{DATA_DOMAIN['basedir']}/{DATA_DOMAIN['volumes']['bronze']}"))
-                ui.button(DATA_DOMAIN['volumes']['silver'], on_click=lambda: run_command_with_dialog(f"ls -lAR /edfs/{get_cluster_name()}{DATA_DOMAIN['basedir']}/{DATA_DOMAIN['volumes']['silver']}"))
-                ui.button(DATA_DOMAIN['volumes']['gold'], on_click=show_mysql_tables)
-                # ui.button(DATA_DOMAIN['volumes']['gold'], on_click=lambda: run_command_with_dialog(f"ls -lAR /edfs/{get_cluster_name()}{DATA_DOMAIN['basedir']}/{DATA_DOMAIN['volumes']['gold']}"))
+                ui.button(VOLUME_BRONZE, on_click=lambda: run_command_with_dialog(f"ls -lAR {MOUNT_PATH}{get_cluster_name()}{BASEDIR}/{VOLUME_BRONZE}"))
+                ui.button(VOLUME_SILVER, on_click=lambda: run_command_with_dialog(f"ls -lAR {MOUNT_PATH}{get_cluster_name()}{BASEDIR}/{VOLUME_SILVER}"))
+                ui.button(VOLUME_GOLD, on_click=show_mysql_tables)
+                # ui.button(VOLUME_GOLD, on_click=lambda: run_command_with_dialog(f"ls -lAR {MOUNT_PATH}{get_cluster_name()}{BASEDIR}/{VOLUME_GOLD}"))
 
             ui.space()
 
-            # ui.button("CDC", on_click=lambda: enable_cdc(source_table_path=f"{DATA_DOMAIN['basedir']}/{DATA_DOMAIN['volumes']['bronze']}/{DATA_DOMAIN['tables']['transactions']}", destination_stream_topic=f"{DATA_DOMAIN['basedir']}/{DATA_DOMAIN['streams']['monitoring']}:{DATA_DOMAIN['topics']['transactions']}"))
+            # ui.button("CDC", on_click=lambda: enable_cdc(source_table_path=f"{BASEDIR}/{VOLUME_BRONZE}/{TABLE_TRANSACTIONS}", destination_stream_topic=f"{BASEDIR}/{STREAM_MONITORING}:{TOPIC_TRANSACTIONS}"))
             ui.switch("Lights on!", on_change=lights_on).props("flat outline color=dark keep-color").bind_value(app.storage.general, "lightson")
             # ui.space()
 
@@ -109,8 +109,8 @@ def demo_steps():
             with ui.row().classes("w-full place-items-center"):
                 ui.label("Batch ingestion: ").classes("w-40")
                 ui.button("Customers", on_click=ingest_customers_iceberg).bind_enabled_from(app.storage.user, "busy", backward=lambda x: not x)
-                ui.button("History", on_click=lambda: iceberg_table_history(tier=DATA_DOMAIN['volumes']['bronze'], tablename=DATA_DOMAIN['tables']['customers'])).props("outline")
-                ui.button("Tail", on_click=lambda: iceberg_table_tail(tier=DATA_DOMAIN['volumes']['bronze'], tablename=DATA_DOMAIN['tables']['customers'])).props("outline")
+                ui.button("History", on_click=lambda: iceberg_table_history(tier=VOLUME_BRONZE, tablename=TABLE_CUSTOMERS)).props("outline")
+                ui.button("Tail", on_click=lambda: iceberg_table_tail(tier=VOLUME_BRONZE, tablename=TABLE_CUSTOMERS)).props("outline")
                 ui.button("Code", on_click=batch_dialog.open, color="info").props("outline")
 
             with ui.dialog().props("full-width") as stream_dialog, ui.card().classes("grow relative"):
@@ -123,7 +123,7 @@ def demo_steps():
             with ui.row().classes("w-full place-items-center"):
                 ui.label("Stream ingestion: ").classes("w-40")
                 ui.button("Transactions", on_click=ingest_transactions).bind_enabled_from(app.storage.user, "busy", backward=lambda x: not x)
-                ui.button("Peek", on_click=lambda: peek_documents(tablepath=f"{DATA_DOMAIN['basedir']}/{DATA_DOMAIN['volumes']['bronze']}/{DATA_DOMAIN['tables']['transactions']}")).props("outline")
+                ui.button("Peek", on_click=lambda: peek_documents(tablepath=f"{BASEDIR}/{VOLUME_BRONZE}/{TABLE_TRANSACTIONS}")).props("outline")
                 ui.button("Using Airflow", color='warning', on_click=not_implemented).props("outline").bind_enabled_from(app.storage.user, "busy", backward=lambda x: not x)
                 ui.button("Code", on_click=stream_dialog.open, color="info").props("outline")
 
@@ -135,15 +135,15 @@ def demo_steps():
 
             with ui.row().classes("w-full place-items-center"):
                 ui.label("Data enrichment: ").classes("w-40")
-                ui.button("Customers", on_click=refine_customers).bind_enabled_from(app.storage.user, "busy", backward=lambda x: not x)
+                ui.button("Customers", on_click=lambda: run.io_bound(refine_customers)).bind_enabled_from(app.storage.user, "busy", backward=lambda x: not x)
                 ui.button("Transactions", on_click=refine_transactions).bind_enabled_from(app.storage.user, "busy", backward=lambda x: not x)
                 ui.button("Code", on_click=enrich_dialog.open, color="info").props("outline")
 
             with ui.row().classes("w-full place-items-center"):
                 ui.label("Peek: ").classes("w-40")
-                ui.button("Profiles", on_click=lambda: peek_documents(tablepath=f"{DATA_DOMAIN['basedir']}/{DATA_DOMAIN['volumes']['silver']}/{DATA_DOMAIN['tables']['profiles']}")).props("outline")
-                ui.button("Customers", on_click=lambda: peek_documents(tablepath=f"{DATA_DOMAIN['basedir']}/{DATA_DOMAIN['volumes']['silver']}/{DATA_DOMAIN['tables']['customers']}")).props("outline")
-                ui.button("Transactions", on_click=lambda: peek_documents(f"{DATA_DOMAIN['basedir']}/{DATA_DOMAIN['volumes']['silver']}/{DATA_DOMAIN['tables']['transactions']}")).props("outline")
+                ui.button("Profiles", on_click=lambda: peek_documents(tablepath=f"{BASEDIR}/{VOLUME_SILVER}/{TABLE_PROFILES}")).props("outline")
+                ui.button("Customers", on_click=lambda: peek_documents(tablepath=f"{BASEDIR}/{VOLUME_SILVER}/{TABLE_CUSTOMERS}")).props("outline")
+                ui.button("Transactions", on_click=lambda: peek_documents(f"{BASEDIR}/{VOLUME_SILVER}/{TABLE_TRANSACTIONS}")).props("outline")
 
         with ui.expansion("Consolidate (Gold)", caption="Create data lake for gold tier", group="flow"):
             with ui.dialog().props("full-width") as aggregate_dialog, ui.card().classes("grow relative"):
@@ -153,8 +153,7 @@ def demo_steps():
 
             with ui.row().classes("w-full place-items-center"):
                 ui.label("Data aggregation: ").classes("w-40")
-                ui.button("Create Golden", on_click=create_golden).bind_enabled_from(app.storage.user, "busy", backward=lambda x: not x).bind_visibility_from(app.storage.general, 'MYSQL_PASS', backward=lambda x: x is not None and len(x) > 0)
-                # ui.button("Peek", on_click=lambda: peek_documents(f"{DATA_DOMAIN['basedir']}/{DATA_DOMAIN['volumes']['gold']}/{DATA_DOMAIN['tables']['combined']}")).props("outline")
+                ui.button("Summarize", on_click=create_golden).bind_enabled_from(app.storage.user, "busy", backward=lambda x: not x).bind_visibility_from(app.storage.general, 'MYSQL_PASS', backward=lambda x: x is not None and len(x) > 0)
                 ui.button("Code", on_click=aggregate_dialog.open, color="info").props("outline")
 
         with ui.expansion("Check transactions for Fraud", caption="Process every transaction and check for fraud", group="flow"):
@@ -237,15 +236,20 @@ def cluster_configuration_dialog():
 
             ui.space()
             with ui.dialog() as mysql_user_dialog, ui.card():
-                mysql_user_script = """
+                mysql_user_script = f"""
+                Using MySQL admin user, run these commands to create the database and the user:
+                ```
+                CREATE DATABASE {DATA_PRODUCT};
+                USE {DATA_PRODUCT}
                 CREATE USER 'catchx'@'%' IDENTIFIED BY 'catchx';
-                GRANT ALL ON *.* TO 'catchx'@'%' WITH GRANT OPTION;
+                GRANT ALL ON {DATA_PRODUCT}.* TO 'catchx'@'%' WITH GRANT OPTION;
                 FLUSH PRIVILEGES;
+                ```
                 """
                 ui.code(content=mysql_user_script, language="shell")
 
             with ui.row().classes("w-full place-items-center mt-4"):
-                ui.label("MysqlDB Credentials").classes("text-lg")
+                ui.label("MySQL Credentials").classes("text-lg")
                 ui.button(icon="info", on_click=mysql_user_dialog.open).props("flat round")
             ui.label("for gold tier RDBMS").classes("text-sm text-italic")
             with ui.row().classes("w-full place-items-center mt-4"):
@@ -259,7 +263,9 @@ def cluster_configuration_dialog():
             with ui.row().classes("w-full place-items-center mt-4"):
                 ui.button("configure.sh -R", on_click=lambda: run_command_with_dialog("/opt/mapr/server/configure.sh -R"))
                 ui.button("maprlogin", on_click=lambda: run_command_with_dialog(f"echo {app.storage.general['MAPR_PASS']} | maprlogin password -user {app.storage.general['MAPR_USER']}"))
-                ui.button("remount /edfs", on_click=lambda: run_command_with_dialog(f"[ -d /edfs ] && umount -l /edfs; [ -d /edfs ] || mkdir /edfs; mount -t nfs -o nolock,soft {app.storage.general['cluster']}:/mapr /edfs"))
+            with ui.row().classes("w-full place-items-center mt-4"):
+                ui.button(f"remount {MOUNT_PATH}", on_click=lambda: run_command_with_dialog(f"[ -d {MOUNT_PATH} ] && umount -l {MOUNT_PATH}; [ -d {MOUNT_PATH} ] || mkdir {MOUNT_PATH}; mount -t nfs -o nolock,soft {app.storage.general['cluster']}:/mapr {MOUNT_PATH}"))
+                ui.button("List Cluster /", on_click=lambda: run_command_with_dialog(f"ls -la {MOUNT_PATH}{get_cluster_name()}")).props('outline')
 
         ui.separator()
         with ui.card_section():
@@ -268,7 +274,6 @@ def cluster_configuration_dialog():
             with ui.row().classes("w-full place-items-center mt-4"):
                 ui.button("Volumes", on_click=create_volumes).bind_enabled_from(app.storage.user, "busy", backward=lambda x: not x)
                 ui.button("Streams", on_click=create_streams).bind_enabled_from(app.storage.user, "busy", backward=lambda x: not x)
-                ui.button("List Cluster /", on_click=lambda: run_command_with_dialog(f"ls -la /edfs/{get_cluster_name()}")).props('outline')
 
         ui.separator()
         with ui.card_section():

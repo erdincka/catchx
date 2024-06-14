@@ -4,6 +4,7 @@ from nicegui import run
 import pandas as pd
 
 from common import *
+from mock import dummy_fraud_score
 import streams
 import tables
 import iceberger
@@ -15,17 +16,17 @@ logger = logging.getLogger("ingestion")
 async def ingest_transactions():
 
     # Input stream
-    input_stream_path = f"{DATA_DOMAIN['basedir']}/{DATA_DOMAIN['streams']['incoming']}"
-    input_topic = DATA_DOMAIN['topics']['transactions']
+    input_stream_path = f"{BASEDIR}/{STREAM_INCOMING}"
+    input_topic = TOPIC_TRANSACTIONS
     
-    if not os.path.lexists(f"/edfs/{get_cluster_name()}{input_stream_path}"): # stream not created yet
+    if not os.path.lexists(f"{MOUNT_PATH}{get_cluster_name()}{input_stream_path}"): # stream not created yet
         ui.notify(f"Stream not found {input_stream_path}", type="warning")
         return
 
     app.storage.user['busy'] = True
 
     # Output table
-    output_table_path = f"{DATA_DOMAIN['basedir']}/{DATA_DOMAIN['volumes']['bronze']}/{DATA_DOMAIN['tables']['transactions']}"
+    output_table_path = f"{BASEDIR}/{VOLUME_BRONZE}/{TABLE_TRANSACTIONS}"
     
     transactions = []
 
@@ -43,13 +44,13 @@ async def ingest_transactions():
         if tables.upsert_documents(table_path=output_table_path, docs=transactions):
             ui.notify(f"Saved {len(transactions)} transactions in {output_table_path}", type="positive")
         else:
-            ui.notify(f"Failed to update table: {DATA_DOMAIN['tables']['transactions']} in {DATA_DOMAIN['volumes']['bronze']}", type='negative')
+            ui.notify(f"Failed to update table: {TABLE_TRANSACTIONS} in {VOLUME_BRONZE}", type='negative')
         # # Write into iceberg for Bronze tier (raw data)
         # logger.info("Writing %d transactions with iceberg", len(transactions))
-        # if iceberger.write(DATA_DOMAIN['volumes']['bronze'], DATA_DOMAIN['tables']['transactions'], records=transactions):
-        #     ui.notify(f"Saved {len(transactions)} transactions in {DATA_DOMAIN['volumes']['bronze']} volume with Iceberg", type="positive")
+        # if iceberger.write(VOLUME_BRONZE, TABLE_TRANSACTIONS, records=transactions):
+        #     ui.notify(f"Saved {len(transactions)} transactions in {VOLUME_BRONZE} volume with Iceberg", type="positive")
         # else:
-        #     ui.notify(f"Failed to save table: {DATA_DOMAIN['tables']['transactions']} in {DATA_DOMAIN['volumes']['bronze']}", type='negative')
+        #     ui.notify(f"Failed to save table: {TABLE_TRANSACTIONS} in {VOLUME_BRONZE}", type='negative')
     # release when done
     app.storage.user['busy'] = False
 
@@ -57,8 +58,8 @@ async def ingest_transactions():
 # SSE-TODO: read from stream, upsert profiles table, and write raw data into iceberg table
 async def ingest_transactions_spark():
 
-    stream_path = f"{DATA_DOMAIN['basedir']}/{DATA_DOMAIN['streams']['incoming']}" # input
-    table_path = f"{DATA_DOMAIN['basedir']}/{DATA_DOMAIN['volumes']['bronze']}/{DATA_DOMAIN['tables']['profiles']}" # output
+    stream_path = f"{BASEDIR}/{STREAM_INCOMING}" # input
+    table_path = f"{BASEDIR}/{VOLUME_BRONZE}/{TABLE_PROFILES}" # output
     
     ### psuedo code below
     # spark.read_stream(stream_path).upsert_maprdb_binarytable(table=table_path).write_iceberg(schemaname=DEMO['volumes']['bronze'], tablename=DEMO['tables']['transactions'])
@@ -71,13 +72,13 @@ async def ingest_transactions_spark():
     # }
 
 
-# SSE-TODO: Airflow DAG to process csv file at /edfs/london/apps/catchx/customers.csv, 
-# and write records into iceberg table at /edfs/london/apps/catchx/bronze/customers/
+# SSE-TODO: Airflow DAG to process csv file at MOUNT_PATHlondon/apps/catchx/customers.csv, 
+# and write records into iceberg table at MOUNT_PATHlondon/apps/catchx/bronze/customers/
 async def ingest_customers_airflow():
     """
     Read CSV file and ingest into Iceberg table
     """
-    csvpath = f"/edfs/{get_cluster_name()}{DATA_DOMAIN['basedir']}/{DATA_DOMAIN['tables']['customers']}.csv"
+    csvpath = f"{MOUNT_PATH}{get_cluster_name()}{BASEDIR}/{TABLE_CUSTOMERS}.csv"
 
     COUNT_OF_ROWS = 0
 
@@ -91,10 +92,10 @@ async def ingest_customers_iceberg():
     Read customers.csv and ingest into iceberg table in "bronze" tier
     """
 
-    tier = DATA_DOMAIN['volumes']['bronze']
-    tablename = DATA_DOMAIN['tables']['customers']
+    tier = VOLUME_BRONZE
+    tablename = TABLE_CUSTOMERS
 
-    csvpath = f"/edfs/{get_cluster_name()}{DATA_DOMAIN['basedir']}/{DATA_DOMAIN['tables']['customers']}.csv"
+    csvpath = f"{MOUNT_PATH}{get_cluster_name()}{BASEDIR}/{TABLE_CUSTOMERS}.csv"
     app.storage.user['busy'] = True
 
     try:
@@ -128,16 +129,16 @@ async def fraud_detection():
     The query result will be an update to the "silver" "profile" database.
     """
 
-    input_topic = DATA_DOMAIN['topics']['transactions']
-    input_stream = f"{DATA_DOMAIN['basedir']}/{DATA_DOMAIN['streams']['incoming']}"
-    output_table = f"{DATA_DOMAIN['basedir']}/{DATA_DOMAIN['volumes']['silver']}/{DATA_DOMAIN['tables']['profiles']}"
+    input_topic = TOPIC_TRANSACTIONS
+    input_stream = f"{BASEDIR}/{STREAM_INCOMING}"
+    output_table = f"{BASEDIR}/{VOLUME_SILVER}/{TABLE_PROFILES}"
 
-    if not os.path.lexists(f"/edfs/{get_cluster_name()}{input_stream}"): # stream not created yet
+    if not os.path.lexists(f"{MOUNT_PATH}{get_cluster_name()}{input_stream}"): # stream not created yet
         ui.notify(f"Stream not found {input_stream}", type="warning")
         return
 
     # Gold table to update if fraud found
-    mydb = f"mysql+pymysql://{app.storage.general['MYSQL_USER']}:{app.storage.general['MYSQL_PASS']}@{app.storage.general['cluster']}/{DATA_DOMAIN['name']}"
+    mydb = f"mysql+pymysql://{app.storage.general['MYSQL_USER']}:{app.storage.general['MYSQL_PASS']}@{app.storage.general['cluster']}/{DATA_PRODUCT}"
 
     fraud_count = 0
     non_fraud_count = 0
@@ -150,12 +151,16 @@ async def fraud_detection():
         # Where the actual scoring mechanism should work
         calculated_fraud_score = await dummy_fraud_score()
 
+        # randomly select a small subset as fraud
         if int(calculated_fraud_score) > 85:
+            # TODO: should provide a widget/table to see fraud txn details
             ui.notify(f"Possible fraud in transaction between accounts {txn['sender_account']} and {txn['receiver_account']}", type='negative')
             # Write to gold/reporting tier
             possible_fraud = pd.DataFrame.from_dict([txn])
             possible_fraud["score"] = calculated_fraud_score
-            fraud_count += possible_fraud.to_sql(name="fraud_activity", con=mydb, if_exists='append')
+            # clean up before committing to gold tier
+            possible_fraud.drop(['sender_account', 'receiver_account'], axis=1, inplace=True)
+            fraud_count += possible_fraud.to_sql(name=TABLE_FRAUD, con=mydb, if_exists='append')
 
             # and update score for the profiles - not implemented                
  

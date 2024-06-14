@@ -40,7 +40,7 @@ def get_catalog():
         catalog = SqlCatalog(
             "default",
             **{
-                "uri": f"sqlite:////edfs/{get_cluster_name()}{DATA_DOMAIN['basedir']}/iceberg.db",
+                "uri": f"sqlite:///{MOUNT_PATH}{get_cluster_name()}{BASEDIR}/iceberg.db",
                 "py-io-impl": "pyiceberg.io.pyarrow.PyArrowFileIO",
             },
         )
@@ -64,20 +64,21 @@ def write(tier: str, tablename: str, records: list) -> bool:
     :return bool: Success or failure
     """
 
-    warehouse_path = f"/edfs/{get_cluster_name()}{DATA_DOMAIN['basedir']}/{tier}/{tablename}"
+    warehouse_path = f"{MOUNT_PATH}{get_cluster_name()}{BASEDIR}/{tier}/{tablename}"
 
     catalog = get_catalog()
 
     if catalog is not None:
+        # create namespace if missing
         if (tier,) not in catalog.list_namespaces():
             catalog.create_namespace(tier)
 
-        # build PyArrow table from python list
-        df = pa.Table.from_pylist(records)
-
         table = None
 
-        # Create table if not exists
+        # build PyArrow from python list
+        df = pa.Table.from_pylist(records)
+
+        # Create table if missing
         try:
             table = catalog.create_table(
                 f'{tier}.{tablename}',
@@ -115,7 +116,7 @@ def tail(tier: str, tablename: str):
 def history(tier: str, tablename: str):
     """Return list of snapshot history from tablename"""
 
-    # warehouse_path = f"/edfs/{get_cluster_name()}{DEMO['basedir']}/{tier}/{tablename}"
+    # warehouse_path = f"{MOUNT_PATH}{get_cluster_name()}{DEMO['basedir']}/{tier}/{tablename}"
 
     catalog = get_catalog()
 

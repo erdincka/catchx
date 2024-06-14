@@ -29,7 +29,7 @@ async def upsert_profile(transaction: dict):
     if profile['_id'] == None: return
 
     # updated profile information is written to "silver" tier
-    table_path = f"{DATA_DOMAIN['basedir']}/{DATA_DOMAIN['volumes']['silver']}/{DATA_DOMAIN['tables']['profiles']}"
+    table_path = f"{BASEDIR}/{VOLUME_SILVER}/{TABLE_PROFILES}"
 
     if tables.upsert_document(table_path=table_path, json_dict=profile):
         logger.debug("Updated profile: %s with score: %s", profile['_id'], profile['score'])
@@ -39,7 +39,7 @@ def get_customer_id(from_account: str):
     """Find the customerID from customers table using account number"""
 
     # NOTE: This should be reading from silver tier, as reading ID from bronze (dirty) data is not ideal
-    found = iceberger.find_by_field(tier=DATA_DOMAIN['volumes']['bronze'], tablename=DATA_DOMAIN['tables']['customers'], field="account_number", value=from_account)
+    found = iceberger.find_by_field(tier=VOLUME_BRONZE, tablename=TABLE_CUSTOMERS, field="account_number", value=from_account)
 
     if found is not None and len(found) > 0:
         logger.debug(found)
@@ -61,21 +61,21 @@ async def refine_transactions():
     """
 
     # input table - iceberg
-    tier = DATA_DOMAIN['volumes']['bronze']
-    tablename = DATA_DOMAIN['tables']['transactions']
+    tier = VOLUME_BRONZE
+    tablename = TABLE_TRANSACTIONS
 
     # output table - maprdb binary
     # TODO: using DocumentDB here, change to BinaryDB
-    silver_transactions_table = f"{DATA_DOMAIN['basedir']}/{DATA_DOMAIN['volumes']['silver']}/{tablename}"
+    silver_transactions_table = f"{BASEDIR}/{VOLUME_SILVER}/{tablename}"
 
-    if not os.path.lexists(f"/edfs/{get_cluster_name()}{DATA_DOMAIN['basedir']}/{tier}/{tablename}"): # table not created yet
+    if not os.path.lexists(f"{MOUNT_PATH}{get_cluster_name()}{BASEDIR}/{tier}/{tablename}"): # table not created yet
         ui.notify(f"Input table not found: {tablename} on {tier} volume", type="warning")
         return
 
     app.storage.user["busy"] = True
 
     # df = iceberger.find_all(tier=tier, tablename=tablename)
-    df = pd.DataFrame.from_dict(tables.get_documents(table_path=f"{DATA_DOMAIN['basedir']}/{tier}/{tablename}", limit=None))
+    df = pd.DataFrame.from_dict(tables.get_documents(table_path=f"{BASEDIR}/{tier}/{tablename}", limit=None))
     ui.notify(f"Found {df.count(axis=1).size} rows in {tablename}")
 
     # assign a random category to the transaction
@@ -99,8 +99,7 @@ async def refine_transactions():
         app.storage.user["busy"] = False
 
 
-# SSE-TODO: for each customer with country_name empty, get country_code and add country_name field with converted name (GB -> Great Britain)
-# output to be written to maprdb binary table
+# SSE-TODO: output to be written to maprdb binary table
 async def refine_customers():
     """
     Retrieve customers from "bronze" table, enrich/classify/mask and write into the binary table in "silver" tier
@@ -109,14 +108,14 @@ async def refine_customers():
     """
 
     # input table - iceberg
-    tier = DATA_DOMAIN['volumes']['bronze']
-    tablename = DATA_DOMAIN['tables']['customers']
+    tier = VOLUME_BRONZE
+    tablename = TABLE_CUSTOMERS
 
     # output table - maprdb binary
     # TODO: using DocumentDB here, change to BinaryDB
-    silver_customers_table = f"{DATA_DOMAIN['basedir']}/{DATA_DOMAIN['volumes']['silver']}/{tablename}"
+    silver_customers_table = f"{BASEDIR}/{VOLUME_SILVER}/{tablename}"
 
-    if not os.path.lexists(f"/edfs/{get_cluster_name()}{DATA_DOMAIN['basedir']}/{tier}/{tablename}"): # table not created yet
+    if not os.path.lexists(f"{MOUNT_PATH}{get_cluster_name()}{BASEDIR}/{tier}/{tablename}"): # table not created yet
         ui.notify(f"Input table not found: {tablename} on {tier}", type="warning")
         return
 
@@ -133,14 +132,12 @@ async def refine_customers():
     # find and add iso3166-2 subdivision code (used for country map)
     def to_iso3166_2(c):
         try:
-            logger.info(str(c))
             subdiv = pycountry.subdivisions.search_fuzzy(str(c))
             return subdiv[0].code if subdiv else ""
-        except Exception as error:
+        except Exception as error: # silently ignore non-found counties
             logger.warning(error)
 
     df['iso3166_2'] = df["county"].map(to_iso3166_2)
-    print(df.head())
 
     # mask last n characters from the account_number
     # last_n_chars = 8
@@ -174,7 +171,7 @@ def iceberg_table_history(tier: str, tablename: str):
     :param tablename str: iceberg table name
     """
 
-    if not os.path.exists(f"/edfs/{get_cluster_name()}{DATA_DOMAIN['basedir']}/{tier}/{tablename}"): # table not created yet
+    if not os.path.exists(f"{MOUNT_PATH}{get_cluster_name()}{BASEDIR}/{tier}/{tablename}"): # table not created yet
         ui.notify(f"Table not found: {tier}/{tablename}", type="warning")
         return
 
@@ -197,7 +194,7 @@ def iceberg_table_tail(tier: str, tablename: str):
     :param tablename str: iceberg table name
     """
 
-    if not os.path.exists(f"/edfs/{get_cluster_name()}{DATA_DOMAIN['basedir']}/{tier}/{tablename}"): # table not created yet
+    if not os.path.exists(f"{MOUNT_PATH}{get_cluster_name()}{BASEDIR}/{tier}/{tablename}"): # table not created yet
         ui.notify(f"Table not found: {tier}/{tablename}", type="warning")
         return
 
@@ -218,7 +215,7 @@ def peek_documents(tablepath: str):
     :param tablepath str: full path for the JSON table
     """
 
-    if not os.path.lexists(f"/edfs/{get_cluster_name()}{tablepath}"): # table not created yet
+    if not os.path.lexists(f"{MOUNT_PATH}{get_cluster_name()}{tablepath}"): # table not created yet
         ui.notify(f"Table not found: {tablepath}", type="warning")
         return
 
@@ -252,16 +249,14 @@ def data_aggregation():
     """
 
     # inputs from "Silver" tier
-    profile_input_table = f"{DATA_DOMAIN['basedir']}/{DATA_DOMAIN['volumes']['silver']}/{DATA_DOMAIN['tables']['profiles']}"
-    customers_input_table = f"{DATA_DOMAIN['basedir']}/{DATA_DOMAIN['volumes']['silver']}/{DATA_DOMAIN['tables']['customers']}"
-    transactions_input_table = f"{DATA_DOMAIN['basedir']}/{DATA_DOMAIN['volumes']['silver']}/{DATA_DOMAIN['tables']['transactions']}"
+    profile_input_table = f"{BASEDIR}/{VOLUME_SILVER}/{TABLE_PROFILES}"
+    customers_input_table = f"{BASEDIR}/{VOLUME_SILVER}/{TABLE_CUSTOMERS}"
+    transactions_input_table = f"{BASEDIR}/{VOLUME_SILVER}/{TABLE_TRANSACTIONS}"
 
     for input_file in [profile_input_table, customers_input_table, transactions_input_table]:
-        if not os.path.lexists(f"/edfs/{get_cluster_name()}{input_file}"): # table not created yet
+        if not os.path.lexists(f"{MOUNT_PATH}{get_cluster_name()}{input_file}"): # table not created yet
             return (f"Input table not found: {input_file}", "warning")
 
-    # output table for combined data
-    combined_table = f"{DATA_DOMAIN['basedir']}/{DATA_DOMAIN['volumes']['gold']}/{DATA_DOMAIN['tables']['combined']}"
 
     profiles_df = pd.DataFrame.from_dict(tables.get_documents(table_path=profile_input_table, limit=None))
     customers_df = pd.DataFrame.from_dict(tables.get_documents(table_path=customers_input_table, limit=None))
@@ -276,14 +271,17 @@ def data_aggregation():
     # extract postcode
     # re_string = r"\b(?:(?:[A-Z][A-HJ-Y]?[0-9][0-9A-Z]?|ASCN|STHL|TDCU|BBND|[BFS]IQ{2}|GX11|PCRN|TKCA) ?[0-9][A-Z]{2}|GIR ?0A{2}|SAN ?TA1|AI-?[0-9]{4}|BFPO[ -]?[0-9]{2,3}|MSR[ -]?1(?:1[12]|[23][135])0|VG[ -]?11[1-6]0|[A-Z]{2} ? [0-9]{2}|KY[1-3][ -]?[0-2][0-9]{3})\b"
     # merged_df['postcode'] = [re.search(re_string, str(x), flags=re.IGNORECASE).group() for x in merged_df['address']]
-    merged_df.drop(['name', 'birthdate', 'mail', 'username', 'address'], axis=1, inplace=True)
+
+    # Clean up tables from PII/individual data
+    merged_df.drop(['name', 'birthdate', 'mail', 'username', 'address', 'account_number'], axis=1, inplace=True)
+    transactions_df.drop(['sender_account', 'receiver_account'], axis=1, inplace=True)
 
     # Append customers and transactions in the gold tier rdbms
-    mydb = f"mysql+pymysql://{app.storage.general['MYSQL_USER']}:{app.storage.general['MYSQL_PASS']}@{app.storage.general['cluster']}/{DATA_DOMAIN['name']}"
-    num_customers = merged_df.to_sql(name="customers", con=mydb, if_exists='append')
+    mydb = f"mysql+pymysql://{app.storage.general['MYSQL_USER']}:{app.storage.general['MYSQL_PASS']}@{app.storage.general['cluster']}/{DATA_PRODUCT}"
+    num_customers = merged_df.to_sql(name="customers", con=mydb, if_exists='replace') # overwrite customers table - in real life, only changes/updates would be upsert'ed
     num_transactions = transactions_df.to_sql(name="transactions", con=mydb, if_exists='append')
 
-    return (f"{num_customers} customers and {num_transactions} transactions updated in {DATA_DOMAIN['volumes']['gold']} tier", 'positive')
+    return (f"{num_customers} customers and {num_transactions} transactions updated in {VOLUME_GOLD} tier", 'positive')
 
 
 def reporting():
@@ -316,9 +314,9 @@ async def delete_volumes_and_streams():
 
     app.storage.user['busy'] = True
 
-    for vol in DATA_DOMAIN['volumes'].keys():
+    for vol in [VOLUME_BRONZE, VOLUME_SILVER, VOLUME_GOLD]:
 
-        URL = f"https://{app.storage.general['cluster']}:8443/rest/volume/remove?name={DATA_DOMAIN['volumes'][vol]}"
+        URL = f"https://{app.storage.general['cluster']}:8443/rest/volume/remove?name={vol}"
         async with httpx.AsyncClient(verify=False) as client:
             response = await client.post(URL, auth=auth)
 
@@ -334,8 +332,8 @@ async def delete_volumes_and_streams():
                     ui.notify(f"{vol}: {res['errors'][0]['desc']}", type='negative')
 
     # Delete streams
-    for stream in DATA_DOMAIN["streams"].keys():
-        URL = f"https://{app.storage.general['cluster']}:8443/rest/stream/delete?path={DATA_DOMAIN['basedir']}/{DATA_DOMAIN['streams'][stream]}"
+    for stream in [STREAM_INCOMING, STREAM_MONITORING]:
+        URL = f"https://{app.storage.general['cluster']}:8443/rest/stream/delete?path={BASEDIR}/{stream}"
         async with httpx.AsyncClient(verify=False) as client:
             response = await client.post(URL, auth=auth)
 
@@ -346,19 +344,21 @@ async def delete_volumes_and_streams():
             else:
                 res = response.json()
                 if res['status'] == "OK":
-                    ui.notify(f"Stream '{DATA_DOMAIN['streams'][stream]}' deleted", type='warning')
+                    ui.notify(f"Stream '{stream}' deleted", type='warning')
                 elif res['status'] == "ERROR":
-                    ui.notify(f"Stream: {DATA_DOMAIN['streams'][stream]}: {res['errors'][0]['desc']}", type='negative')
+                    ui.notify(f"Stream: {stream}: {res['errors'][0]['desc']}", type='negative')
 
     # delete app folder
     try:
-        basedir = f"/edfs/{get_cluster_name()}{DATA_DOMAIN['basedir']}"
+        basedir = f"{MOUNT_PATH}{get_cluster_name()}{BASEDIR}"
         # remove iceberg tables and metadata catalog
         if os.path.exists(f"{basedir}/iceberg.db"):
             catalog = iceberger.get_catalog()
-            for tier in DATA_DOMAIN['volumes']:
+            for tier in [VOLUME_BRONZE, VOLUME_SILVER, VOLUME_GOLD]:
                 if (tier,) in catalog.list_namespaces():
+                    logger.info("Found ns: %s", tier)
                     for table in catalog.list_tables(tier):
+                        logger.info("Found table %s in ns: %s", table, tier)
                         try:
                             catalog.purge_table(table)
                         except Exception as error:
@@ -382,13 +382,13 @@ async def delete_volumes_and_streams():
         logger.warning(error)
 
     # remove tables from mysql
-    mydb = f"mysql+pymysql://{app.storage.general['MYSQL_USER']}:{app.storage.general['MYSQL_PASS']}@{app.storage.general['cluster']}/{DATA_DOMAIN['name']}"
+    mydb = f"mysql+pymysql://{app.storage.general['MYSQL_USER']}:{app.storage.general['MYSQL_PASS']}@{app.storage.general['cluster']}/{DATA_PRODUCT}"
     try:
         engine = create_engine(mydb)
         with engine.connect() as conn:
-            conn.execute(text("DROP TABLE IF EXISTS customers;"))
-            conn.execute(text("DROP TABLE IF EXISTS transactions;"))
-            conn.execute(text("DROP TABLE IF EXISTS fraud_activity;"))
+            conn.execute(text(f"DROP TABLE IF EXISTS {TABLE_CUSTOMERS};"))
+            conn.execute(text(f"DROP TABLE IF EXISTS {TABLE_TRANSACTIONS};"))
+            conn.execute(text(f"DROP TABLE IF EXISTS {TABLE_FRAUD};"))
             conn.commit()
             ui.notify("Database cleared", type='warning')
 

@@ -148,8 +148,8 @@ def mapr_monitoring():
 
 
 async def incoming_topic_stats():
-    stream_path = f"{DATA_DOMAIN['basedir']}/{DATA_DOMAIN['streams']['incoming']}"
-    topic = DATA_DOMAIN["topics"]["transactions"]
+    stream_path = f"{BASEDIR}/{STREAM_INCOMING}"
+    topic = TOPIC_TRANSACTIONS
 
     if app.storage.general.get("cluster", None) is None:
         logger.debug("Cluster not configured, skipping.")
@@ -212,8 +212,8 @@ async def incoming_topic_stats():
 
 
 async def txn_consumer_stats():
-    stream_path = f"{DATA_DOMAIN['basedir']}/{DATA_DOMAIN['streams']['incoming']}"
-    topic = DATA_DOMAIN["topics"]["transactions"]
+    stream_path = f"{BASEDIR}/{STREAM_INCOMING}"
+    topic = TOPIC_TRANSACTIONS
 
     if app.storage.general.get("cluster", None) is None:
         logger.debug("Cluster not configured, skipping.")
@@ -278,14 +278,14 @@ async def bronze_stats():
 
     series = []
     
-    ttable = f"{DATA_DOMAIN['basedir']}/{DATA_DOMAIN['volumes']['bronze']}/{DATA_DOMAIN['tables']['transactions']}"
-    ctable = f"{DATA_DOMAIN['basedir']}/{DATA_DOMAIN['volumes']['bronze']}/{DATA_DOMAIN['tables']['customers']}"
+    ttable = f"{BASEDIR}/{VOLUME_BRONZE}/{TABLE_TRANSACTIONS}"
+    ctable = f"{BASEDIR}/{VOLUME_BRONZE}/{TABLE_CUSTOMERS}"
 
     try:
-        if os.path.lexists(f"/edfs/{get_cluster_name()}{ttable}"):
+        if os.path.lexists(f"{MOUNT_PATH}{get_cluster_name()}{ttable}"):
             series.append({ "transactions": len(tables.get_documents(ttable, limit=None)) })
-        if os.path.isdir(f"/edfs/{get_cluster_name()}{ctable}"): # isdir for iceberg tables
-            series.append({ "customers": len(iceberger.find_all(DATA_DOMAIN['volumes']['bronze'], DATA_DOMAIN['tables']['customers'])) })
+        if os.path.isdir(f"{MOUNT_PATH}{get_cluster_name()}{ctable}"): # isdir for iceberg tables
+            series.append({ "customers": len(iceberger.find_all(VOLUME_BRONZE, TABLE_CUSTOMERS)) })
 
         # Don't update metrics for empty results
         if len(series) == 0: return
@@ -295,7 +295,7 @@ async def bronze_stats():
         return 
         
     return {
-        "name": DATA_DOMAIN['volumes']['bronze'],
+        "name": VOLUME_BRONZE,
         "time": datetime.datetime.now().strftime("%H:%M:%S"),
         "values": series,
     }
@@ -308,16 +308,16 @@ async def silver_stats():
 
     series = []
 
-    ptable = f"{DATA_DOMAIN['basedir']}/{DATA_DOMAIN['volumes']['silver']}/{DATA_DOMAIN['tables']['profiles']}"
-    ttable = f"{DATA_DOMAIN['basedir']}/{DATA_DOMAIN['volumes']['silver']}/{DATA_DOMAIN['tables']['transactions']}"
-    ctable = f"{DATA_DOMAIN['basedir']}/{DATA_DOMAIN['volumes']['silver']}/{DATA_DOMAIN['tables']['customers']}"
+    ptable = f"{BASEDIR}/{VOLUME_SILVER}/{TABLE_PROFILES}"
+    ttable = f"{BASEDIR}/{VOLUME_SILVER}/{TABLE_TRANSACTIONS}"
+    ctable = f"{BASEDIR}/{VOLUME_SILVER}/{TABLE_CUSTOMERS}"
 
     try:
-        if os.path.lexists(f"/edfs/{get_cluster_name()}{ptable}"):
+        if os.path.lexists(f"{MOUNT_PATH}{get_cluster_name()}{ptable}"):
             series.append({ "profiles": len(tables.get_documents(ptable, limit=None)) })
-        if os.path.lexists(f"/edfs/{get_cluster_name()}{ttable}"):
+        if os.path.lexists(f"{MOUNT_PATH}{get_cluster_name()}{ttable}"):
             series.append({ "transactions": len(tables.get_documents(ttable, limit=None)) })
-        if os.path.lexists(f"/edfs/{get_cluster_name()}{ctable}"):
+        if os.path.lexists(f"{MOUNT_PATH}{get_cluster_name()}{ctable}"):
             series.append({ "customers": len(tables.get_documents(ctable, limit=None)) })
 
         # Don't update metrics for empty results
@@ -328,7 +328,7 @@ async def silver_stats():
         return
     
     return {
-        "name": DATA_DOMAIN['volumes']['silver'],
+        "name": VOLUME_SILVER,
         "time": datetime.datetime.now().strftime("%H:%M:%S"),
         "values": series,
     }
@@ -342,15 +342,18 @@ async def gold_stats():
     series = []
     
     try:
-        mydb = f"mysql+pymysql://{app.storage.general['MYSQL_USER']}:{app.storage.general['MYSQL_PASS']}@{app.storage.general['cluster']}/{DATA_DOMAIN['name']}"
+        mydb = f"mysql+pymysql://{app.storage.general['MYSQL_USER']}:{app.storage.general['MYSQL_PASS']}@{app.storage.general['cluster']}/{DATA_PRODUCT}"
+
+        # return if table is missing
         engine = create_engine(mydb)
         with engine.connect() as conn:
-            for t in conn.execute(text("SHOW TABLES LIKE 'fraud_activity';")):
-                logger.info(t)
-
-        # series.append({ "fraud_activity": pd.read_sql(f"SELECT COUNT('_id') FROM fraud_activity", con=mydb).values[:1].flat[0] })
-        # series.append({ DATA_DOMAIN['tables']['transactions']: pd.read_sql(f"SELECT COUNT('_id') FROM {DATA_DOMAIN['tables']['transactions']}", con=mydb).values[:1].flat[0] })
-        # series.append({ DATA_DOMAIN['tables']['customers']: pd.read_sql(f"SELECT COUNT('_id') FROM {DATA_DOMAIN['tables']['customers']}", con=mydb).values[:1].flat[0] })
+            # return if table is not created
+            if TABLE_FRAUD not in [ t for t in conn.execute(text(f"SHOW TABLES LIKE '{TABLE_FRAUD}';")) ]: return
+                
+        # TODO: find a better/more efficient way to count records
+        series.append({ TABLE_FRAUD: pd.read_sql(f"SELECT COUNT('_id') FROM {TABLE_FRAUD}", con=mydb).values[:1].flat[0] })
+        series.append({ TABLE_TRANSACTIONS: pd.read_sql(f"SELECT COUNT('_id') FROM {TABLE_TRANSACTIONS}", con=mydb).values[:1].flat[0] })
+        series.append({ TABLE_CUSTOMERS: pd.read_sql(f"SELECT COUNT('_id') FROM {TABLE_CUSTOMERS}", con=mydb).values[:1].flat[0] })
 
         # Don't update metrics for empty results
         if len(series) == 0: return
@@ -360,7 +363,7 @@ async def gold_stats():
         return
     
     return {
-        "name": DATA_DOMAIN['volumes']['gold'],
+        "name": VOLUME_GOLD,
         "time": datetime.datetime.now().strftime("%H:%M:%S"),
         "values": series,
     }

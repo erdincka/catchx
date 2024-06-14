@@ -2,8 +2,8 @@ import asyncio
 import datetime
 import logging
 import os
-import random
 import tarfile
+import time
 
 import httpx
 from nicegui import ui, events, app, binding
@@ -16,30 +16,28 @@ APP_NAME = "Data Fabric"
 TITLE = "Building a Hybrid Data Mesh"
 STORAGE_SECRET = "ezmer@1r0cks"
 
+DATA_PRODUCT = "fraud" # make this a single word, used for dir and database names, no spaces or fancy characters
+BASEDIR = "/fraud"
+MOUNT_PATH = "/edfs/"
+
+VOLUME_BRONZE = "bronze"
+VOLUME_SILVER = "silver"
+VOLUME_GOLD = "gold"
+
+STREAM_INCOMING = "incoming"
+STREAM_MONITORING = "monitoring"
+
+TOPIC_TRANSACTIONS = "transactions"
+
+TABLE_PROFILES = "profiles"
+TABLE_TRANSACTIONS = "transactions"
+TABLE_CUSTOMERS = "customers"
+TABLE_FRAUD = "fraud_activity"
+
 DATA_DOMAIN = {
-  "name": "fraud", # make this a single word, used for volume and database names, no spaces or fancy characters
 #   TODO: describe
   "description": "What, why and how?",
   "diagram": "datapipeline.png",
-  "basedir": "/fraud",
-  "volumes": {
-    "bronze": "bronze",
-    "silver": "silver",
-    "gold": "gold"
-  },
-  "streams": {
-    "incoming": "incoming",
-    "monitoring": "monitoring" # designated for change log data capture
-  },
-  "topics": {
-    "transactions": "transactions",
-  },
-  "tables": {
-    "profiles": "profiles",
-    "transactions": "transactions",
-    "customers": "customers",
-    "combined": "combined"
-  },
   "link": "https://github.com/erdincka/catchx"
 }
 
@@ -85,17 +83,20 @@ def upload_client_files(e: events.UploadEventArguments):
         
         with tarfile.open(f"/tmp/{filename}", "r") as tf:
             if "conf" in filename:
-                # tf.extractall(path="/opt/mapr/conf")
-                if "conf/mapr-clusters.conf" in tf.getnames(): ## compatible with 7.7
+                # For DF 7.7
+                if "conf/mapr-clusters.conf" in tf.getnames():
                     tf.extract("conf/mapr-clusters.conf", path="/opt/mapr/") 
                     tf.extract("conf/ssl_truststore", path="/opt/mapr/")
                     tf.extract("conf/ssl_truststore.pem", path="/opt/mapr/")
-                else: ## compatible with 7.5
+                # For DF 7.5
+                else:
                     tf.extract("mapr-clusters.conf", path="/opt/mapr/conf/")
                     tf.extract("ssl_truststore", path="/opt/mapr/conf")
 
                 # Refresh cluster list in UI
                 update_clusters()
+                # give time for UI notification before page reload
+                time.sleep(1)
                 ui.navigate.reload()
 
             elif "jwt" in filename:
@@ -129,7 +130,10 @@ def update_clusters():
 
 
 async def run_command_with_dialog(command: str) -> None:
-    """Run a command in the background and display the output in the pre-created dialog."""
+    """
+    Run a command in the background and display the output in the pre-created dialog.
+    """
+
     with ui.dialog().props("full-width") as dialog, ui.card().classes("grow relative"):
         ui.button(icon="close", on_click=dialog.close).props("flat round dense").classes("absolute right-2 top-2")
         ui.label(f"Running: {command}").classes("text-bold")
@@ -137,8 +141,17 @@ async def run_command_with_dialog(command: str) -> None:
 
     dialog.on("close", lambda d=dialog: d.delete())
     dialog.open()
+
     result.content = ''
 
+    async for out in run_command(command): result.push(out)
+
+
+async def run_command(command: str):
+    """
+    Run a command in the background and return the output.
+    """
+    
     process = await asyncio.create_subprocess_shell(
         command,
         stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.STDOUT,
@@ -146,23 +159,6 @@ async def run_command_with_dialog(command: str) -> None:
     )
 
     # NOTE we need to read the output in chunks, otherwise the process will block
-    while True:
-        new = await process.stdout.read(4096)
-        if not new:
-            break
-        result.push(new.decode())
-
-    result.push(f"Command completed.")
-
-
-async def run_command(command: str):
-    """Run a command in the background and return the output."""
-    process = await asyncio.create_subprocess_shell(
-        command,
-        stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.STDOUT,
-        cwd=os.path.dirname(os.path.abspath(__file__))
-    )
-
     while True:
         new = await process.stdout.read(4096)
         if not new:
@@ -178,32 +174,23 @@ def get_cluster_name():
         return clustername
 
 
-async def dummy_fraud_score():
-    """Return a random percentile with adding a delay to simulate querying to an AI model"""
-
-    # add delay
-    await asyncio.sleep(0.02)
-
-    # respond with a random probability, using string to avoid OJAI conversion to this \"score\": {\"$numberLong\": 46}}
-    return str(random.randint(0, 100))
-
-
 async def create_volumes():
     """
-    Create an app folder and create volumes in it, as defined in DATA_DOMAIN['volumes']
+    Create an app folder and create volumes in it
     """
 
     auth = (app.storage.general["MAPR_USER"], app.storage.general["MAPR_PASS"])
 
     app.storage.user['busy'] = True
+
     # create base folder if not exists
-    basedir = f"/edfs/{get_cluster_name()}{DATA_DOMAIN['basedir']}"
+    basedir = f"{MOUNT_PATH}{get_cluster_name()}{BASEDIR}"
     if not os.path.isdir(basedir):
         os.mkdir(basedir)
 
-    for vol in DATA_DOMAIN['volumes'].keys():
+    for vol in [VOLUME_BRONZE, VOLUME_SILVER, VOLUME_GOLD]:
 
-        URL = f"https://{app.storage.general['cluster']}:8443/rest/volume/create?name={DATA_DOMAIN['volumes'][vol]}&path={DATA_DOMAIN['basedir']}/{DATA_DOMAIN['volumes'][vol]}&replication=1&minreplication=1&nsreplication=1&nsminreplication=1"
+        URL = f"https://{app.storage.general['cluster']}:8443/rest/volume/create?name={vol}&path={BASEDIR}/{vol}&replication=1&minreplication=1&nsreplication=1&nsminreplication=1"
 
         logger.debug("REST call to: %s", URL)
 
@@ -233,8 +220,8 @@ async def create_volumes():
 async def create_streams():
     auth = (app.storage.general["MAPR_USER"], app.storage.general["MAPR_PASS"])
 
-    for stream in DATA_DOMAIN["streams"].keys():
-        URL = f"https://{app.storage.general['cluster']}:8443/rest/stream/create?path={DATA_DOMAIN['basedir']}/{DATA_DOMAIN['streams'][stream]}&ttl=38400&compression=lz4&produceperm=p&consumeperm=p&topicperm=p"
+    for stream in [STREAM_INCOMING, STREAM_MONITORING]:
+        URL = f"https://{app.storage.general['cluster']}:8443/rest/stream/create?path={BASEDIR}/{stream}&ttl=38400&compression=lz4&produceperm=p&consumeperm=p&topicperm=p"
 
         # ensure monitoring is used for changelog
         if stream == "monitoring":
@@ -253,9 +240,9 @@ async def create_streams():
                 else:
                     res = response.json()
                     if res['status'] == "OK":
-                        ui.notify(f"Stream \"{DATA_DOMAIN['streams'][stream]}\" created", type='positive')
+                        ui.notify(f"Stream \"{stream}\" created", type='positive')
                     elif res['status'] == "ERROR":
-                        ui.notify(f"Stream: \"{DATA_DOMAIN['streams'][stream]}\": {res['errors'][0]['desc']}", type='negative')
+                        ui.notify(f"Stream: \"{stream}\": {res['errors'][0]['desc']}", type='negative')
 
         except Exception as error:
             logger.warning("Failed to connect %s: %s", URL, type(error))
@@ -267,7 +254,7 @@ async def create_streams():
 
 
 def show_mysql_tables():
-    mydb = f"mysql+pymysql://{app.storage.general['MYSQL_USER']}:{app.storage.general['MYSQL_PASS']}@{app.storage.general['cluster']}/{DATA_DOMAIN['name']}"
+    mydb = f"mysql+pymysql://{app.storage.general['MYSQL_USER']}:{app.storage.general['MYSQL_PASS']}@{app.storage.general['cluster']}/{DATA_PRODUCT}"
     engine = create_engine(mydb)
     with engine.connect() as conn:
         tables = conn.execute(text("SHOW TABLES"))
@@ -288,7 +275,7 @@ def show_mysql_tables():
 async def enable_cdc(source_table_path: str, destination_stream_topic: str):
     auth = (app.storage.general["MAPR_USER"], app.storage.general["MAPR_PASS"])
 
-    if not os.path.lexists(f"/edfs/{get_cluster_name()}{source_table_path}"):
+    if not os.path.lexists(f"{MOUNT_PATH}{get_cluster_name()}{source_table_path}"):
         ui.notify(f"Table not found: {source_table_path}", type="warning")
         return
     
