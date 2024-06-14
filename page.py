@@ -167,7 +167,7 @@ def demo_steps():
                 ui.button("Code", on_click=fraud_detection_dialog.open, color="info").props("outline")
 
 
-def monitoring_charts():
+async def monitoring_charts():
     # Monitoring charts
     with ui.card().classes("flex-grow shrink sticky top-0"):
         ui.label("Realtime Visibility").classes("uppercase")
@@ -194,10 +194,12 @@ def monitoring_charts():
 
         silver_chart = get_echart()
         silver_chart.run_chart_method(':showLoading', r'{text: "Waiting..."}',)
-        ui.timer(2 * MON_REFRESH_INTERVAL10, lambda c=silver_chart: update_chart(c, silver_stats))
+        await asyncio.sleep(3.0) # delayed start
+        ui.timer(MON_REFRESH_INTERVAL10, lambda c=silver_chart: update_chart(c, silver_stats))
 
         gold_chart = get_echart()
         gold_chart.run_chart_method(':showLoading', r'{text: "Waiting..."}',)
+        await asyncio.sleep(3.0) # delayed start
         ui.timer(2 * MON_REFRESH_INTERVAL10 + 5, lambda c=gold_chart: update_chart(c, gold_stats))
 
 

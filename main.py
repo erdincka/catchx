@@ -66,7 +66,7 @@ async def home():
     with ui.row().classes("w-full flex flex-nowrap relative"):
         demo_steps()
 
-        monitoring_charts()
+        await monitoring_charts()
         
     # Page footer
     footer()
