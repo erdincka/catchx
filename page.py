@@ -11,6 +11,7 @@ import tables
 
 
 def app_init():
+
     # Reset services
 
     # and previous run state if it was hang
@@ -287,7 +288,6 @@ def cluster_configuration_dialog():
     dialog.open()
 
 
-
 async def lights_on():
 
     if create_csv_files():
@@ -310,5 +310,3 @@ async def lights_on():
             await fraud_detection()
 
             await asyncio.sleep(MON_REFRESH_INTERVAL10)
-
-            

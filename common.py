@@ -61,7 +61,7 @@ TRANSACTION_CATEGORIES = [
     "Other"
 ]
 
-logger = logging.getLogger()
+logger = logging.getLogger("common")
 
 
 def dt_from_iso(timestring):

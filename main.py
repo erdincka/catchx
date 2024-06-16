@@ -18,6 +18,7 @@ configure_logging()
 
 logger = logging.getLogger("main")
 
+
 @ui.page("/")
 async def home():
     # Initialize app parameters
@@ -25,11 +26,22 @@ async def home():
 
     # Page header
     header()
+    # Page footer
+    footer()
+
+    # gui.datamesh3d()
+    # meshmap()
 
     # Data Mesh
-    with ui.expansion("Data Mesh", caption="Build a globally distributed mesh with federated data domains", group="navigation", icon="dashboard").classes("w-full").bind_value(app.storage.user, "meshview"):
+    with ui.expansion(
+        "Data Mesh",
+        caption="Build a globally distributed mesh with federated data domains",
+        group="navigation",
+        icon="dashboard",
+    ).classes("w-full").bind_value(app.storage.user, "meshview"):
         # TODO: proper/better description below
-        ui.markdown("""
+        ui.markdown(
+            """
             Create a globally distributed Data Mesh architecture using HPE Ezmeral Data Fabric.
                     
             Data Fabric provides a modern data platform on hybrid deployment scenarios and enables organisations with advanced capabilities,
@@ -37,18 +49,20 @@ async def home():
 
             With its multi-model, multi-protocol data handling capabilities, as well as it enterprise features and cloud-scale, organisations can
             realise the true value from a living data system.
-            """)
-        ui.image("/images/hubspoke.png").classes("object-scale-down g-10")
+            """
+        )
+        # ui.image("/images/hubspoke.png").classes("object-scale-down g-10")
+        gui.mesh_ii()
 
     ui.separator()
 
-    # Documentation / Intro
-    with ui.expansion( 
+    # Data Domain
+    with ui.expansion(
         "Data Domain",
         icon="info",
         group="navigation",
         caption="End to end data pipeline using Ezmeral Data Fabric for financial transaction processing",
-    ).classes("w-full").classes("text-bold"):
+    ).classes("w-full text-bold"):
         ui.markdown(DATA_DOMAIN["description"]).classes("font-normal")
         ui.image(f"/images/{DATA_DOMAIN['diagram']}").classes("object-scale-down g-10")
         ui.link(
@@ -59,17 +73,12 @@ async def home():
 
     ui.separator()
 
-    # gui.ii()
-    # meshmap()
-
     # Main
     with ui.row().classes("w-full flex flex-nowrap relative"):
         demo_steps()
 
-        await monitoring_charts()
-        
-    # Page footer
-    footer()
+        # await monitoring_charts()
+
 
 if __name__ in {"__main__", "__mp_main__"}:
     ui.run(
