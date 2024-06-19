@@ -13,6 +13,7 @@ from sqlalchemy import create_engine, text
 
 
 APP_NAME = "Data Fabric"
+DIAGRAM = "/images/hubspoke.png"
 TITLE = "Building a Hybrid Data Mesh"
 STORAGE_SECRET = "ezmer@1r0cks"
 
@@ -37,7 +38,7 @@ TABLE_FRAUD = "fraud_activity"
 DATA_DOMAIN = {
 #   TODO: describe
   "description": "What, why and how?",
-  "diagram": "datapipeline.png",
+  "diagram": "/images/frauddomain.png",
   "link": "https://github.com/erdincka/catchx"
 }
 
@@ -269,7 +270,7 @@ def show_mysql_tables():
                 ui.table.from_pandas(peek_tables[table], title=table).classes('w-full mt-6').props("dense")
 
         mysql_tables.open()
-    
+
 # This is not used due to complexity of its setup
 # requires gateway node configuration and DNS modification
 async def enable_cdc(source_table_path: str, destination_stream_topic: str):
@@ -364,4 +365,3 @@ def gracefully_fail(exc: Exception):
 
 def not_implemented():
     ui.notify('Not implemented', type='warning')
-

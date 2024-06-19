@@ -33,51 +33,36 @@ async def home():
     # meshmap()
 
     # Data Mesh
-    with ui.expansion(
-        "Data Mesh",
-        caption="Build a globally distributed mesh with federated data domains",
-        group="navigation",
-        icon="dashboard",
-    ).classes("w-full").bind_value(app.storage.user, "meshview"):
-        # TODO: proper/better description below
-        ui.markdown(
-            """
-            Create a globally distributed Data Mesh architecture using HPE Ezmeral Data Fabric.
-                    
-            Data Fabric provides a modern data platform on hybrid deployment scenarios and enables organisations with advanced capabilities,
-            such as the ability to implement data products across different organisations, projects, teams to own and share their Data Products.
+    # TODO: proper/better description below
+    ui.markdown(
+        """
+        Create a globally distributed Data Mesh architecture using HPE Ezmeral Data Fabric.
+                
+        Data Fabric provides a modern data platform on hybrid deployment scenarios and enables organisations with advanced capabilities,
+        such as the ability to implement data products across different organisations, projects, teams to own and share their Data Products.
 
-            With its multi-model, multi-protocol data handling capabilities, as well as it enterprise features and cloud-scale, organisations can
-            realise the true value from a living data system.
-            """
-        )
-        # ui.image("/images/hubspoke.png").classes("object-scale-down g-10")
-        gui.mesh_ii()
+        With its multi-model, multi-protocol data handling capabilities, as well as it enterprise features and cloud-scale, organisations can
+        realise the true value from a living data system.
+        """
+    )
+    ui.link(
+        "Source",
+        target=DATA_DOMAIN.get("link", ""),
+        new_tab=True,
+    ).bind_visibility_from(DATA_DOMAIN, "link", backward=lambda x: x is not None)
 
-    ui.separator()
+    gui.mesh_ii()
 
-    # Data Domain
-    with ui.expansion(
-        "Data Domain",
-        icon="info",
-        group="navigation",
-        caption="End to end data pipeline using Ezmeral Data Fabric for financial transaction processing",
-    ).classes("w-full text-bold"):
-        ui.markdown(DATA_DOMAIN["description"]).classes("font-normal")
-        ui.image(f"/images/{DATA_DOMAIN['diagram']}").classes("object-scale-down g-10")
-        ui.link(
-            "Source",
-            target=DATA_DOMAIN.get("link", ""),
-            new_tab=True,
-        ).bind_visibility_from(DATA_DOMAIN, "link", backward=lambda x: x is not None)
+    # DELETEME
+    gui.domain_page()
 
-    ui.separator()
+    # ui.separator()
 
-    # Main
-    with ui.row().classes("w-full flex flex-nowrap relative"):
-        demo_steps()
+    # # Main
+    # with ui.row().classes("w-full flex flex-nowrap relative"):
+    #     demo_steps()
 
-        # await monitoring_charts()
+    #     # await monitoring_charts()
 
 
 if __name__ in {"__main__", "__mp_main__"}:
