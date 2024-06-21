@@ -218,6 +218,7 @@ async def handle_image_action(e: events.MouseEventArguments):
 
 
 # Interactive Images
+
 def mesh_ii():
     """Draw an interactive image that shows the data mesh architecture"""
 
@@ -253,10 +254,10 @@ def mesh_ii():
 def domain_ii():
     """Draw an interactive image that shows demo pipeline for the data domain"""
 
-    action_color = "green"
-    code_color = "orange"
+    action_color = "red"
+    code_color = "cyan"
     info_color = "blue"
-    opacity = "0.15"
+    opacity = "0.35"
     rest_of_svg = f'fill-opacity={opacity} stroke="none" stroke-linecap="round" stroke-width:"0" pointer-events="all" cursor="pointer"'
 
     with ui.interactive_image(
@@ -277,6 +278,14 @@ def domain_ii():
         <rect id="BronzeCustomers" x="2065" y="2370" rx="30" ry="30" width="350" height="410" fill={action_color} {rest_of_svg} />
         <rect id="RefineCustomersCode" x="2450" y="2520" rx="20" ry="20" width="830" height="100" fill={code_color} {rest_of_svg} />
         <rect id="RefineCustomers" x="2590" y="2470" rx="30" ry="30" width="240" height="200" fill={action_color} {rest_of_svg} />
+        <rect id="SilverCustomers" x="3330" y="2370" rx="30" ry="30" width="350" height="410" fill={action_color} {rest_of_svg} />
+        <rect id="SilverTransactions" x="3340" y="1450" rx="30" ry="30" width="320" height="380" fill={action_color} {rest_of_svg} />
+        <rect id="SilverProfiles" x="3360" y="670" rx="30" ry="30" width="300" height="360" fill={action_color} {rest_of_svg} />
+        <rect id="ConsolidateCustomers" x="4000" y="2470" rx="30" ry="30" width="240" height="200" fill={action_color} {rest_of_svg} />
+        <rect id="ConsolidateTransactions" x="4000" y="2080" rx="30" ry="30" width="240" height="200" fill={action_color} {rest_of_svg} />
+        <rect id="CheckFraud" x="3960" y="1200" rx="30" ry="30" width="340" height="300" fill={action_color} {rest_of_svg} />
+        <rect id="GoldCustomers" x="4530" y="2300" rx="30" ry="30" width="350" height="410" fill={action_color} {rest_of_svg} />
+        <rect id="ReportView" x="5805" y="2400" rx="30" ry="30" width="400" height="280" fill={action_color} {rest_of_svg} />
         # """,
     ).on("svg:pointerup", lambda e: handle_image_action(e.args)
     # ).on("svg:pointerover", lambda e: handle_image_info(e.args)
