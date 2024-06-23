@@ -1,5 +1,5 @@
+from functools import lru_cache
 import random
-import re
 import shutil
 from nicegui import run
 import country_converter as coco
@@ -123,13 +123,19 @@ async def refine_customers():
 
     app.storage.user["busy"] = True
 
+    logger.info("Reading from iceberg")
+
     df = iceberger.find_all(tier=tier, tablename=tablename)
     ui.notify(f"Found {df.count(axis=1).size} rows in {tablename}")
+    logger.info("Read %d rows", df.count(axis=1).size)
 
+    logger.debug("Add country_name from country_code")
     # add country_name column with short name (from ISO2 country code)
     df['country_name'] = cc.pandas_convert(df['country_code'], src="ISO2", to="name_short")
+    logger.debug("Added country_name from country_code")
 
     # find and add iso3166-2 subdivision code (used for country map)
+    @lru_cache()
     def to_iso3166_2(c):
         try:
             subdiv = pycountry.subdivisions.search_fuzzy(str(c))
@@ -137,7 +143,10 @@ async def refine_customers():
         except Exception as error: # silently ignore non-found counties
             logger.warning(error)
 
+    logger.info("Searching county iso codes")
     df['iso3166_2'] = df["county"].map(to_iso3166_2)
+    print(to_iso3166_2.cache_info())
+    logger.info("County iso codes updated")
 
     # mask last n characters from the account_number
     # last_n_chars = 8
@@ -154,7 +163,7 @@ async def refine_customers():
             ui.notify(f"Records are written to {silver_customers_table}", type='positive')
         else:
             ui.notify(f"Failed to save records in {silver_customers_table}", type='negative')
-        
+
     except Exception as error:
         logger.warning(error)
         ui.notify(f"Failed to write into table: {error}", type='negative')
@@ -225,6 +234,29 @@ def peek_documents(tablepath: str):
         docs = tables.get_documents(table_path=tablepath, limit=FETCH_RECORD_NUM)
         ui.table.from_pandas(pd.DataFrame.from_dict(docs)).classes('w-full mt-6').props("dense")
         
+    dialog.on("close", lambda d=dialog: d.delete())
+    dialog.open()
+
+
+def peek_sqlrecords(tablenames: list):
+    """
+    Get `FETCH_RECORD_NUM` documents from SQL DB tables
+
+    :param tablename str: table name to query
+    """
+
+    mydb = f"mysql+pymysql://{app.storage.general['MYSQL_USER']}:{app.storage.general['MYSQL_PASS']}@{app.storage.general['cluster']}/{DATA_PRODUCT}"
+
+    with ui.dialog().props("full-width") as dialog, ui.card().classes("grow relative"):
+        ui.button(icon="close", on_click=dialog.close).props("flat round dense").classes("absolute right-2 top-2")
+
+        for tablename in tablenames:
+            docs = pd.read_sql(
+                f"SELECT * FROM {tablename} ORDER BY _id DESC LIMIT {FETCH_RECORD_NUM}",
+                con=mydb,
+            )
+            ui.table.from_pandas(docs, title=tablename, row_key="_id").classes('w-full mt-6').props("dense")
+
     dialog.on("close", lambda d=dialog: d.delete())
     dialog.open()
 
@@ -397,4 +429,3 @@ async def delete_volumes_and_streams():
         ui.notify(f"Failed to remove db tables: {error}", type='negative')
 
     app.storage.user['busy'] = False
-

@@ -345,10 +345,10 @@ async def gold_stats():
         mydb = f"mysql+pymysql://{app.storage.general['MYSQL_USER']}:{app.storage.general['MYSQL_PASS']}@{app.storage.general['cluster']}/{DATA_PRODUCT}"
 
         # return if table is missing
-        engine = create_engine(mydb)
-        with engine.connect() as conn:
-            # return if table is not created
-            if TABLE_FRAUD not in [ t for t in conn.execute(text(f"SHOW TABLES LIKE '{TABLE_FRAUD}';")) ]: return
+        # engine = create_engine(mydb)
+        # with engine.connect() as conn:
+        #     # return if table is not created
+        #     if TABLE_FRAUD not in [ t for t in conn.execute(text(f"SHOW TABLES LIKE '{TABLE_FRAUD}';")) ]: return
                 
         # TODO: find a better/more efficient way to count records
         series.append({ TABLE_FRAUD: pd.read_sql(f"SELECT COUNT('_id') FROM {TABLE_FRAUD}", con=mydb).values[:1].flat[0] })

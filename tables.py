@@ -79,7 +79,8 @@ def upsert_documents(table_path: str, docs: list):
         logger.warning(error)
         return False
 
-    # finally:        
+    finally:
+        logger.info("%d documents processed", len(docs))
     #     if connection: connection.close()
 
     return True
@@ -173,6 +174,7 @@ def get_documents(table_path: str, limit: int = FETCH_RECORD_NUM):
                 .build()
 
         # Run the query and return the results as list
+        logger.debug("Returned docs: %d", len([doc for doc in table.find(query)]))
         return [doc for doc in table.find(query)]
 
     except Exception as error:
@@ -208,4 +210,3 @@ def binary_table_get_all(tablepath: str):
     """
 
     not_implemented()
-

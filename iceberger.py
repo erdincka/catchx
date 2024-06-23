@@ -75,24 +75,29 @@ def write(tier: str, tablename: str, records: list) -> bool:
 
         table = None
 
-        # build PyArrow from python list
-        df = pa.Table.from_pylist(records)
-
         # Create table if missing
         try:
             table = catalog.create_table(
-                f'{tier}.{tablename}',
-                schema=df.schema,
+                f"{tier}.{tablename}",
+                schema=pa.Table.from_pylist(records).schema,
                 location=warehouse_path,
             )
 
         except:
-            logger.info("Table exists, appending to: " + tablename)    
-            table = catalog.load_table(f'{tier}.{tablename}')
+            logger.info("Table exists, appending to: " + tablename)
+            table = catalog.load_table(f"{tier}.{tablename}")
 
-        # Append to Iceberg table
-        table.append(df)
-        
+        existing = table.scan().to_pandas()
+
+        incoming = pd.DataFrame.from_dict(records)
+
+        print("Incoming: ", incoming.size)
+        print("Existing: ", existing.size)
+
+        merged = pd.concat([existing, incoming]).drop_duplicates(subset="_id", keep="last")
+        print(merged)
+        table.append(pa.Table.from_pandas(merged))
+
         return True
 
     # catalog not found

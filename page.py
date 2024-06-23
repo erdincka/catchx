@@ -136,7 +136,7 @@ def demo_steps():
 
             with ui.row().classes("w-full place-items-center"):
                 ui.label("Data enrichment: ").classes("w-40")
-                ui.button("Customers", on_click=lambda: run.io_bound(refine_customers)).bind_enabled_from(app.storage.user, "busy", backward=lambda x: not x)
+                ui.button("Customers", on_click=refine_customers).bind_enabled_from(app.storage.user, "busy", backward=lambda x: not x)
                 ui.button("Transactions", on_click=refine_transactions).bind_enabled_from(app.storage.user, "busy", backward=lambda x: not x)
                 ui.button("Code", on_click=enrich_dialog.open, color="info").props("outline")
 
@@ -170,7 +170,7 @@ def demo_steps():
 
 async def monitoring_charts():
     # Monitoring charts
-    with ui.card().classes("flex-grow shrink sticky top-0"):
+    with ui.card().classes("flex-grow shrink sticky top-0 h-screen"):
         ui.label("Realtime Visibility").classes("uppercase")
 
         # # monitor using /var/mapr/mapr.monitoring/metricstreams/0
@@ -178,10 +178,10 @@ async def monitoring_charts():
         # streams_chart.run_chart_method(':showLoading', r'{text: "Waiting..."}',)
         # ui.timer(MON_REFRESH_INTERVAL, lambda c=streams_chart, s=mapr_monitoring: chart_listener(c, s), once=True)
 
-        incoming_chart = get_echart()
+        incoming_chart = get_echart().classes("h-1/4")
         incoming_chart.run_chart_method(':showLoading', r'{text: "Waiting..."}',)
         ui.timer(MON_REFRESH_INTERVAL3, lambda c=incoming_chart: update_chart(c, incoming_topic_stats))
-        
+
         # TODO: embed grafana dashboard
         # https://10.1.1.31:3000/d/pUfMqVUIz/demo-monitoring?orgId=1
 
@@ -189,18 +189,16 @@ async def monitoring_charts():
         # consumer_chart.run_chart_method(':showLoading', r'{text: "Waiting..."}',)
         # ui.timer(MON_REFRESH_INTERVAL3, lambda c=consumer_chart: update_chart(c, txn_consumer_stats))
 
-        bronze_chart = get_echart()
+        bronze_chart = get_echart().classes("h-1/4")
         bronze_chart.run_chart_method(':showLoading', r'{text: "Waiting..."}',)
         ui.timer(MON_REFRESH_INTERVAL10, lambda c=bronze_chart: update_chart(c, bronze_stats))
 
-        silver_chart = get_echart()
+        silver_chart = get_echart().classes("h-1/4")
         silver_chart.run_chart_method(':showLoading', r'{text: "Waiting..."}',)
-        await asyncio.sleep(3.0) # delayed start
         ui.timer(MON_REFRESH_INTERVAL10, lambda c=silver_chart: update_chart(c, silver_stats))
 
-        gold_chart = get_echart()
+        gold_chart = get_echart().classes("h-1/4")
         gold_chart.run_chart_method(':showLoading', r'{text: "Waiting..."}',)
-        await asyncio.sleep(3.0) # delayed start
         ui.timer(2 * MON_REFRESH_INTERVAL10 + 5, lambda c=gold_chart: update_chart(c, gold_stats))
 
 
