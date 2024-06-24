@@ -121,8 +121,6 @@ async def refine_customers():
 
     cc = coco.CountryConverter()
 
-    app.storage.user["busy"] = True
-
     logger.info("Reading from iceberg")
 
     df = iceberger.find_all(tier=tier, tablename=tablename)
@@ -289,7 +287,6 @@ def data_aggregation():
         if not os.path.lexists(f"{MOUNT_PATH}{get_cluster_name()}{input_file}"): # table not created yet
             return (f"Input table not found: {input_file}", "warning")
 
-
     profiles_df = pd.DataFrame.from_dict(tables.get_documents(table_path=profile_input_table, limit=None))
     customers_df = pd.DataFrame.from_dict(tables.get_documents(table_path=customers_input_table, limit=None))
     transactions_df = pd.DataFrame.from_dict(tables.get_documents(table_path=transactions_input_table, limit=None))
@@ -298,20 +295,23 @@ def data_aggregation():
         return ("Not all silver tables are populated", 'negative')
 
     # merge customers with profiles on _id
-    merged_df = pd.merge(customers_df, profiles_df, on="_id", how="left").fillna({"score": 0})
+    updated_customers = pd.merge(customers_df, profiles_df, on="_id", how="left").fillna({"score": 0})
 
-    # extract postcode
-    # re_string = r"\b(?:(?:[A-Z][A-HJ-Y]?[0-9][0-9A-Z]?|ASCN|STHL|TDCU|BBND|[BFS]IQ{2}|GX11|PCRN|TKCA) ?[0-9][A-Z]{2}|GIR ?0A{2}|SAN ?TA1|AI-?[0-9]{4}|BFPO[ -]?[0-9]{2,3}|MSR[ -]?1(?:1[12]|[23][135])0|VG[ -]?11[1-6]0|[A-Z]{2} ? [0-9]{2}|KY[1-3][ -]?[0-2][0-9]{3})\b"
-    # merged_df['postcode'] = [re.search(re_string, str(x), flags=re.IGNORECASE).group() for x in merged_df['address']]
-
-    # Clean up tables from PII/individual data
-    merged_df.drop(['name', 'birthdate', 'mail', 'username', 'address', 'account_number'], axis=1, inplace=True)
-    transactions_df.drop(['sender_account', 'receiver_account'], axis=1, inplace=True)
+    # Clean up tables from PII/individual data, and remove duplicates
+    updated_customers.drop(['name', 'birthdate', 'mail', 'username', 'address', 'account_number'], axis=1, inplace=True)
+    transactions_df.drop(["sender_account", "receiver_account"], axis=1, inplace=True)
 
     # Append customers and transactions in the gold tier rdbms
     mydb = f"mysql+pymysql://{app.storage.general['MYSQL_USER']}:{app.storage.general['MYSQL_PASS']}@{app.storage.general['cluster']}/{DATA_PRODUCT}"
-    num_customers = merged_df.to_sql(name="customers", con=mydb, if_exists='replace') # overwrite customers table - in real life, only changes/updates would be upsert'ed
-    num_transactions = transactions_df.to_sql(name="transactions", con=mydb, if_exists='append')
+
+    # upsert by reading existing records and updating them
+    existing_customers = pd.read_sql_table(table_name="customers", con=mydb)
+    all_customers = pd.concat([existing_customers, updated_customers]).drop_duplicates(subset="_id", keep="last")
+    num_customers = all_customers.to_sql(name="customers", con=mydb, if_exists='replace')
+
+    existing_transactions = pd.read_sql_table(table_name="transactions", con=mydb)
+    all_transactions = pd.concat([existing_transactions, transactions_df]).drop_duplicates(subset="_id", keep="last")
+    num_transactions = all_transactions.to_sql(name="transactions", con=mydb, if_exists='replace')
 
     return (f"{num_customers} customers and {num_transactions} transactions updated in {VOLUME_GOLD} tier", 'positive')
 

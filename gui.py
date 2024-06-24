@@ -8,7 +8,7 @@ from common import *
 from functions import *
 from ingestion import *
 from mock import *
-from page import monitoring_charts
+from page import monitoring_charts, monitoring_metrics
 import streams
 import iceberger
 
@@ -24,7 +24,7 @@ def handle_image_info(e: events.MouseEventArguments):
     element = e["element_id"]
 
     # Regex to convert "CamelCase" to "Title Case"
-    title = " ".join(re.findall(r'[A-Z](?:[a-z]+|[A-Z]*(?=[A-Z]|$))', element))
+    title = " ".join(re.findall(r"[A-Z](?:[a-z]+|[A-Z]*(?=[A-Z]|$))", element))
 
     if element == "Fraud":
         label = "Open the Fraud Data Pipeline"
@@ -62,13 +62,26 @@ def handle_image_info(e: events.MouseEventArguments):
         label = "Create refined customers table in the silver tier"
     else:
         label = "Not defined yet"
-    ui.notify(message=title, caption=label, type="info", color="secondary", progress=True, multi_line=True, timeout=2000)
+    ui.notify(
+        message=title,
+        caption=label,
+        type="info",
+        color="secondary",
+        progress=True,
+        multi_line=True,
+        timeout=2000,
+    )
+
 
 # dialogs for various phases
 # automatically clear the content for other dialogs
 def code_publish():
-    with ui.dialog().props("full-width") as publish_codeview, ui.card().classes("grow relative"):
-        ui.button(icon="close", on_click=publish_codeview.close).props("flat round dense").classes("absolute right-2 top-2")
+    with ui.dialog().props("full-width") as publish_codeview, ui.card().classes(
+        "grow relative"
+    ):
+        ui.button(icon="close", on_click=publish_codeview.close).props(
+            "flat round dense"
+        ).classes("absolute right-2 top-2")
         ui.code(inspect.getsource(publish_transactions)).classes("w-full mt-6")
         ui.code(inspect.getsource(streams.produce)).classes("w-full")
     publish_codeview.on("close", lambda d=publish_codeview: d.delete())
@@ -76,8 +89,12 @@ def code_publish():
 
 
 def code_generate():
-    with ui.dialog().props("full-width") as generate_codeview, ui.card().classes("grow relative"):
-        ui.button(icon="close", on_click=generate_codeview.close).props("flat round dense").classes("absolute right-2 top-2")
+    with ui.dialog().props("full-width") as generate_codeview, ui.card().classes(
+        "grow relative"
+    ):
+        ui.button(icon="close", on_click=generate_codeview.close).props(
+            "flat round dense"
+        ).classes("absolute right-2 top-2")
         ui.code(inspect.getsource(create_csv_files)).classes("w-full mt-6")
         ui.code(inspect.getsource(fake_customer)).classes("w-full")
         ui.code(inspect.getsource(fake_transaction)).classes("w-full")
@@ -148,49 +165,82 @@ def code_enrich_transactions():
     return enrich_codeview
 
 
+def code_create_golden():
+    with ui.dialog().props("full-width") as golden_codeview, ui.card().classes(
+        "grow relative"
+    ):
+        ui.button(icon="close", on_click=golden_codeview.close).props(
+            "flat round dense"
+        ).classes("absolute right-2 top-2")
+        ui.code(inspect.getsource(data_aggregation)).classes("w-full mt-6")
+    golden_codeview.on("close", lambda d=golden_codeview: d.delete())
+    return golden_codeview
+
+
 async def handle_image_action(e: events.MouseEventArguments):
     logger.debug(e)
     element = e["element_id"]
 
-    if element == "Fraud": await domain_page()
+    if element == "Fraud":
+        await domain_page()
     # TODO: add information or configuration pages!
-    elif element == "NFS": ui.notify("Bring existing data lakes into the Global Namespace.", type='info')
-    elif element == "S3": ui.notify("Bring existing object stores into the Global Namespace.", type="info")
-    elif element == "IAM": ui.notify("Integrate with central IAM provider for consistent access control across the enterprise", type="info")
-    elif element == "Policies": ui.notify("Attach to central policy provider/enforcer, or simply publish policies to govern data products across the enterprise.", type="info")
-    elif element == "Catalogue": ui.notify("Integrate with an external catalogue manager to classify, document and serve various data sources.", type="info")
-    elif element == "Edge": ui.notify("Enable non-data products to become a part of the global namespace, enabling them to access data across the enterprise.", type="info")
+    elif element == "NFS":
+        ui.notify("Bring existing data lakes into the Global Namespace.", type="info")
+    elif element == "S3":
+        ui.notify(
+            "Bring existing object stores into the Global Namespace.", type="info"
+        )
+    elif element == "IAM":
+        ui.notify(
+            "Integrate with central IAM provider for consistent access control across the enterprise",
+            type="info",
+        )
+    elif element == "Policies":
+        ui.notify(
+            "Attach to central policy provider/enforcer, or simply publish policies to govern data products across the enterprise.",
+            type="info",
+        )
+    elif element == "Catalogue":
+        ui.notify(
+            "Integrate with an external catalogue manager to classify, document and serve various data sources.",
+            type="info",
+        )
+    elif element == "Edge":
+        ui.notify(
+            "Enable non-data products to become a part of the global namespace, enabling them to access data across the enterprise.",
+            type="info",
+        )
 
     # Data Domain functions
     elif element == "PublishTransactions":
-        app.storage.user['busy'] = True
+        app.storage.user["busy"] = True
         await publish_transactions()
-        app.storage.user['busy'] = False
+        app.storage.user["busy"] = False
 
     elif element == "PublishTransactionsCode":
         code_publish().open()
 
     elif element == "CreateData":
-        app.storage.user['busy'] = True
+        app.storage.user["busy"] = True
         create_csv_files()
-        app.storage.user['busy'] = False
+        app.storage.user["busy"] = False
 
     elif element == "CreateDataCode":
         code_generate().open()
 
     elif element == "IngestBatch":
-        app.storage.user['busy'] = True
+        app.storage.user["busy"] = True
         await ingest_customers_iceberg()
-        app.storage.user['busy'] = False
+        app.storage.user["busy"] = False
         # ui.button("History", on_click=lambda: iceberg_table_history(tier=VOLUME_BRONZE, tablename=TABLE_CUSTOMERS)).props("outline")
 
     elif element == "IngestBatchCode":
         code_batch().open()
 
     elif element == "IngestStreams":
-        app.storage.user['busy'] = True
+        app.storage.user["busy"] = True
         await ingest_transactions()
-        app.storage.user['busy'] = False
+        app.storage.user["busy"] = False
 
     elif element == "IngestStreamsCode":
         code_stream().open()
@@ -199,9 +249,9 @@ async def handle_image_action(e: events.MouseEventArguments):
         code_profilebuilder().open()
 
     elif element == "RefineTransactions":
-        app.storage.user['busy'] = True
+        app.storage.user["busy"] = True
         await refine_transactions()
-        app.storage.user['busy'] = False
+        app.storage.user["busy"] = False
 
     elif element == "RefineTransactionsCode":
         code_enrich_transactions().open()
@@ -210,7 +260,9 @@ async def handle_image_action(e: events.MouseEventArguments):
         peek_documents(f"{BASEDIR}/{VOLUME_BRONZE}/{TABLE_TRANSACTIONS}")
 
     elif element == "RefineCustomers":
+        app.storage.user["busy"] = True
         await refine_customers()
+        app.storage.user["busy"] = False
 
     elif element == "RefineCustomersCode":
         code_enrich_customers().open()
@@ -221,28 +273,35 @@ async def handle_image_action(e: events.MouseEventArguments):
     elif element == "SilverCustomers":
         peek_documents(tablepath=f"{BASEDIR}/{VOLUME_SILVER}/{TABLE_CUSTOMERS}")
 
+    elif element == "SilverTransactions":
+        peek_documents(tablepath=f"{BASEDIR}/{VOLUME_SILVER}/{TABLE_TRANSACTIONS}")
+
     elif element == "SilverProfiles":
         peek_documents(tablepath=f"{BASEDIR}/{VOLUME_SILVER}/{TABLE_PROFILES}")
 
-    elif element == "ConsolidateCustomers":
-        app.storage.user['busy'] = True
+    elif element == "Consolidate":
+        app.storage.user["busy"] = True
         await create_golden()
-        app.storage.user['busy'] = False
+        app.storage.user["busy"] = False
+
+    elif element == "ConsolidateCode":
+        code_create_golden().open()
 
     elif element == "CheckFraud":
-        app.storage.user['busy'] = True
+        app.storage.user["busy"] = True
         await fraud_detection()
-        app.storage.user['busy'] = False
+        app.storage.user["busy"] = False
 
     elif element == "GoldCustomers":
         peek_sqlrecords([TABLE_FRAUD, TABLE_TRANSACTIONS, TABLE_CUSTOMERS])
 
-    else: 
+    else:
         logger.warning(element)
         ui.notify(f"{element} not configured yet")
 
 
 # Interactive Images
+
 
 def mesh_ii():
     """Draw an interactive image that shows the data mesh architecture"""
@@ -263,8 +322,10 @@ def mesh_ii():
         <rect id="Edge" x="250" y="2810" width="860" height="280" {rest_of_svg} />
         # """,
         # ).on("svg:pointerover", lambda e: open_popup_for(e.args["element_id"])).classes(
-    ).on("svg:pointerup", lambda e: handle_image_action(e.args)
-    # ).on("svg:pointerover", lambda e: handle_image_info(e.args)
+    ).on(
+        "svg:pointerup",
+        lambda e: handle_image_action(e.args),
+        # ).on("svg:pointerover", lambda e: handle_image_info(e.args)
     ).classes(
         "relative"
     ):
@@ -279,9 +340,9 @@ def mesh_ii():
 async def domain_ii():
     """Draw an interactive image that shows demo pipeline for the data domain"""
 
-    action_color = "red"
-    code_color = "cyan"
-    info_color = "blue"
+    action_color = "darkorange"
+    code_color = "powderblue"
+    info_color = "deepskyblue"
     opacity = "0.35"
     rest_of_svg = f'fill-opacity={opacity} stroke="none" stroke-linecap="round" stroke-width:"0" pointer-events="all" cursor="pointer"'
 
@@ -291,77 +352,125 @@ async def domain_ii():
             DATA_DOMAIN["diagram"],
             content=f"""
             <rect id="PublishTransactions" x="200" y="1460" rx="80" ry="80" width="350" height="350" fill={action_color} {rest_of_svg} />
-            <rect id="PublishTransactionsCode" x="600" y="1585" rx="20" ry="20" width="330" height="100" fill={code_color} {rest_of_svg} />
+            <rect id="PublishTransactionsCode" x="600" y="1595" rx="20" ry="20" width="330" height="80" fill={code_color} {rest_of_svg} />
             <rect id="CreateData" x="200" y="2390" rx="80" ry="80" width="350" height="350" fill={action_color} {rest_of_svg} />
-            <rect id="CreateDataCode" x="600" y="2520" rx="20" ry="20" width="330" height="100" fill={code_color} {rest_of_svg} />
+            <rect id="CreateDataCode" x="600" y="2530" rx="20" ry="20" width="330" height="80" fill={code_color} {rest_of_svg} />
             <rect id="IngestStreams" x="984" y="1485" rx="30" ry="30" width="435" height="266" fill={action_color} {rest_of_svg} />
-            <rect id="IngestStreamsCode" x="1430" y="1585" rx="20" ry="20" width="630" height="100" fill={code_color} {rest_of_svg} />
+            <rect id="IngestStreamsCode" x="1430" y="1595" rx="20" ry="20" width="630" height="80" fill={code_color} {rest_of_svg} />
             <rect id="IngestBatch" x="970" y="2450" rx="30" ry="30" width="431" height="270" fill={action_color} {rest_of_svg} />
-            <rect id="IngestBatchCode" x="1430" y="2540" rx="20" ry="20" width="600" height="100" fill={code_color} {rest_of_svg} />
-            <rect id="ProfileBuilderCode" x="1700" y="725" rx="20" ry="20" width="360" height="100" fill={code_color} {rest_of_svg} />
-            <rect id="ProfileBuilderCode" x="1670" y="755" rx="20" ry="20" width="100" height="840" fill={code_color} {rest_of_svg} />
-            <rect id="RefineProfilesCode" x="2450" y="715" rx="20" ry="20" width="830" height="100" fill={code_color} {rest_of_svg} />
-            <rect id="RefineProfiles" x="2590" y="670" rx="30" ry="30" width="240" height="200" fill={action_color} {rest_of_svg} />
-            <rect id="BronzeTransactions" x="2075" y="1350" rx="30" ry="30" width="350" height="430" fill={action_color} {rest_of_svg} />
-            <rect id="RefineTransactionsCode" x="2450" y="1590" rx="20" ry="20" width="830" height="100" fill={code_color} {rest_of_svg} />
+            <rect id="IngestBatchCode" x="1430" y="2550" rx="20" ry="20" width="600" height="80" fill={code_color} {rest_of_svg} />
+            <rect id="ProfileBuilderCode" x="1760" y="730" rx="0" ry="20" width="1520" height="80" fill={code_color} {rest_of_svg} />
+            <rect id="ProfileBuilderCode" x="1680" y="730" rx="20" ry="20" width="80" height="870" fill={code_color} {rest_of_svg} />
+            <rect id="BronzeTransactions" x="2075" y="1350" rx="30" ry="30" width="350" height="430" fill={info_color} {rest_of_svg} />
+            <rect id="RefineTransactionsCode" x="2450" y="1600" rx="20" ry="20" width="830" height="80" fill={code_color} {rest_of_svg} />
             <rect id="RefineTransactions" x="2590" y="1530" rx="30" ry="30" width="240" height="200" fill={action_color} {rest_of_svg} />
-            <rect id="BronzeCustomers" x="2065" y="2370" rx="30" ry="30" width="350" height="410" fill={action_color} {rest_of_svg} />
-            <rect id="RefineCustomersCode" x="2450" y="2515" rx="20" ry="20" width="830" height="100" fill={code_color} {rest_of_svg} />
+            <rect id="BronzeCustomers" x="2065" y="2370" rx="30" ry="30" width="350" height="410" fill={info_color} {rest_of_svg} />
+            <rect id="RefineCustomersCode" x="2450" y="2530" rx="20" ry="20" width="830" height="80" fill={code_color} {rest_of_svg} />
             <rect id="RefineCustomers" x="2590" y="2470" rx="30" ry="30" width="240" height="200" fill={action_color} {rest_of_svg} />
-            <rect id="SilverCustomers" x="3330" y="2370" rx="30" ry="30" width="350" height="410" fill={action_color} {rest_of_svg} />
+            <rect id="SilverCustomers" x="3330" y="2370" rx="30" ry="30" width="350" height="410" fill={info_color} {rest_of_svg} />
             <rect id="SilverTransactions" x="3340" y="1450" rx="30" ry="30" width="320" height="380" fill={action_color} {rest_of_svg} />
             <rect id="SilverProfiles" x="3360" y="670" rx="30" ry="30" width="300" height="360" fill={action_color} {rest_of_svg} />
-            <rect id="GetScoreCode" x="3800" y="715" rx="20" ry="20" width="330" height="100" fill={code_color} {rest_of_svg} />
-            <rect id="GetScoreCode" x="4080" y="715" rx="20" ry="20" width="100" height="430" fill={code_color} {rest_of_svg} />
-            <rect id="ConsolidateCustomers" x="4000" y="2460" rx="30" ry="30" width="240" height="200" fill={action_color} {rest_of_svg} />
-            <rect id="ConsolidateTransactions" x="4000" y="2090" rx="30" ry="30" width="240" height="200" fill={action_color} {rest_of_svg} />
+            <rect id="GetScoreCode" x="3800" y="725" rx="0" ry="20" width="355" height="80" fill={code_color} {rest_of_svg} />
+            <rect id="GetScoreCode" x="4080" y="805" rx="20" ry="0" width="80" height="430" fill={code_color} {rest_of_svg} />
+            <rect id="ConsolidateCode" x="3750" y="2530" rx="20" ry="20" width="750" height="80" fill={code_color} {rest_of_svg} />
+            <rect id="Consolidate" x="4000" y="2080" rx="30" ry="30" width="240" height="600" fill={action_color} {rest_of_svg} />
             <rect id="CheckFraud" x="3970" y="1230" rx="30" ry="30" width="300" height="280" fill={action_color} {rest_of_svg} />
-            <rect id="GoldCustomers" x="4530" y="2300" rx="30" ry="30" width="350" height="410" fill={action_color} {rest_of_svg} />
-            <rect id="ReportView" x="5805" y="2400" rx="30" ry="30" width="400" height="280" fill={action_color} {rest_of_svg} />
+            <rect id="GoldCustomers" x="4530" y="2300" rx="30" ry="30" width="350" height="410" fill={info_color} {rest_of_svg} />
+            <rect id="ReportView" x="5805" y="2400" rx="30" ry="30" width="400" height="280" fill={info_color} {rest_of_svg} />
             # """,
         ).on(
             "svg:pointerup",
             lambda e: handle_image_action(e.args),
-        ).on("svg:pointerover", lambda e: handle_image_info(e.args)
+            # ).on("svg:pointerover", lambda e: handle_image_info(e.args)
         ).classes(
             "relative"
         ):
             ui.button(on_click=peek_mocked_data, icon="source").props(
-                'flat round size="2em" color="secondary"'
-            ).classes("absolute bottom-10 left-0").tooltip("Source data")
+                'flat round size="2em" color="primary"'
+            ).classes("absolute top-10 left-2").tooltip("Source data")
 
-        # await monitoring_charts()
+            # raw counts
+            ui.badge("0", color="teal").bind_text_from(
+                app.storage.general,
+                "raw_transactions",
+                lambda x: x if x is not None else 0,
+            ).classes("absolute top-[330px] left-[120px]")
+            ui.badge("0", color="orange").bind_text_from(
+                app.storage.general,
+                "raw_customers",
+                lambda x: x if x is not None else 0,
+            ).classes("absolute top-[545px] left-[120px]")
+
+            # ingest counts
+            ui.badge("0", color="lightteal").bind_text_from(
+                app.storage.general,
+                "ingest_transactions_published",
+                lambda x: x if x is not None else 0,
+            ).classes("absolute top-[335px] left-[320px]").tooltip("published transactions")
+            ui.badge("0", color="teal").bind_text_from(
+                app.storage.general,
+                "ingest_transactions_consumed",
+                lambda x: x if x is not None else 0,
+            ).classes("absolute top-[355px] left-[320px]").tooltip("consumed transactions")
+            ui.badge("0", color="orange").bind_text_from(
+                app.storage.general,
+                "ingest_customers",
+                lambda x: x if x is not None else 0,
+            ).classes("absolute top-[560px] left-[320px]").tooltip("# of customers")
+
+            # bronze counts
+            ui.badge("0", color="teal").bind_text_from(
+                app.storage.general,
+                "bronze_transactions",
+                lambda x: x if x is not None else 0,
+            ).classes("absolute top-[305px] left-[555px]").tooltip("# of transactions")
+            ui.badge("0", color="orange").bind_text_from(
+                app.storage.general,
+                "bronze_customers",
+                lambda x: x if x is not None else 0,
+            ).classes("absolute top-[545px] left-[550px]").tooltip("# of customers")
+
+            # silver counts
+            ui.badge("0", color="darkturquoise").bind_text_from(
+                app.storage.general,
+                "silver_profiles",
+                lambda x: x if x is not None else 0,
+            ).classes("absolute top-[145px] left-[840px]").tooltip("# of profiles")
+            ui.badge("0", color="teal").bind_text_from(
+                app.storage.general,
+                "silver_transactions",
+                lambda x: x if x is not None else 0,
+            ).classes("absolute top-[330px] left-[840px]").tooltip("# of transactions")
+            ui.badge("0", color="orange").bind_text_from(
+                app.storage.general,
+                "silver_customers",
+                lambda x: x if x is not None else 0,
+            ).classes("absolute top-[545px] left-[845px]").tooltip("# of customers")
+
+            # gold counts
+            ui.badge("0", color="red").bind_text_from(
+                app.storage.general,
+                "gold_fraud",
+                lambda x: x if x is not None else 0,
+            ).classes("absolute top-[555px] left-[1130px]").tooltip("# of fraud")
+            ui.badge("0", color="teal").bind_text_from(
+                app.storage.general,
+                "gold_transactions",
+                lambda x: x if x is not None else 0,
+            ).classes("absolute top-[575px] left-[1130px]").tooltip("# of transactions")
+            ui.badge("0", color="orange").bind_text_from(
+                app.storage.general,
+                "gold_customers",
+                lambda x: x if x is not None else 0,
+            ).classes("absolute top-[595px] left-[1130px]").tooltip("# of customers")
+
+        ui.timer(MON_REFRESH_INTERVAL3, monitoring_charts)
 
     # Block interaction when working
-    with ui.dialog().props("persistent").bind_value_from(app.storage.user, "busy"):
+    with ui.dialog().props("persistent").bind_value_from(
+        app.storage.user, "busy"
+    ), ui.card():
         ui.spinner("ios", color="red", size="3em")
-
-
-def datamesh3d():
-    with ui.row().classes("w-full"):
-        with ui.scene(background_color="#222").on_click(lambda x: print(x)).classes("h-90") as scene:
-            scene.box().move(-3,-2).with_name("NFSv4")
-            scene.extrusion([[0, 0], [0, 1], [1, 1]], 1).material("#ff8888").move(
-                2, -1
-            )
-            scene.sphere().material("#4488ff")
-            scene.cylinder(1, 1, 1, 32).material("#ff8800", opacity=0.5).move(
-                -2, 1
-            ).rotate(pi/2, 0, 0)
-
-            scene.line([-4, 0, 0], [-4, 2, 0]).material("#ff0000")
-            # logo = 'https://avatars.githubusercontent.com/u/2843826'
-            # scene.texture(logo, [[[0.5, 2, 0], [2.5, 2, 0]],
-            #                     [[0.5, 0, 0], [2.5, 0, 0]]]).move(1, -3)
-
-            # teapot = 'https://upload.wikimedia.org/wikipedia/commons/9/93/Utah_teapot_(solid).stl'
-            # scene.stl(teapot).scale(0.2).move(-3, 4)
-
-            # avocado = 'https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/main/Models/Avocado/glTF-Binary/Avocado.glb'
-            # scene.gltf(avocado).scale(40).move(-2, -3, 0.5)
-
-            scene.text('Data Hub', 'background: rgba(0, 0, 0, 0.2); border-radius: 5px; padding: 5px').move(z=2)
-            # scene.text3d('3D', 'background: rgba(0, 0, 0, 0.2); border-radius: 5px; padding: 5px').move(y=-2).scale(.05)
 
 
 async def domain_page():
@@ -378,5 +487,6 @@ async def domain_page():
         ui.markdown(DATA_DOMAIN["description"]).classes("font-normal")
         # ui.image(f"/images/{DATA_DOMAIN['diagram']}").classes("object-scale-down g-10")
         await domain_ii()
+
 
     dialog.open()

@@ -72,7 +72,7 @@ async def ingest_transactions_spark():
     # }
 
 
-# SSE-TODO: Airflow DAG to process csv file at MOUNT_PATHlondon/apps/catchx/customers.csv, 
+# SSE-TODO: Airflow DAG to process csv file at MOUNT_PATHlondon/apps/catchx/customers.csv,
 # and write records into iceberg table at MOUNT_PATHlondon/apps/catchx/bronze/customers/
 async def ingest_customers_airflow():
     """
@@ -105,8 +105,10 @@ async def ingest_customers_iceberg():
             logger.info("Reading %s", csvpath)
 
             # Write into iceberg for Bronze tier (raw data)
-            if iceberger.write(tier=tier, tablename=tablename, records=[cust for cust in csv_reader]):
+            new_customers = [cust for cust in csv_reader]
+            if iceberger.write(tier=tier, tablename=tablename, records=new_customers):
                 ui.notify(f"Saved {tablename} into {tier} with Iceberg", type='positive')
+                app.storage.general["ingest_customers"] = len(new_customers)
                 return True
             else:
                 ui.notify("Failed to write into Iceberg table")
@@ -169,4 +171,3 @@ async def fraud_detection():
             logger.debug("Non fraudulant transaction %s", txn["_id"])
 
     ui.notify(f"Reported {fraud_count} fraud and {non_fraud_count} valid transactions", type='warning')
-

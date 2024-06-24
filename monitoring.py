@@ -154,7 +154,7 @@ async def incoming_topic_stats():
     if app.storage.general.get("cluster", None) is None:
         logger.debug("Cluster not configured, skipping.")
         return
-    
+
     try:
         URL = f"https://{app.storage.general['cluster']}:8443/rest/stream/topic/info?path={stream_path}&topic={topic}"
         auth = (app.storage.general["MAPR_USER"], app.storage.general["MAPR_PASS"])
@@ -195,6 +195,10 @@ async def incoming_topic_stats():
                         #     }
                         # )
                     # logger.info("Metrics %s", series)
+                    # update counter
+                    # app.storage.general["ingest_transactions_published"] = m["maxoffset"] + 1
+                    # app.storage.general["ingest_transactions_consumed"] = m["minoffsetacrossconsumers"]
+
                     return {
                         "name": "Incoming",
                         "time": datetime.datetime.fromtimestamp(
@@ -208,6 +212,7 @@ async def incoming_topic_stats():
 
     except Exception as error:
         logger.warning("Topic stat request error %s", error)
+        # delayed query if failed - possibly cluster is not accessible
         await asyncio.sleep(30)
 
 
@@ -277,15 +282,19 @@ async def bronze_stats():
         return
 
     series = []
-    
+
     ttable = f"{BASEDIR}/{VOLUME_BRONZE}/{TABLE_TRANSACTIONS}"
     ctable = f"{BASEDIR}/{VOLUME_BRONZE}/{TABLE_CUSTOMERS}"
 
     try:
         if os.path.lexists(f"{MOUNT_PATH}{get_cluster_name()}{ttable}"):
-            series.append({ "transactions": len(tables.get_documents(ttable, limit=None)) })
+            num_transactions = len(tables.get_documents(ttable, limit=None))
+            series.append({ "transactions": num_transactions })
+            # app.storage.general["bronze_transactions"] = num_transactions
         if os.path.isdir(f"{MOUNT_PATH}{get_cluster_name()}{ctable}"): # isdir for iceberg tables
-            series.append({ "customers": len(iceberger.find_all(VOLUME_BRONZE, TABLE_CUSTOMERS)) })
+            num_customers = len(iceberger.find_all(VOLUME_BRONZE, TABLE_CUSTOMERS))
+            series.append({ "customers": num_customers })
+            # app.storage.general["bronze_customers"] = num_customers
 
         # Don't update metrics for empty results
         if len(series) == 0: return
@@ -293,7 +302,7 @@ async def bronze_stats():
     except Exception as error:
         logger.warning("STAT get error %s", error)
         return 
-        
+
     return {
         "name": VOLUME_BRONZE,
         "time": datetime.datetime.now().strftime("%H:%M:%S"),
@@ -314,11 +323,17 @@ async def silver_stats():
 
     try:
         if os.path.lexists(f"{MOUNT_PATH}{get_cluster_name()}{ptable}"):
-            series.append({ "profiles": len(tables.get_documents(ptable, limit=None)) })
+            num_profiles = len(tables.get_documents(ptable, limit=None))
+            series.append({ "profiles": num_profiles })
+            # app.storage.general["silver_profiles"] = num_profiles
         if os.path.lexists(f"{MOUNT_PATH}{get_cluster_name()}{ttable}"):
-            series.append({ "transactions": len(tables.get_documents(ttable, limit=None)) })
+            num_transactions = len(tables.get_documents(ttable, limit=None))
+            series.append({ "transactions": num_transactions })
+            # app.storage.general["silver_transactions"] = num_transactions
         if os.path.lexists(f"{MOUNT_PATH}{get_cluster_name()}{ctable}"):
-            series.append({ "customers": len(tables.get_documents(ctable, limit=None)) })
+            num_customers = len(tables.get_documents(ctable, limit=None))
+            series.append({ "customers": num_customers })
+            # app.storage.general["silver_customers"] = num_customers
 
         # Don't update metrics for empty results
         if len(series) == 0: return
@@ -326,7 +341,7 @@ async def silver_stats():
     except Exception as error:
         logger.warning("STAT get error %s", error)
         return
-    
+
     return {
         "name": VOLUME_SILVER,
         "time": datetime.datetime.now().strftime("%H:%M:%S"),
@@ -340,7 +355,7 @@ async def gold_stats():
         return
 
     series = []
-    
+
     try:
         mydb = f"mysql+pymysql://{app.storage.general['MYSQL_USER']}:{app.storage.general['MYSQL_PASS']}@{app.storage.general['cluster']}/{DATA_PRODUCT}"
 
@@ -349,11 +364,19 @@ async def gold_stats():
         # with engine.connect() as conn:
         #     # return if table is not created
         #     if TABLE_FRAUD not in [ t for t in conn.execute(text(f"SHOW TABLES LIKE '{TABLE_FRAUD}';")) ]: return
-                
+
         # TODO: find a better/more efficient way to count records
-        series.append({ TABLE_FRAUD: pd.read_sql(f"SELECT COUNT('_id') FROM {TABLE_FRAUD}", con=mydb).values[:1].flat[0] })
-        series.append({ TABLE_TRANSACTIONS: pd.read_sql(f"SELECT COUNT('_id') FROM {TABLE_TRANSACTIONS}", con=mydb).values[:1].flat[0] })
-        series.append({ TABLE_CUSTOMERS: pd.read_sql(f"SELECT COUNT('_id') FROM {TABLE_CUSTOMERS}", con=mydb).values[:1].flat[0] })
+        num_fraud = pd.read_sql(f"SELECT COUNT('_id') FROM {TABLE_FRAUD}", con=mydb).values[:1].flat[0]
+        series.append({ TABLE_FRAUD: num_fraud })
+        # app.storage.general["gold_fraud"] = num_fraud
+
+        num_transactions = pd.read_sql(f"SELECT COUNT('_id') FROM {TABLE_TRANSACTIONS}", con=mydb).values[:1].flat[0]
+        series.append({ TABLE_TRANSACTIONS: num_transactions })
+        # app.storage.general["gold_transactions"] = num_transactions
+
+        num_customers = pd.read_sql(f"SELECT COUNT('_id') FROM {TABLE_CUSTOMERS}", con=mydb).values[:1].flat[0]
+        series.append({ TABLE_CUSTOMERS: num_customers })
+        # app.storage.general["gold_customers"] = num_customers
 
         # Don't update metrics for empty results
         if len(series) == 0: return
@@ -361,11 +384,9 @@ async def gold_stats():
     except Exception as error:
         logger.warning("STAT get error %s", error)
         return
-    
+
     return {
         "name": VOLUME_GOLD,
         "time": datetime.datetime.now().strftime("%H:%M:%S"),
         "values": series,
     }
-
-

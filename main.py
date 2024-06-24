@@ -51,18 +51,16 @@ async def home():
         new_tab=True,
     ).bind_visibility_from(DATA_DOMAIN, "link", backward=lambda x: x is not None)
 
-    # gui.mesh_ii()
-
-    # DELETEME
-    # await gui.domain_page()
 
     ui.separator()
 
     # Main
-    with ui.row().classes("w-full flex flex-nowrap relative"):
-        demo_steps()
+    gui.mesh_ii()
+    # await gui.domain_page()
+    # with ui.row().classes("w-full flex flex-nowrap relative"):
+    #     demo_steps()
 
-        await monitoring_charts()
+    # await monitoring_charts()
 
 
 if __name__ in {"__main__", "__mp_main__"}:

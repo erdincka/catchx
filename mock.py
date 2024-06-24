@@ -58,6 +58,7 @@ def create_csv_files():
             writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
             writer.writeheader()
             writer.writerows(customers)
+            app.storage.general["raw_customers"] = len(customers)
             
         # transactions
         transactions = []
@@ -72,6 +73,7 @@ def create_csv_files():
             writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
             writer.writeheader()
             writer.writerows(transactions)
+            app.storage.general["raw_transactions"] = len(transactions)
 
         ui.notify(f"Created files with {len(customers)} customers and {len(transactions)} transactions", type='positive')
         return True

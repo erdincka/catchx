@@ -168,9 +168,57 @@ def demo_steps():
                 ui.button("Code", on_click=fraud_detection_dialog.open, color="info").props("outline")
 
 
+async def monitoring_metrics():
+    """
+    Capture metrics for monitoring/dashboard
+    """
+
+    incoming = await incoming_topic_stats()
+    if incoming is not None:
+        app.storage.general["ingest_transactions_published"] = incoming.get(
+            "series", {}
+        ).get("publishedMsgs", "0")
+        app.storage.general["ingest_transactions_consumed"] = incoming.get(
+            "series", {}
+        ).get("consumedMsgs", "0")
+
+    bronze = await bronze_stats()
+    if bronze is not None:
+        app.storage.general["bronze_transactions"] = incoming.get("series", {}).get(
+            "transactions", "0"
+        )
+        app.storage.general["bronze_customers"] = incoming.get("series", {}).get(
+            "customers", "0"
+        )
+
+    silver = await silver_stats()
+    if silver is not None:
+        app.storage.general["silver_profiles"] = incoming.get("series", {}).get(
+            "profiles", "0"
+        )
+        app.storage.general["silver_transactions"] = incoming.get("series", {}).get(
+            "transactions", "0"
+        )
+        app.storage.general["silver_customers"] = incoming.get("series", {}).get(
+            "customers", "0"
+        )
+
+    gold = await gold_stats()
+    if gold is not None:
+        app.storage.general["gold_fraud"] = incoming.get("series", {}).get(
+            TABLE_FRAUD, "0"
+        )
+        app.storage.general["gold_transactions"] = incoming.get("series", {}).get(
+            TABLE_TRANSACTIONS, "0"
+        )
+        app.storage.general["gold_customers"] = incoming.get("series", {}).get(
+            TABLE_CUSTOMERS, "0"
+        )
+
+
 async def monitoring_charts():
     # Monitoring charts
-    with ui.card().classes("flex-grow shrink sticky top-0 h-screen"):
+    with ui.card().classes("flex-grow shrink sticky"):
         ui.label("Realtime Visibility").classes("uppercase")
 
         # # monitor using /var/mapr/mapr.monitoring/metricstreams/0
@@ -191,15 +239,15 @@ async def monitoring_charts():
 
         bronze_chart = get_echart().classes("h-1/4")
         bronze_chart.run_chart_method(':showLoading', r'{text: "Waiting..."}',)
-        ui.timer(MON_REFRESH_INTERVAL10, lambda c=bronze_chart: update_chart(c, bronze_stats))
+        ui.timer(MON_REFRESH_INTERVAL5, lambda c=bronze_chart: update_chart(c, bronze_stats))
 
         silver_chart = get_echart().classes("h-1/4")
         silver_chart.run_chart_method(':showLoading', r'{text: "Waiting..."}',)
-        ui.timer(MON_REFRESH_INTERVAL10, lambda c=silver_chart: update_chart(c, silver_stats))
+        ui.timer(MON_REFRESH_INTERVAL5 + 1, lambda c=silver_chart: update_chart(c, silver_stats))
 
         gold_chart = get_echart().classes("h-1/4")
         gold_chart.run_chart_method(':showLoading', r'{text: "Waiting..."}',)
-        ui.timer(2 * MON_REFRESH_INTERVAL10 + 5, lambda c=gold_chart: update_chart(c, gold_stats))
+        ui.timer(MON_REFRESH_INTERVAL5 + 2, lambda c=gold_chart: update_chart(c, gold_stats))
 
 
 def cluster_configuration_dialog():
