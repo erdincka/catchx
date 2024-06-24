@@ -92,10 +92,8 @@ def write(tier: str, tablename: str, records: list) -> bool:
         incoming = pd.DataFrame.from_dict(records)
 
         merged = pd.concat([existing, incoming]).drop_duplicates(subset="_id", keep="last")
-        print(merged)
-        print(table.schema())
 
-        table.append(pa.Table.from_pandas(merged))
+        table.append(pa.Table.from_pandas(merged, preserve_index=False))
 
         return True
 

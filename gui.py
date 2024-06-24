@@ -1,6 +1,5 @@
 import inspect
 import logging
-from math import pi
 import re
 from nicegui import ui, app
 
@@ -8,7 +7,7 @@ from common import *
 from functions import *
 from ingestion import *
 from mock import *
-from page import monitoring_charts, monitoring_metrics
+from monitoring import monitoring_metrics
 import streams
 import iceberger
 
@@ -295,6 +294,12 @@ async def handle_image_action(e: events.MouseEventArguments):
     elif element == "GoldCustomers":
         peek_sqlrecords([TABLE_FRAUD, TABLE_TRANSACTIONS, TABLE_CUSTOMERS])
 
+    elif element == "ReportView":
+        ui.navigate.to(
+            "https://superset.ua.kaya.home/superset/dashboard/p/vLp7yv8xkez/",
+            new_tab=True,
+        )
+
     else:
         logger.warning(element)
         ui.notify(f"{element} not configured yet")
@@ -464,14 +469,13 @@ async def domain_ii():
                 lambda x: x if x is not None else 0,
             ).classes("absolute top-[595px] left-[1130px]").tooltip("# of customers")
 
-        ui.timer(MON_REFRESH_INTERVAL3, monitoring_charts)
-
     # Block interaction when working
     with ui.dialog().props("persistent").bind_value_from(
         app.storage.user, "busy"
     ), ui.card():
         ui.spinner("ios", color="red", size="3em")
 
+    ui.timer(MON_REFRESH_INTERVAL5, monitoring_metrics)
 
 async def domain_page():
     with ui.dialog().props("full-width full-height") as dialog, ui.card().classes(

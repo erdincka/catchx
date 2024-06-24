@@ -56,7 +56,7 @@ async def home():
 
     # Main
     gui.mesh_ii()
-    # await gui.domain_page()
+    await gui.domain_page()
     # with ui.row().classes("w-full flex flex-nowrap relative"):
     #     demo_steps()
 

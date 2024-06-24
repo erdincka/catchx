@@ -390,3 +390,117 @@ async def gold_stats():
         "time": datetime.datetime.now().strftime("%H:%M:%S"),
         "values": series,
     }
+
+
+async def monitoring_metrics():
+    """
+    Capture metrics for monitoring/dashboard
+    """
+
+    incoming = await incoming_topic_stats()
+    logger.debug(incoming)
+    if incoming is not None:
+        metrics = incoming["values"]
+        app.storage.general["ingest_transactions_published"] = next(
+            iter([m["publishedMsgs"] for m in metrics if "publishedMsgs" in m]), None
+        )
+
+        app.storage.general["ingest_transactions_consumed"] = next(
+            iter([m["consumedMsgs"] for m in metrics if "consumedMsgs" in m]), None
+        )
+
+    bronze = await bronze_stats()
+    logger.debug(bronze)
+    if bronze is not None:
+        metrics = bronze["values"]
+        app.storage.general["bronze_transactions"] = next(
+            iter([m["transactions"] for m in metrics if "transactions" in m]), None
+        )
+        app.storage.general["bronze_customers"] = next(
+            iter([m["customers"] for m in metrics if "customers" in m]), None
+        )
+
+    silver = await silver_stats()
+    logger.debug(silver)
+    if silver is not None:
+        metrics = silver["values"]
+        app.storage.general["silver_profiles"] = next(
+            iter([m["profiles"] for m in metrics if "profiles" in m]), None
+        )
+        app.storage.general["silver_transactions"] = next(
+            iter([m["transactions"] for m in metrics if "transactions" in m]), None
+        )
+        app.storage.general["silver_customers"] = next(
+            iter([m["customers"] for m in metrics if "customers" in m]), None
+        )
+
+    gold = await gold_stats()
+    logger.debug(gold)
+    if gold is not None:
+        metrics = gold["values"]
+        app.storage.general["gold_fraud"] = next(
+            iter([m[TABLE_FRAUD] for m in metrics if TABLE_FRAUD in m]), None
+        )
+        app.storage.general["gold_transactions"] = next(
+            iter([m[TABLE_TRANSACTIONS] for m in metrics if TABLE_TRANSACTIONS in m]),
+            None,
+        )
+        app.storage.general["gold_customers"] = next(
+            iter([m[TABLE_CUSTOMERS] for m in metrics if TABLE_CUSTOMERS in m]), None
+        )
+
+
+async def monitoring_charts():
+    # Monitoring charts
+    with ui.card().classes("flex-grow shrink sticky"):
+        ui.label("Realtime Visibility").classes("uppercase")
+
+        # # monitor using /var/mapr/mapr.monitoring/metricstreams/0
+        # streams_chart = get_echart()
+        # streams_chart.run_chart_method(':showLoading', r'{text: "Waiting..."}',)
+        # ui.timer(MON_REFRESH_INTERVAL, lambda c=streams_chart, s=mapr_monitoring: chart_listener(c, s), once=True)
+
+        incoming_chart = get_echart().classes("h-1/4")
+        incoming_chart.run_chart_method(
+            ":showLoading",
+            r'{text: "Waiting..."}',
+        )
+        ui.timer(
+            MON_REFRESH_INTERVAL3,
+            lambda c=incoming_chart: update_chart(c, incoming_topic_stats),
+        )
+
+        # TODO: embed grafana dashboard
+        # https://10.1.1.31:3000/d/pUfMqVUIz/demo-monitoring?orgId=1
+
+        # consumer_chart = get_echart()
+        # consumer_chart.run_chart_method(':showLoading', r'{text: "Waiting..."}',)
+        # ui.timer(MON_REFRESH_INTERVAL3, lambda c=consumer_chart: update_chart(c, txn_consumer_stats))
+
+        bronze_chart = get_echart().classes("h-1/4")
+        bronze_chart.run_chart_method(
+            ":showLoading",
+            r'{text: "Waiting..."}',
+        )
+        ui.timer(
+            MON_REFRESH_INTERVAL5, lambda c=bronze_chart: update_chart(c, bronze_stats)
+        )
+
+        silver_chart = get_echart().classes("h-1/4")
+        silver_chart.run_chart_method(
+            ":showLoading",
+            r'{text: "Waiting..."}',
+        )
+        ui.timer(
+            MON_REFRESH_INTERVAL5 + 1,
+            lambda c=silver_chart: update_chart(c, silver_stats),
+        )
+
+        gold_chart = get_echart().classes("h-1/4")
+        gold_chart.run_chart_method(
+            ":showLoading",
+            r'{text: "Waiting..."}',
+        )
+        ui.timer(
+            MON_REFRESH_INTERVAL5 + 2, lambda c=gold_chart: update_chart(c, gold_stats)
+        )

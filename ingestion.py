@@ -162,10 +162,12 @@ async def fraud_detection():
             possible_fraud["score"] = calculated_fraud_score
             # clean up before committing to gold tier
             possible_fraud.drop(['sender_account', 'receiver_account'], axis=1, inplace=True)
-            fraud_count += possible_fraud.to_sql(name=TABLE_FRAUD, con=mydb, if_exists='append')
+            fraud_count += possible_fraud.to_sql(
+                name=TABLE_FRAUD, con=mydb, if_exists="append", index=False
+            )
 
-            # and update score for the profiles - not implemented                
- 
+            # and update score for the profiles - not implemented
+
         else:
             non_fraud_count += 1
             logger.debug("Non fraudulant transaction %s", txn["_id"])

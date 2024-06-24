@@ -127,6 +127,9 @@ async def refine_customers():
     ui.notify(f"Found {df.count(axis=1).size} rows in {tablename}")
     logger.info("Read %d rows", df.count(axis=1).size)
 
+    df.drop_duplicates(subset="_id", keep="last", ignore_index=True, inplace=True)
+    logger.info("Removed duplicates, left with %d records", df.count(axis=1).size)
+
     logger.debug("Add country_name from country_code")
     # add country_name column with short name (from ISO2 country code)
     df['country_name'] = cc.pandas_convert(df['country_code'], src="ISO2", to="name_short")
@@ -307,11 +310,13 @@ def data_aggregation():
     # upsert by reading existing records and updating them
     existing_customers = pd.read_sql_table(table_name="customers", con=mydb)
     all_customers = pd.concat([existing_customers, updated_customers]).drop_duplicates(subset="_id", keep="last")
-    num_customers = all_customers.to_sql(name="customers", con=mydb, if_exists='replace')
+    num_customers = all_customers.to_sql(name="customers", con=mydb, if_exists='replace', index=False)
 
     existing_transactions = pd.read_sql_table(table_name="transactions", con=mydb)
     all_transactions = pd.concat([existing_transactions, transactions_df]).drop_duplicates(subset="_id", keep="last")
-    num_transactions = all_transactions.to_sql(name="transactions", con=mydb, if_exists='replace')
+    num_transactions = all_transactions.to_sql(
+        name="transactions", con=mydb, if_exists="replace", index=False
+    )
 
     return (f"{num_customers} customers and {num_transactions} transactions updated in {VOLUME_GOLD} tier", 'positive')
 
