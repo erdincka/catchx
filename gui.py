@@ -7,7 +7,7 @@ from common import *
 from functions import *
 from ingestion import *
 from mock import *
-from monitoring import monitoring_metrics
+from monitoring import get_echart, update_metrics
 import streams
 import iceberger
 
@@ -296,7 +296,7 @@ async def handle_image_action(e: events.MouseEventArguments):
 
     elif element == "ReportView":
         ui.navigate.to(
-            "https://superset.ua.kaya.home/superset/dashboard/p/vLp7yv8xkez/",
+            app.storage.general.get("DASHBOARD_URL", "about:blank"),
             new_tab=True,
         )
 
@@ -332,7 +332,7 @@ def mesh_ii():
         lambda e: handle_image_action(e.args),
         # ).on("svg:pointerover", lambda e: handle_image_info(e.args)
     ).classes(
-        "relative"
+        "relative m-0 p-0"
     ):
 
         # TODO: replace this with a view for documentation
@@ -356,32 +356,32 @@ async def domain_ii():
         with ui.interactive_image(
             DATA_DOMAIN["diagram"],
             content=f"""
-            <rect id="PublishTransactions" x="200" y="1460" rx="80" ry="80" width="350" height="350" fill={action_color} {rest_of_svg} />
-            <rect id="PublishTransactionsCode" x="600" y="1595" rx="20" ry="20" width="330" height="80" fill={code_color} {rest_of_svg} />
-            <rect id="CreateData" x="200" y="2390" rx="80" ry="80" width="350" height="350" fill={action_color} {rest_of_svg} />
-            <rect id="CreateDataCode" x="600" y="2530" rx="20" ry="20" width="330" height="80" fill={code_color} {rest_of_svg} />
-            <rect id="IngestStreams" x="984" y="1485" rx="30" ry="30" width="435" height="266" fill={action_color} {rest_of_svg} />
-            <rect id="IngestStreamsCode" x="1430" y="1595" rx="20" ry="20" width="630" height="80" fill={code_color} {rest_of_svg} />
-            <rect id="IngestBatch" x="970" y="2450" rx="30" ry="30" width="431" height="270" fill={action_color} {rest_of_svg} />
-            <rect id="IngestBatchCode" x="1430" y="2550" rx="20" ry="20" width="600" height="80" fill={code_color} {rest_of_svg} />
-            <rect id="ProfileBuilderCode" x="1760" y="730" rx="0" ry="20" width="1520" height="80" fill={code_color} {rest_of_svg} />
-            <rect id="ProfileBuilderCode" x="1680" y="730" rx="20" ry="20" width="80" height="870" fill={code_color} {rest_of_svg} />
-            <rect id="BronzeTransactions" x="2075" y="1350" rx="30" ry="30" width="350" height="430" fill={info_color} {rest_of_svg} />
-            <rect id="RefineTransactionsCode" x="2450" y="1600" rx="20" ry="20" width="830" height="80" fill={code_color} {rest_of_svg} />
-            <rect id="RefineTransactions" x="2590" y="1530" rx="30" ry="30" width="240" height="200" fill={action_color} {rest_of_svg} />
-            <rect id="BronzeCustomers" x="2065" y="2370" rx="30" ry="30" width="350" height="410" fill={info_color} {rest_of_svg} />
-            <rect id="RefineCustomersCode" x="2450" y="2530" rx="20" ry="20" width="830" height="80" fill={code_color} {rest_of_svg} />
-            <rect id="RefineCustomers" x="2590" y="2470" rx="30" ry="30" width="240" height="200" fill={action_color} {rest_of_svg} />
-            <rect id="SilverCustomers" x="3330" y="2370" rx="30" ry="30" width="350" height="410" fill={info_color} {rest_of_svg} />
-            <rect id="SilverTransactions" x="3340" y="1450" rx="30" ry="30" width="320" height="380" fill={action_color} {rest_of_svg} />
-            <rect id="SilverProfiles" x="3360" y="670" rx="30" ry="30" width="300" height="360" fill={action_color} {rest_of_svg} />
-            <rect id="GetScoreCode" x="3800" y="725" rx="0" ry="20" width="355" height="80" fill={code_color} {rest_of_svg} />
-            <rect id="GetScoreCode" x="4080" y="805" rx="20" ry="0" width="80" height="430" fill={code_color} {rest_of_svg} />
-            <rect id="ConsolidateCode" x="3750" y="2530" rx="20" ry="20" width="750" height="80" fill={code_color} {rest_of_svg} />
-            <rect id="Consolidate" x="4000" y="2080" rx="30" ry="30" width="240" height="600" fill={action_color} {rest_of_svg} />
-            <rect id="CheckFraud" x="3970" y="1230" rx="30" ry="30" width="300" height="280" fill={action_color} {rest_of_svg} />
-            <rect id="GoldCustomers" x="4530" y="2300" rx="30" ry="30" width="350" height="410" fill={info_color} {rest_of_svg} />
-            <rect id="ReportView" x="5805" y="2400" rx="30" ry="30" width="400" height="280" fill={info_color} {rest_of_svg} />
+            <rect id="PublishTransactions" x="300" y="1460" rx="80" ry="80" width="350" height="350" fill={action_color} {rest_of_svg} />
+            <rect id="PublishTransactionsCode" x="700" y="1595" rx="20" ry="20" width="330" height="80" fill={code_color} {rest_of_svg} />
+            <rect id="CreateData" x="300" y="2390" rx="80" ry="80" width="350" height="350" fill={action_color} {rest_of_svg} />
+            <rect id="CreateDataCode" x="700" y="2530" rx="20" ry="20" width="330" height="80" fill={code_color} {rest_of_svg} />
+            <rect id="IngestStreams" x="1084" y="1485" rx="30" ry="30" width="435" height="266" fill={action_color} {rest_of_svg} />
+            <rect id="IngestStreamsCode" x="1530" y="1595" rx="20" ry="20" width="630" height="80" fill={code_color} {rest_of_svg} />
+            <rect id="IngestBatch" x="1070" y="2450" rx="30" ry="30" width="431" height="270" fill={action_color} {rest_of_svg} />
+            <rect id="IngestBatchCode" x="1530" y="2550" rx="20" ry="20" width="600" height="80" fill={code_color} {rest_of_svg} />
+            <rect id="ProfileBuilderCode" x="1860" y="730" rx="0" ry="20" width="1520" height="80" fill={code_color} {rest_of_svg} />
+            <rect id="ProfileBuilderCode" x="1780" y="730" rx="20" ry="20" width="80" height="870" fill={code_color} {rest_of_svg} />
+            <rect id="BronzeTransactions" x="2175" y="1350" rx="30" ry="30" width="350" height="430" fill={info_color} {rest_of_svg} />
+            <rect id="RefineTransactionsCode" x="2550" y="1600" rx="20" ry="20" width="830" height="80" fill={code_color} {rest_of_svg} />
+            <rect id="RefineTransactions" x="2690" y="1530" rx="30" ry="30" width="240" height="200" fill={action_color} {rest_of_svg} />
+            <rect id="BronzeCustomers" x="2165" y="2370" rx="30" ry="30" width="350" height="410" fill={info_color} {rest_of_svg} />
+            <rect id="RefineCustomersCode" x="2550" y="2530" rx="20" ry="20" width="830" height="80" fill={code_color} {rest_of_svg} />
+            <rect id="RefineCustomers" x="2690" y="2470" rx="30" ry="30" width="240" height="200" fill={action_color} {rest_of_svg} />
+            <rect id="SilverCustomers" x="3430" y="2370" rx="30" ry="30" width="350" height="410" fill={info_color} {rest_of_svg} />
+            <rect id="SilverTransactions" x="3440" y="1450" rx="30" ry="30" width="320" height="380" fill={action_color} {rest_of_svg} />
+            <rect id="SilverProfiles" x="3460" y="670" rx="30" ry="30" width="300" height="360" fill={action_color} {rest_of_svg} />
+            <rect id="GetScoreCode" x="3900" y="725" rx="0" ry="20" width="355" height="80" fill={code_color} {rest_of_svg} />
+            <rect id="GetScoreCode" x="4180" y="805" rx="20" ry="0" width="80" height="430" fill={code_color} {rest_of_svg} />
+            <rect id="ConsolidateCode" x="3850" y="2530" rx="20" ry="20" width="750" height="80" fill={code_color} {rest_of_svg} />
+            <rect id="Consolidate" x="4100" y="2080" rx="30" ry="30" width="240" height="600" fill={action_color} {rest_of_svg} />
+            <rect id="CheckFraud" x="4070" y="1230" rx="30" ry="30" width="300" height="280" fill={action_color} {rest_of_svg} />
+            <rect id="GoldCustomers" x="4630" y="2300" rx="30" ry="30" width="350" height="410" fill={info_color} {rest_of_svg} />
+            <rect id="ReportView" x="5905" y="2400" rx="30" ry="30" width="390" height="270" fill={info_color} {rest_of_svg} />
             # """,
         ).on(
             "svg:pointerup",
@@ -394,80 +394,16 @@ async def domain_ii():
                 'flat round size="2em" color="primary"'
             ).classes("absolute top-10 left-2").tooltip("Source data")
 
-            # raw counts
-            ui.badge("0", color="teal").bind_text_from(
-                app.storage.general,
-                "raw_transactions",
-                lambda x: x if x is not None else 0,
-            ).classes("absolute top-[330px] left-[120px]")
-            ui.badge("0", color="orange").bind_text_from(
-                app.storage.general,
-                "raw_customers",
-                lambda x: x if x is not None else 0,
-            ).classes("absolute top-[545px] left-[120px]")
-
-            # ingest counts
-            ui.badge("0", color="lightteal").bind_text_from(
-                app.storage.general,
-                "ingest_transactions_published",
-                lambda x: x if x is not None else 0,
-            ).classes("absolute top-[335px] left-[320px]").tooltip("published transactions")
-            ui.badge("0", color="teal").bind_text_from(
-                app.storage.general,
-                "ingest_transactions_consumed",
-                lambda x: x if x is not None else 0,
-            ).classes("absolute top-[355px] left-[320px]").tooltip("consumed transactions")
-            ui.badge("0", color="orange").bind_text_from(
-                app.storage.general,
-                "ingest_customers",
-                lambda x: x if x is not None else 0,
-            ).classes("absolute top-[560px] left-[320px]").tooltip("# of customers")
-
-            # bronze counts
-            ui.badge("0", color="teal").bind_text_from(
-                app.storage.general,
-                "bronze_transactions",
-                lambda x: x if x is not None else 0,
-            ).classes("absolute top-[305px] left-[555px]").tooltip("# of transactions")
-            ui.badge("0", color="orange").bind_text_from(
-                app.storage.general,
-                "bronze_customers",
-                lambda x: x if x is not None else 0,
-            ).classes("absolute top-[545px] left-[550px]").tooltip("# of customers")
-
-            # silver counts
-            ui.badge("0", color="darkturquoise").bind_text_from(
-                app.storage.general,
-                "silver_profiles",
-                lambda x: x if x is not None else 0,
-            ).classes("absolute top-[145px] left-[840px]").tooltip("# of profiles")
-            ui.badge("0", color="teal").bind_text_from(
-                app.storage.general,
-                "silver_transactions",
-                lambda x: x if x is not None else 0,
-            ).classes("absolute top-[330px] left-[840px]").tooltip("# of transactions")
-            ui.badge("0", color="orange").bind_text_from(
-                app.storage.general,
-                "silver_customers",
-                lambda x: x if x is not None else 0,
-            ).classes("absolute top-[545px] left-[845px]").tooltip("# of customers")
-
-            # gold counts
-            ui.badge("0", color="red").bind_text_from(
-                app.storage.general,
-                "gold_fraud",
-                lambda x: x if x is not None else 0,
-            ).classes("absolute top-[555px] left-[1130px]").tooltip("# of fraud")
-            ui.badge("0", color="teal").bind_text_from(
-                app.storage.general,
-                "gold_transactions",
-                lambda x: x if x is not None else 0,
-            ).classes("absolute top-[575px] left-[1130px]").tooltip("# of transactions")
-            ui.badge("0", color="orange").bind_text_from(
-                app.storage.general,
-                "gold_customers",
-                lambda x: x if x is not None else 0,
-            ).classes("absolute top-[595px] left-[1130px]").tooltip("# of customers")
+            # metric_badges_on_ii()
+            # with ui.card().classes(
+            #     "flex-grow shrink absolute top-10 right-0 w-1/3 h-1/3 opacity-50 hover:opacity-100"
+            # ):
+            #     ui.label("Realtime Visibility").classes("uppercase")
+            #     mon_chart = get_echart().classes("")
+            #     mon_chart.run_chart_method(
+            #         ":showLoading",
+            #         r'{text: "Waiting..."}',
+            #     )
 
     # Block interaction when working
     with ui.dialog().props("persistent").bind_value_from(
@@ -475,7 +411,9 @@ async def domain_ii():
     ), ui.card():
         ui.spinner("ios", color="red", size="3em")
 
-    ui.timer(MON_REFRESH_INTERVAL5, monitoring_metrics)
+    # # Run monitoring for metrics
+    # ui.timer(MON_REFRESH_INTERVAL5, monitoring_metrics)
+
 
 async def domain_page():
     with ui.dialog().props("full-width full-height") as dialog, ui.card().classes(
@@ -485,12 +423,118 @@ async def domain_page():
             "flat round dense"
         ).classes("absolute right-2 top-2")
 
-        ui.label(
-            "End to end data pipeline using Ezmeral Data Fabric for financial transaction processing"
-        )
-        ui.markdown(DATA_DOMAIN["description"]).classes("font-normal")
+        # ui.label(
+        #     "End to end data pipeline using Ezmeral Data Fabric for financial transaction processing"
+        # )
+        # ui.markdown(DATA_DOMAIN["description"]).classes("font-normal")
         # ui.image(f"/images/{DATA_DOMAIN['diagram']}").classes("object-scale-down g-10")
         await domain_ii()
 
 
     dialog.open()
+
+
+# NOT USED
+def metric_badges_on_ii():
+    """
+    Place badges with counters in real-time as they are updated by monitoring_metrics()
+    """
+
+    # raw counts
+    ui.badge("0", color="teal").bind_text_from(
+        app.storage.general,
+        "raw_transactions",
+        lambda x: x if x is not None else 0,
+    ).classes("absolute top-[330px] left-[120px]")
+    ui.badge("0", color="orange").bind_text_from(
+        app.storage.general,
+        "raw_customers",
+        lambda x: x if x is not None else 0,
+    ).classes("absolute top-[545px] left-[120px]")
+
+    # ingest counts
+    ui.badge("0", color="lightteal").bind_text_from(
+        app.storage.general,
+        "ingest_transactions_published",
+        lambda x: x if x is not None else 0,
+    ).classes("absolute top-[335px] left-[320px]").tooltip("published transactions")
+    ui.badge("0", color="teal").bind_text_from(
+        app.storage.general,
+        "ingest_transactions_consumed",
+        lambda x: x if x is not None else 0,
+    ).classes("absolute top-[355px] left-[320px]").tooltip("consumed transactions")
+    ui.badge("0", color="orange").bind_text_from(
+        app.storage.general,
+        "ingest_customers",
+        lambda x: x if x is not None else 0,
+    ).classes("absolute top-[560px] left-[320px]").tooltip("# of customers")
+
+    # bronze counts
+    ui.badge("0", color="teal").bind_text_from(
+        app.storage.general,
+        "bronze_transactions",
+        lambda x: x if x is not None else 0,
+    ).classes("absolute top-[305px] left-[555px]").tooltip("# of transactions")
+    ui.badge("0", color="orange").bind_text_from(
+        app.storage.general,
+        "bronze_customers",
+        lambda x: x if x is not None else 0,
+    ).classes("absolute top-[545px] left-[550px]").tooltip("# of customers")
+
+    # silver counts
+    ui.badge("0", color="darkturquoise").bind_text_from(
+        app.storage.general,
+        "silver_profiles",
+        lambda x: x if x is not None else 0,
+    ).classes("absolute top-[145px] left-[840px]").tooltip("# of profiles")
+    ui.badge("0", color="teal").bind_text_from(
+        app.storage.general,
+        "silver_transactions",
+        lambda x: x if x is not None else 0,
+    ).classes("absolute top-[330px] left-[840px]").tooltip("# of transactions")
+    ui.badge("0", color="orange").bind_text_from(
+        app.storage.general,
+        "silver_customers",
+        lambda x: x if x is not None else 0,
+    ).classes("absolute top-[545px] left-[845px]").tooltip("# of customers")
+
+    # gold counts
+    ui.badge("0", color="red").bind_text_from(
+        app.storage.general,
+        "gold_fraud",
+        lambda x: x if x is not None else 0,
+    ).classes("absolute top-[555px] left-[1130px]").tooltip("# of fraud")
+    ui.badge("0", color="teal").bind_text_from(
+        app.storage.general,
+        "gold_transactions",
+        lambda x: x if x is not None else 0,
+    ).classes("absolute top-[575px] left-[1130px]").tooltip("# of transactions")
+    ui.badge("0", color="orange").bind_text_from(
+        app.storage.general,
+        "gold_customers",
+        lambda x: x if x is not None else 0,
+    ).classes("absolute top-[595px] left-[1130px]").tooltip("# of customers")
+
+
+# NOT USED
+def add_elements_to_svg(x: int, y: int, color: str, metric: str):
+    """
+    HTML element to insert into SVG
+    # x/y placement not working for nicegui elements
+    :param x int: pixels from left
+    :param y int: pixels from top
+    :param color str: color of the badge
+    :param metric str: badge count to read from app.storage.general
+
+    """
+    return f"""
+        <foreignObject x="{x}" y="{y}">
+            {
+                ui.badge("0", color=color).bind_text_from(
+                    app.storage.general,
+                    metric,
+                    lambda x: x if x is not None else 0,
+                )
+            }
+        </foreignObject>
+    """

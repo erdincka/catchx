@@ -30,6 +30,19 @@ def app_init():
 def header():
     with ui.header(elevated=True).classes('items-center justify-between uppercase'):
         ui.label(f"{APP_NAME}: {TITLE}")
+
+        ui.space()
+
+        ui.link(
+            "Source",
+            target=DATA_DOMAIN.get("link", ""),
+            new_tab=True,
+        ).bind_visibility_from(
+            DATA_DOMAIN, "link", backward=lambda x: x is not None
+        ).classes(
+            "text-white hover:text-blue-600"
+        )
+
         ui.space()
 
         with ui.row().classes("place-items-center"):
@@ -56,6 +69,7 @@ def footer():
                 ui.button(VOLUME_GOLD, on_click=show_mysql_tables)
                 # ui.button(VOLUME_GOLD, on_click=lambda: run_command_with_dialog(f"ls -lAR {MOUNT_PATH}{get_cluster_name()}{BASEDIR}/{VOLUME_GOLD}"))
 
+            ui.button("Upload to S3", on_click=upload_to_s3)
             ui.space()
 
             # ui.button("CDC", on_click=lambda: enable_cdc(source_table_path=f"{BASEDIR}/{VOLUME_BRONZE}/{TABLE_TRANSACTIONS}", destination_stream_topic=f"{BASEDIR}/{STREAM_MONITORING}:{TOPIC_TRANSACTIONS}"))
@@ -233,6 +247,12 @@ def cluster_configuration_dialog():
             with ui.row().classes("w-full place-items-center mt-4"):
                 ui.button(f"remount {MOUNT_PATH}", on_click=lambda: run_command_with_dialog(f"[ -d {MOUNT_PATH} ] && umount -l {MOUNT_PATH}; [ -d {MOUNT_PATH} ] || mkdir {MOUNT_PATH}; mount -t nfs -o nolock,soft {app.storage.general['cluster']}:/mapr {MOUNT_PATH}"))
                 ui.button("List Cluster /", on_click=lambda: run_command_with_dialog(f"ls -la {MOUNT_PATH}{get_cluster_name()}")).props('outline')
+
+        ui.separator()
+        with ui.card_section():
+            ui.label("Dashboard").classes("text-lg w-full")
+            ui.label("Link to external dashboard page").classes("text-sm text-italic")
+            ui.input("Dashboard URL").bind_value(app.storage.general, "DASHBOARD_URL").classes("w-full")
 
         ui.separator()
         with ui.card_section():

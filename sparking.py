@@ -1,22 +1,22 @@
 import logging
-import os
-import sys
+# import os
+# import sys
 
-from nicegui import app
+# from nicegui import app
 
-sys.path.append("/opt/mapr/spark/spark-3.3.3/python/lib/py4j-0.10.9.5-src.zip")
-sys.path.append("/opt/mapr/spark/spark-3.3.3/python/lib/pyspark.zip")
+# sys.path.append("/opt/mapr/spark/spark-3.3.3/python/lib/py4j-0.10.9.5-src.zip")
+# sys.path.append("/opt/mapr/spark/spark-3.3.3/python/lib/pyspark.zip")
 
-os.environ["SPARK_HOME"] = "/opt/mapr/spark/spark-3.3.3"
+# os.environ["SPARK_HOME"] = "/opt/mapr/spark/spark-3.3.3"
 
-from pyspark.sql import SparkSession
-from py4j.java_gateway import java_import
-from pyspark.sql.types import StringType, StructType
-from datetime import datetime
-import time
-from pathlib import Path
-from pyspark.sql.types import StructType, StructField, StringType, IntegerType, FloatType
-import pyspark.sql.functions as F
+# from pyspark.sql import SparkSession
+# from py4j.java_gateway import java_import
+# from pyspark.sql.types import StringType, StructType
+# from datetime import datetime
+# import time
+# from pathlib import Path
+# from pyspark.sql.types import StructType, StructField, StringType, IntegerType, FloatType
+# import pyspark.sql.functions as F
 
 
 logger = logging.getLogger("sparking")
@@ -124,5 +124,5 @@ logger.setLevel(logging.DEBUG)
 #         return    
 
 
-# if __name__ in ["__main__", "__mp_main" ]:
-    
+if __name__ in ["__main__", "__mp_main" ]:
+    pass

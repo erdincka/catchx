@@ -1,6 +1,5 @@
 from nicegui import app, ui
 
-from map import meshmap
 from monitoring import *
 from functions import *
 from page import *
@@ -29,34 +28,25 @@ async def home():
     # Page footer
     footer()
 
-    # gui.datamesh3d()
-    # meshmap()
-
     # Data Mesh
     # TODO: proper/better description below
-    ui.markdown(
-        """
-        Create a globally distributed Data Mesh architecture using HPE Ezmeral Data Fabric.
+    # ui.markdown(
+    #     """
+    #     Create a globally distributed Data Mesh architecture using HPE Ezmeral Data Fabric.
                 
-        Data Fabric provides a modern data platform on hybrid deployment scenarios and enables organisations with advanced capabilities,
-        such as the ability to implement data products across different organisations, projects, teams to own and share their Data Products.
+    #     Data Fabric provides a modern data platform on hybrid deployment scenarios and enables organisations with advanced capabilities,
+    #     such as the ability to implement data products across different organisations, projects, teams to own and share their Data Products.
 
-        With its multi-model, multi-protocol data handling capabilities, as well as it enterprise features and cloud-scale, organisations can
-        realise the true value from a living data system.
-        """
-    )
-    ui.link(
-        "Source",
-        target=DATA_DOMAIN.get("link", ""),
-        new_tab=True,
-    ).bind_visibility_from(DATA_DOMAIN, "link", backward=lambda x: x is not None)
+    #     With its multi-model, multi-protocol data handling capabilities, as well as it enterprise features and cloud-scale, organisations can
+    #     realise the true value from a living data system.
+    #     """
+    # )
 
-
-    ui.separator()
+    # ui.separator()
 
     # Main
     gui.mesh_ii()
-    await gui.domain_page()
+    # await gui.domain_page()
     # with ui.row().classes("w-full flex flex-nowrap relative"):
     #     demo_steps()
 

@@ -44,6 +44,11 @@ def create_csv_files():
     Create customers and transactions CSV files with randomly generated data
     """
 
+    # return if files already exist
+    if os.path.isfile(f"{MOUNT_PATH}{get_cluster_name()}{BASEDIR}/{TABLE_CUSTOMERS}.csv") and os.path.isfile(f"{MOUNT_PATH}{get_cluster_name()}{BASEDIR}/{TABLE_TRANSACTIONS}.csv"):
+        ui.notify("Files exist, skipping...")
+        return
+
     number_of_customers = 200
     number_of_transactions = 1_000
 
@@ -138,3 +143,38 @@ async def dummy_fraud_score():
     # respond with a random probability, using string to avoid OJAI conversion to this \"score\": {\"$numberLong\": 46}}
     return str(random.randint(0, 100))
 
+
+async def upload_to_s3():
+    import boto3
+
+    customer_file = f"{MOUNT_PATH}{get_cluster_name()}{BASEDIR}/{TABLE_CUSTOMERS}.csv"
+    transaction_file = f"{MOUNT_PATH}{get_cluster_name()}{BASEDIR}/{TABLE_CUSTOMERS}.csv"
+    # session = boto3.Session(
+    #     aws_access_key_id=app.storage.general["S3_ACCESS_KEY"],
+    #     aws_secret_access_key=app.storage.general["S3_SECRET_KEY"],
+    # )
+    # s3 = session.resource("s3")
+
+    s3 = boto3.client(
+        "s3",
+        endpoint_url=f"https://{app.storage.general['cluster']}:9000/",
+        verify=False,
+        aws_access_key_id=app.storage.general["S3_ACCESS_KEY"],
+        aws_secret_access_key=app.storage.general["S3_SECRET_KEY"],
+    )
+
+    # create bucket if not exists
+    bucket = s3.create_bucket(
+        Bucket=DATA_PRODUCT,
+    )
+    print(bucket)
+
+    # s3.put_bucket_policy(Bucket=bucket_name, Policy=bucket_policy)
+    # result = s3.get_bucket_policy(Bucket=DATA_PRODUCT)
+    # print(result["Policy"])
+
+    # s3.meta.client.upload_file(
+    #     Filename=customer_file,
+    #     Bucket=bucket,
+    #     Key=f"{TABLE_CUSTOMERS}.csv",
+    # )

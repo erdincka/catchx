@@ -1,6 +1,7 @@
 import datetime
 import json
 import socket
+import timeit
 import httpx
 from nicegui import ui, app
 
@@ -48,31 +49,31 @@ def get_echart():
     )
 
 
-async def chart_listener(chart: ui.echart, metric_generator, *args):
-    for metric in metric_generator(*args):
-        if metric:
+# async def chart_listener(chart: ui.echart, metric_generator, *args):
+#     for metric in metric_generator(*args):
+#         if metric:
 
-            chart.options["xAxis"]["data"].append(metric["time"])
-            chart.options["title"]["text"] = metric["name"].title()
+#             chart.options["xAxis"]["data"].append(metric["time"])
+#             chart.options["title"]["text"] = metric["name"].title()
 
-            for idx, serie in enumerate(metric["values"]):
-                # add missing series
-                if idx not in chart.options["series"]:
-                    chart.options["series"].append(new_series())
+#             for idx, serie in enumerate(metric["values"]):
+#                 # add missing series
+#                 if idx not in chart.options["series"]:
+#                     chart.options["series"].append(new_series())
 
-                chart_series = chart.options["series"][idx]
+#                 chart_series = chart.options["series"][idx]
 
-                for key in serie.keys():
-                    if not chart_series.get("name", None):
-                        chart_series["name"] = key
-                    # if name ends with (s), place it onto second yAxis
-                    if "(s)" in key:
-                        chart_series["yAxisIndex"] = 1
+#                 for key in serie.keys():
+#                     if not chart_series.get("name", None):
+#                         chart_series["name"] = key
+#                     # if name ends with (s), place it onto second yAxis
+#                     if "(s)" in key:
+#                         chart_series["yAxisIndex"] = 1
 
-                    chart_series["data"].append(int(serie[key]))
+#                     chart_series["data"].append(int(serie[key]))
 
-            chart.run_chart_method('hideLoading')
-            chart.update()
+#             chart.run_chart_method('hideLoading')
+#             chart.update()
 
 
 async def update_chart(chart: ui.echart, metric_caller, *args):
@@ -92,7 +93,7 @@ async def update_chart(chart: ui.echart, metric_caller, *args):
         logger.debug("Got metric from %s: %s", metric_caller.__name__, metric)
 
         chart.options["xAxis"]["data"].append(metric["time"])
-        chart.options["title"]["text"] = metric["name"].title()
+        # chart.options["title"]["text"] = metric["name"].title()
 
         for idx, serie in enumerate(metric["values"]):
             # add missing series
@@ -102,7 +103,7 @@ async def update_chart(chart: ui.echart, metric_caller, *args):
             chart_series = chart.options["series"][idx]
             for key in serie.keys():
                 if not chart_series.get("name", None):
-                    chart_series["name"] = key
+                    chart_series["name"] = f"{metric['name'].title()}-{key}"
                 # if name ends with (s), place it onto second yAxis
                 if "(s)" in key:
                     chart_series["yAxisIndex"] = 1
@@ -360,10 +361,10 @@ async def gold_stats():
         mydb = f"mysql+pymysql://{app.storage.general['MYSQL_USER']}:{app.storage.general['MYSQL_PASS']}@{app.storage.general['cluster']}/{DATA_PRODUCT}"
 
         # return if table is missing
-        # engine = create_engine(mydb)
-        # with engine.connect() as conn:
-        #     # return if table is not created
-        #     if TABLE_FRAUD not in [ t for t in conn.execute(text(f"SHOW TABLES LIKE '{TABLE_FRAUD}';")) ]: return
+        engine = create_engine(mydb)
+        with engine.connect() as conn:
+            # return if table is not created
+            if TABLE_FRAUD not in [ t for t in conn.execute(text(f"SHOW TABLES LIKE '{TABLE_FRAUD}';")) ]: return
 
         # TODO: find a better/more efficient way to count records
         num_fraud = pd.read_sql(f"SELECT COUNT('_id') FROM {TABLE_FRAUD}", con=mydb).values[:1].flat[0]
@@ -504,3 +505,57 @@ async def monitoring_charts():
         ui.timer(
             MON_REFRESH_INTERVAL5 + 2, lambda c=gold_chart: update_chart(c, gold_stats)
         )
+
+
+async def update_metrics(chart: ui.chart):
+
+    # # monitor using /var/mapr/mapr.monitoring/metricstreams/0
+    # streams_chart = get_echart()
+    # streams_chart.run_chart_method(':showLoading', r'{text: "Waiting..."}',)
+    # ui.timer(MON_REFRESH_INTERVAL, lambda c=streams_chart, s=mapr_monitoring: chart_listener(c, s), once=True)
+
+    tick = timeit.default_timer()
+
+    values = []
+    # transform multiple series to single one replacing key with metric_key
+    metrics = await incoming_topic_stats()
+    if metrics is not None:
+        metric_time = metrics["time"]
+        # definitely not readable and confusing. TODO: extract to a extract and flatten function
+        values += [item for row in [ [ { metrics["name"] + "_" + k: v } for k,v in m.items() ] for m in metrics["values"] ] for item in row]
+
+    metrics = await bronze_stats()
+    if metrics is not None:
+        metric_time = metrics["time"]
+        values += [item for row in [ [ { metrics["name"] + "_" + k: v } for k,v in m.items() ] for m in metrics["values"] ] for item in row]
+
+    metrics = await silver_stats()
+    if metrics is not None:
+        metric_time = metrics["time"]
+        values += [item for row in [ [ { metrics["name"] + "_" + k: v } for k,v in m.items() ] for m in metrics["values"] ] for item in row]
+
+    metrics = await gold_stats()
+    if metrics is not None:
+        metric_time = metrics["time"]
+        values += [item for row in [ [ { metrics["name"] + "_" + k: v } for k,v in m.items() ] for m in metrics["values"] ] for item in row]
+
+    logger.debug(values)
+
+    if len(values) > 0:
+        chart.options["xAxis"]["data"].append(metric_time)  # taking the time from the last (gold) metric
+        for idx, serie in enumerate(values):
+            # add missing series
+            if idx not in chart.options["series"]:
+                chart.options["series"].append(new_series())
+
+            chart_series = chart.options["series"][idx]
+            for key in serie.keys():
+                if not chart_series.get("name", None):
+                    chart_series["name"] = key
+
+                chart_series["data"].append(int(serie[key]))
+
+        chart.update()
+        chart.run_chart_method('hideLoading')
+
+    logger.info("Finished in: %ss", timeit.default_timer() - tick)
