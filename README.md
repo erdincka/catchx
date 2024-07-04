@@ -21,7 +21,7 @@ Before running the demo, ensure that you have Ezmeral Data Fabric connectivity i
 
 App uses `/apps/catchx_*` volumes on the connected cluster, so do not run this app on a cluster which already has this path/volume configured.
 
-Follow the steps to walk through the demo. 
+Follow the steps to walk through the demo.
 
 You can run all steps as many times as you like, especially "produce" and "process" steps should be run multiple times.
 
@@ -44,8 +44,12 @@ Setup MySQL (possibly used for Hive too), on Data Fabric cluster, and create/all
 
 mysql -u root -p
 
+CREATE DATABASE fraud;
+
 CREATE USER 'catchx'@'%' IDENTIFIED BY 'catchx';
-GRANT ALL ON *.* TO 'catchx'@'%' WITH GRANT OPTION;
+
+GRANT ALL ON fraud.* TO 'catchx'@'%' WITH GRANT OPTION;
+
 FLUSH PRIVILEGES;
 
 exit

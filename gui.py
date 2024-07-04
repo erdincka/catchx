@@ -7,7 +7,7 @@ from common import *
 from functions import *
 from ingestion import *
 from mock import *
-from monitoring import get_echart, update_metrics
+from monitoring import get_echart, monitoring_metrics, update_metrics
 import streams
 import iceberger
 
@@ -395,15 +395,15 @@ async def domain_ii():
             ).classes("absolute top-10 left-2").tooltip("Source data")
 
             # metric_badges_on_ii()
-            # with ui.card().classes(
-            #     "flex-grow shrink absolute top-10 right-0 w-1/3 h-1/3 opacity-50 hover:opacity-100"
-            # ):
-            #     ui.label("Realtime Visibility").classes("uppercase")
-            #     mon_chart = get_echart().classes("")
-            #     mon_chart.run_chart_method(
-            #         ":showLoading",
-            #         r'{text: "Waiting..."}',
-            #     )
+            with ui.card().classes(
+                "flex-grow shrink absolute top-10 right-0 w-1/3 h-1/3 opacity-50 hover:opacity-100"
+            ):
+                ui.label("Realtime Visibility").classes("uppercase")
+                mon_chart = get_echart().classes("")
+                mon_chart.run_chart_method(
+                    ":showLoading",
+                    r'{text: "Waiting..."}',
+                )
 
     # Block interaction when working
     with ui.dialog().props("persistent").bind_value_from(

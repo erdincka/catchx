@@ -33,7 +33,7 @@ async def home():
     # ui.markdown(
     #     """
     #     Create a globally distributed Data Mesh architecture using HPE Ezmeral Data Fabric.
-                
+
     #     Data Fabric provides a modern data platform on hybrid deployment scenarios and enables organisations with advanced capabilities,
     #     such as the ability to implement data products across different organisations, projects, teams to own and share their Data Products.
 
