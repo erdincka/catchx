@@ -1,16 +1,16 @@
 import logging
-# import os
-# import sys
+import os
+import sys
 
-# from nicegui import app
+from nicegui import app
 
-# sys.path.append("/opt/mapr/spark/spark-3.3.3/python/lib/py4j-0.10.9.5-src.zip")
-# sys.path.append("/opt/mapr/spark/spark-3.3.3/python/lib/pyspark.zip")
+sys.path.append("/opt/mapr/spark/spark-3.3.3/python/lib/py4j-0.10.9.5-src.zip")
+sys.path.append("/opt/mapr/spark/spark-3.3.3/python/lib/pyspark.zip")
 
-# os.environ["SPARK_HOME"] = "/opt/mapr/spark/spark-3.3.3"
+os.environ["SPARK_HOME"] = "/opt/mapr/spark/spark-3.3.3"
 
-# from pyspark.sql import SparkSession
-# from py4j.java_gateway import java_import
+from pyspark.sql import SparkSession
+from py4j.java_gateway import java_import
 # from pyspark.sql.types import StringType, StructType
 # from datetime import datetime
 # import time
@@ -29,17 +29,17 @@ logger.setLevel(logging.DEBUG)
 #######
 
 
-# def ingest(input_file: str):
-#     try:
-#         spark = SparkSession.builder.master(f"spark://{app.storage.general.get('cluster', 'localhost')}:7077").appName("ETL").getOrCreate()
-#         spark.sparkContext.setLogLevel("ALL")
-#         print(f"Spark context: {spark}")
-#         java_import(spark._sc._jvm, "org.apache.spark.sql.api.python.*")
-#         df = spark.read.csv(input_file, header=True, inferSchema=True)
-#         print(df.count())
+def ingest(input_file: str):
+    try:
+        spark = SparkSession.builder.master(f"spark://{app.storage.general.get('cluster', 'localhost')}:7077").appName("ETL").getOrCreate()
+        spark.sparkContext.setLogLevel("ALL")
+        print(f"Spark context: {spark}")
+        java_import(spark._sc._jvm, "org.apache.spark.sql.api.python.*")
+        df = spark.read.csv(input_file, header=True, inferSchema=True)
+        print(df.count())
 
-#     except Exception as error:
-#         logger.warning("cannot use spark: %s", error)
+    except Exception as error:
+        logger.warning("cannot use spark: %s", error)
 
 
 # def sse_code():
@@ -92,7 +92,7 @@ logger.setLevel(logging.DEBUG)
 #         data_df = spark.read.csv(unl_file,sep="|").withColumn("file_name",  F.split(F.input_file_name(), '/')[5])
 #         data_df.show(2)
 #         print('before write parquet')
-#         outfilename=Path(unl_file).stem 
+#         outfilename=Path(unl_file).stem
 #         try:
 #             data_df.write.parquet(dest_path+'data/'+outfilename,mode='overwrite')
 
@@ -113,15 +113,15 @@ logger.setLevel(logging.DEBUG)
 #             #print(err)
 #             error_row = [(unl_file,0,'Error while writing the output file')]
 #             print(error_row)
-            
+
 #             # Create a DataFrame for the error row
 #             error_row_df = spark.createDataFrame(error_row, schema=error_schema)
-        
+
 #             # Write the row DataFrame to completed CSV in append mode
 #             error_row_df.write.csv(error_log_file_path, mode="append",sep="|")
-#             pass    
-        
-#         return    
+#             pass
+
+#         return
 
 
 if __name__ in ["__main__", "__mp_main" ]:

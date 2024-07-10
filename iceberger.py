@@ -40,7 +40,7 @@ def get_catalog():
         catalog = SqlCatalog(
             "default",
             **{
-                "uri": f"sqlite:///{MOUNT_PATH}{get_cluster_name()}{BASEDIR}/iceberg.db",
+                "uri": f"sqlite:///{MOUNT_PATH}/{get_cluster_name()}{BASEDIR}/iceberg.db",
                 "py-io-impl": "pyiceberg.io.pyarrow.PyArrowFileIO",
             },
         )
@@ -64,7 +64,7 @@ def write(tier: str, tablename: str, records: list) -> bool:
     :return bool: Success or failure
     """
 
-    warehouse_path = f"{MOUNT_PATH}{get_cluster_name()}{BASEDIR}/{tier}/{tablename}"
+    warehouse_path = f"{MOUNT_PATH}/{get_cluster_name()}{BASEDIR}/{tier}/{tablename}"
 
     catalog = get_catalog()
 
@@ -118,7 +118,7 @@ def tail(tier: str, tablename: str):
 def history(tier: str, tablename: str):
     """Return list of snapshot history from tablename"""
 
-    # warehouse_path = f"{MOUNT_PATH}{get_cluster_name()}{DEMO['basedir']}/{tier}/{tablename}"
+    # warehouse_path = f"{MOUNT_PATH}/{get_cluster_name()}{DEMO['basedir']}/{tier}/{tablename}"
 
     catalog = get_catalog()
 
@@ -132,9 +132,9 @@ def history(tier: str, tablename: str):
 
         return [
                 {
-                    "date": datetime.datetime.fromtimestamp(int(h.timestamp_ms)/1000).strftime('%Y-%m-%d %H:%M:%S'), 
-                    "id": h.snapshot_id 
-                } 
+                    "date": datetime.datetime.fromtimestamp(int(h.timestamp_ms)/1000).strftime('%Y-%m-%d %H:%M:%S'),
+                    "id": h.snapshot_id
+                }
                 for h in table.history()
         ]
 
@@ -142,9 +142,9 @@ def history(tier: str, tablename: str):
 def find_all(tier: str, tablename: str):
     """
     Return pandas dataframe of all records
-    
+
     :param tier str: tier volume name used as iceberg namespace
-    
+
     :param tablename str: iceberg table name in the namespace
 
     :returns DataFrame: all records, or None
@@ -168,7 +168,7 @@ def find_by_field(tier: str, tablename: str, field: str, value: str):
     Find record(s) matching the field as arrow dataset
 
     :param tier str: tier volume name used as iceberg namespace
-    
+
     :param tablename str: iceberg table name in the namespace
 
     :param field str: field in the table to match against
@@ -195,6 +195,6 @@ def find_by_field(tier: str, tablename: str, field: str, value: str):
             return filtered
 
         except:
-            logger.warning("Cannot scan table: " + tablename)    
-        
+            logger.warning("Cannot scan table: " + tablename)
+
         return None

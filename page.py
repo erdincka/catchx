@@ -33,21 +33,9 @@ def header():
 
         ui.space()
 
-        ui.link(
-            "Source",
-            target=DATA_DOMAIN.get("link", ""),
-            new_tab=True,
-        ).bind_visibility_from(
-            DATA_DOMAIN, "link", backward=lambda x: x is not None
-        ).classes(
-            "text-white hover:text-blue-600"
-        )
-
-        ui.space()
-
         with ui.row().classes("place-items-center"):
             ui.button("Data Hub", on_click=cluster_configuration_dialog).props("outline color=white")
-            ui.link(target=f"https://{app.storage.general.get('MAPR_USER', 'mapr')}:{app.storage.general.get('MAPR_PASS', 'mapr123')}@{app.storage.general.get('cluster', 'localhost')}:8443/app/mcs", new_tab=True).bind_text_from(app.storage.general, "cluster", backward=lambda x: app.storage.general["clusters"].get(x, "localhost") if x else "None").classes("text-white hover:text-blue-600")
+            ui.link(target=f"https://{app.storage.general.get('MAPR_USER', 'mapr')}:{app.storage.general.get('MAPR_PASS', 'mapr123')}@{app.storage.general.get('cluster', 'localhost')}:8443/app/mcs/", new_tab=True).bind_text_from(app.storage.general, "cluster", backward=lambda x: app.storage.general["clusters"].get(x, "localhost") if x else "None").classes("text-white hover:text-blue-600")
 
 
 def footer():
@@ -62,18 +50,18 @@ def footer():
                 # GNS
                 ui.button("GNS", on_click=lambda: run_command_with_dialog(f"df -h {MOUNT_PATH}; ls -lA {MOUNT_PATH}"))
                 # App folder
-                ui.button("Data Domain", on_click=lambda: run_command_with_dialog(f"ls -lA {MOUNT_PATH}{get_cluster_name()}{BASEDIR}"))
+                ui.button("Data Domain", on_click=lambda: run_command_with_dialog(f"ls -lA {MOUNT_PATH}/{get_cluster_name()}{BASEDIR}"))
                 # Volumes
-                ui.button(VOLUME_BRONZE, on_click=lambda: run_command_with_dialog(f"ls -lAR {MOUNT_PATH}{get_cluster_name()}{BASEDIR}/{VOLUME_BRONZE}"))
-                ui.button(VOLUME_SILVER, on_click=lambda: run_command_with_dialog(f"ls -lAR {MOUNT_PATH}{get_cluster_name()}{BASEDIR}/{VOLUME_SILVER}"))
+                ui.button(VOLUME_BRONZE, on_click=lambda: run_command_with_dialog(f"ls -lAR {MOUNT_PATH}/{get_cluster_name()}{BASEDIR}/{VOLUME_BRONZE}"))
+                ui.button(VOLUME_SILVER, on_click=lambda: run_command_with_dialog(f"ls -lAR {MOUNT_PATH}/{get_cluster_name()}{BASEDIR}/{VOLUME_SILVER}"))
                 ui.button(VOLUME_GOLD, on_click=show_mysql_tables)
-                # ui.button(VOLUME_GOLD, on_click=lambda: run_command_with_dialog(f"ls -lAR {MOUNT_PATH}{get_cluster_name()}{BASEDIR}/{VOLUME_GOLD}"))
+                # ui.button(VOLUME_GOLD, on_click=lambda: run_command_with_dialog(f"ls -lAR {MOUNT_PATH}/{get_cluster_name()}{BASEDIR}/{VOLUME_GOLD}"))
 
-            ui.button("Upload to S3", on_click=upload_to_s3)
+            ui.button("Upload to S3", on_click=upload_to_s3).bind_visibility_from(app.storage.general, "S3_SECRET_KEY")
             ui.space()
 
             # ui.button("CDC", on_click=lambda: enable_cdc(source_table_path=f"{BASEDIR}/{VOLUME_BRONZE}/{TABLE_TRANSACTIONS}", destination_stream_topic=f"{BASEDIR}/{STREAM_MONITORING}:{TOPIC_TRANSACTIONS}"))
-            ui.switch("Lights on!", on_change=lights_on).props("flat outline color=dark keep-color").bind_value(app.storage.general, "lightson")
+            # ui.switch("Lights on!", on_change=lights_on).props("flat outline color=dark keep-color").bind_value(app.storage.general, "lightson")
             # ui.space()
 
             ui.switch(on_change=toggle_debug).tooltip("Debug").props("color=dark keep-color")
@@ -82,9 +70,19 @@ def footer():
                 app.storage.user, "busy"
             ).tooltip("Busy")
 
+            ui.link(
+                "Source",
+                target=DATA_DOMAIN.get("link", ""),
+                new_tab=True,
+            ).bind_visibility_from(
+                DATA_DOMAIN, "link", backward=lambda x: x is not None
+            ).classes(
+                "text-white hover:text-blue-600"
+            )
             ui.icon("check_circle", size="2em", color="green").bind_visibility_from(
                 app.storage.user, "busy", lambda x: not x
             ).tooltip("Ready")
+
 
 
 def demo_steps():
@@ -195,9 +193,22 @@ def cluster_configuration_dialog():
         ui.separator()
         with ui.card_section():
             with ui.row().classes("w-full place-items-center mt-4"):
-                ui.label("Select The Hub").classes("text-lg")
+                ui.label("Select Data Domain").classes("text-lg")
                 ui.button(icon="refresh", on_click=update_clusters).props("flat round")
             ui.toggle(app.storage.general["clusters"]).bind_value(app.storage.general, "cluster")
+
+        ui.separator()
+        with ui.card_section():
+            ui.label("External Data Lakes").classes("text-lg w-full")
+            with ui.row().classes("w-full place-items-center"):
+                ui.input("S3 URL", placeholder="https://hostname:9000").bind_value(app.storage.general, "S3_SERVER")
+                ui.input("NFS Server", placeholder="nfs-server.dom").bind_value(app.storage.general, "NFS_SERVER")
+                ui.button(
+                    "Mount",
+                    on_click=lambda: run_command_with_dialog(
+                        f"umount -l /mnt; mount -t nfs4 -o nolock,proto=tcp,port=2049,sec=sys {app.storage.general.get('NFS_SERVER', 'localhost')}:/ /mnt; ls -lA /mnt"
+                    )
+                ).props("")
 
         ui.separator()
         with ui.card_section():
@@ -221,7 +232,7 @@ def cluster_configuration_dialog():
                 Using MySQL admin user, run these commands to create the database and the user:
                 ```
                 CREATE DATABASE {DATA_PRODUCT};
-                USE {DATA_PRODUCT}
+                USE {DATA_PRODUCT};
                 CREATE USER 'catchx'@'%' IDENTIFIED BY 'catchx';
                 GRANT ALL ON {DATA_PRODUCT}.* TO 'catchx'@'%' WITH GRANT OPTION;
                 FLUSH PRIVILEGES;
@@ -246,7 +257,7 @@ def cluster_configuration_dialog():
                 ui.button("maprlogin", on_click=lambda: run_command_with_dialog(f"echo {app.storage.general['MAPR_PASS']} | maprlogin password -user {app.storage.general['MAPR_USER']}"))
             with ui.row().classes("w-full place-items-center mt-4"):
                 ui.button(f"remount {MOUNT_PATH}", on_click=lambda: run_command_with_dialog(f"[ -d {MOUNT_PATH} ] && umount -l {MOUNT_PATH}; [ -d {MOUNT_PATH} ] || mkdir {MOUNT_PATH}; mount -t nfs -o nolock,soft {app.storage.general['cluster']}:/mapr {MOUNT_PATH}"))
-                ui.button("List Cluster /", on_click=lambda: run_command_with_dialog(f"ls -la {MOUNT_PATH}{get_cluster_name()}")).props('outline')
+                ui.button("List Cluster /", on_click=lambda: run_command_with_dialog(f"ls -la {MOUNT_PATH}/{get_cluster_name()}")).props('outline')
 
         ui.separator()
         with ui.card_section():

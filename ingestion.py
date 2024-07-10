@@ -18,8 +18,8 @@ async def ingest_transactions():
     # Input stream
     input_stream_path = f"{BASEDIR}/{STREAM_INCOMING}"
     input_topic = TOPIC_TRANSACTIONS
-    
-    if not os.path.lexists(f"{MOUNT_PATH}{get_cluster_name()}{input_stream_path}"): # stream not created yet
+
+    if not os.path.lexists(f"{MOUNT_PATH}/{get_cluster_name()}{input_stream_path}"): # stream not created yet
         ui.notify(f"Stream not found {input_stream_path}", type="warning")
         return
 
@@ -27,7 +27,7 @@ async def ingest_transactions():
 
     # Output table
     output_table_path = f"{BASEDIR}/{VOLUME_BRONZE}/{TABLE_TRANSACTIONS}"
-    
+
     transactions = []
 
     for record in await run.io_bound(streams.consume, stream=input_stream_path, topic=input_topic, consumer_group="ingestion"):
@@ -60,11 +60,11 @@ async def ingest_transactions_spark():
 
     stream_path = f"{BASEDIR}/{STREAM_INCOMING}" # input
     table_path = f"{BASEDIR}/{VOLUME_BRONZE}/{TABLE_PROFILES}" # output
-    
+
     ### psuedo code below
     # spark.read_stream(stream_path).upsert_maprdb_binarytable(table=table_path).write_iceberg(schemaname=DEMO['volumes']['bronze'], tablename=DEMO['tables']['transactions'])
     ###
- 
+
     ### profiles binary table has the following object for each record/row
     # profile = {
     #     "_id": get_customer_id(message['receiver_account']),
@@ -78,7 +78,7 @@ async def ingest_customers_airflow():
     """
     Read CSV file and ingest into Iceberg table
     """
-    csvpath = f"{MOUNT_PATH}{get_cluster_name()}{BASEDIR}/{TABLE_CUSTOMERS}.csv"
+    csvpath = f"{MOUNT_PATH}/{get_cluster_name()}{BASEDIR}/{TABLE_CUSTOMERS}.csv"
 
     COUNT_OF_ROWS = 0
 
@@ -95,7 +95,7 @@ async def ingest_customers_iceberg():
     tier = VOLUME_BRONZE
     tablename = TABLE_CUSTOMERS
 
-    csvpath = f"{MOUNT_PATH}{get_cluster_name()}{BASEDIR}/{TABLE_CUSTOMERS}.csv"
+    csvpath = f"{MOUNT_PATH}/{get_cluster_name()}{BASEDIR}/{TABLE_CUSTOMERS}.csv"
     app.storage.user['busy'] = True
 
     try:
@@ -135,7 +135,7 @@ async def fraud_detection():
     input_stream = f"{BASEDIR}/{STREAM_INCOMING}"
     output_table = f"{BASEDIR}/{VOLUME_SILVER}/{TABLE_PROFILES}"
 
-    if not os.path.lexists(f"{MOUNT_PATH}{get_cluster_name()}{input_stream}"): # stream not created yet
+    if not os.path.lexists(f"{MOUNT_PATH}/{get_cluster_name()}{input_stream}"): # stream not created yet
         ui.notify(f"Stream not found {input_stream}", type="warning")
         return
 

@@ -159,7 +159,7 @@ async def incoming_topic_stats():
     try:
         URL = f"https://{app.storage.general['cluster']}:8443/rest/stream/topic/info?path={stream_path}&topic={topic}"
         auth = (app.storage.general["MAPR_USER"], app.storage.general["MAPR_PASS"])
-        async with httpx.AsyncClient(verify=False) as client:  # using async httpx instead of sync requests to avoid blocking the event loop 
+        async with httpx.AsyncClient(verify=False) as client:  # using async httpx instead of sync requests to avoid blocking the event loop
             response = await client.get(URL, auth=auth, timeout=2.0)
 
             if response is None or response.status_code != 200:
@@ -224,7 +224,7 @@ async def txn_consumer_stats():
     if app.storage.general.get("cluster", None) is None:
         logger.debug("Cluster not configured, skipping.")
         return
-    
+
     try:
         URL = f"https://{app.storage.general['cluster']}:8443/rest/stream/cursor/list?path={stream_path}&topic={topic}"
         auth = (app.storage.general["MAPR_USER"], app.storage.general["MAPR_PASS"])
@@ -288,11 +288,11 @@ async def bronze_stats():
     ctable = f"{BASEDIR}/{VOLUME_BRONZE}/{TABLE_CUSTOMERS}"
 
     try:
-        if os.path.lexists(f"{MOUNT_PATH}{get_cluster_name()}{ttable}"):
+        if os.path.lexists(f"{MOUNT_PATH}/{get_cluster_name()}{ttable}"):
             num_transactions = len(tables.get_documents(ttable, limit=None))
             series.append({ "transactions": num_transactions })
             # app.storage.general["bronze_transactions"] = num_transactions
-        if os.path.isdir(f"{MOUNT_PATH}{get_cluster_name()}{ctable}"): # isdir for iceberg tables
+        if os.path.isdir(f"{MOUNT_PATH}/{get_cluster_name()}{ctable}"): # isdir for iceberg tables
             num_customers = len(iceberger.find_all(VOLUME_BRONZE, TABLE_CUSTOMERS))
             series.append({ "customers": num_customers })
             # app.storage.general["bronze_customers"] = num_customers
@@ -302,7 +302,7 @@ async def bronze_stats():
 
     except Exception as error:
         logger.warning("STAT get error %s", error)
-        return 
+        return
 
     return {
         "name": VOLUME_BRONZE,
@@ -323,15 +323,15 @@ async def silver_stats():
     ctable = f"{BASEDIR}/{VOLUME_SILVER}/{TABLE_CUSTOMERS}"
 
     try:
-        if os.path.lexists(f"{MOUNT_PATH}{get_cluster_name()}{ptable}"):
+        if os.path.lexists(f"{MOUNT_PATH}/{get_cluster_name()}{ptable}"):
             num_profiles = len(tables.get_documents(ptable, limit=None))
             series.append({ "profiles": num_profiles })
             # app.storage.general["silver_profiles"] = num_profiles
-        if os.path.lexists(f"{MOUNT_PATH}{get_cluster_name()}{ttable}"):
+        if os.path.lexists(f"{MOUNT_PATH}/{get_cluster_name()}{ttable}"):
             num_transactions = len(tables.get_documents(ttable, limit=None))
             series.append({ "transactions": num_transactions })
             # app.storage.general["silver_transactions"] = num_transactions
-        if os.path.lexists(f"{MOUNT_PATH}{get_cluster_name()}{ctable}"):
+        if os.path.lexists(f"{MOUNT_PATH}/{get_cluster_name()}{ctable}"):
             num_customers = len(tables.get_documents(ctable, limit=None))
             series.append({ "customers": num_customers })
             # app.storage.general["silver_customers"] = num_customers

@@ -3,7 +3,6 @@ import datetime
 import logging
 import os
 import tarfile
-import time
 
 import httpx
 from nicegui import ui, events, app, binding
@@ -18,8 +17,8 @@ TITLE = "Building a Hybrid Data Mesh"
 STORAGE_SECRET = "ezmer@1r0cks"
 
 DATA_PRODUCT = "fraud" # make this a single word, used for dir and database names, no spaces or fancy characters
-BASEDIR = "/fraud"
-MOUNT_PATH = "/edfs/"
+BASEDIR = "/app"
+MOUNT_PATH = "/edfs/mapr"
 
 VOLUME_BRONZE = "bronze"
 VOLUME_SILVER = "silver"
@@ -81,12 +80,12 @@ def upload_client_files(e: events.UploadEventArguments):
         filename = e.name
         with open(f"/tmp/{filename}", "wb") as f:
             f.write(e.content.read())
-        
+
         with tarfile.open(f"/tmp/{filename}", "r") as tf:
             if "conf" in filename:
                 # For DF 7.7
                 if "conf/mapr-clusters.conf" in tf.getnames():
-                    tf.extract("conf/mapr-clusters.conf", path="/opt/mapr/") 
+                    tf.extract("conf/mapr-clusters.conf", path="/opt/mapr/")
                     tf.extract("conf/ssl_truststore", path="/opt/mapr/")
                     tf.extract("conf/ssl_truststore.pem", path="/opt/mapr/")
                 # For DF 7.5
@@ -96,9 +95,7 @@ def upload_client_files(e: events.UploadEventArguments):
 
                 # Refresh cluster list in UI
                 update_clusters()
-                # give time for UI notification before page reload
-                time.sleep(1)
-                ui.navigate.reload()
+                ui.notify("Refresh page to see cluster(s)", type='info')
 
             elif "jwt" in filename:
                 tf.extractall(path="/root")
@@ -152,7 +149,7 @@ async def run_command(command: str):
     """
     Run a command in the background and return the output.
     """
-    
+
     process = await asyncio.create_subprocess_shell(
         command,
         stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.STDOUT,
@@ -185,7 +182,7 @@ async def create_volumes():
     app.storage.user['busy'] = True
 
     # create base folder if not exists
-    basedir = f"{MOUNT_PATH}{get_cluster_name()}{BASEDIR}"
+    basedir = f"{MOUNT_PATH}/{get_cluster_name()}{BASEDIR}"
     if not os.path.isdir(basedir):
         os.mkdir(basedir)
 
@@ -249,7 +246,7 @@ async def create_streams():
             logger.warning("Failed to connect %s: %s", URL, type(error))
             ui.notify(f"Failed to connect to REST: {error}", type='negative')
             return
-        
+
         finally:
             app.storage.user['busy'] = False
 
@@ -266,6 +263,7 @@ def show_mysql_tables():
 
         with ui.dialog().props("full-width") as mysql_tables, ui.card().classes("grow relative"):
             ui.button(icon="close", on_click=mysql_tables.close).props("flat round dense").classes("absolute right-2 top-2")
+            ui.label("Tables from MySQL DB")
             for table in peek_tables.keys():
                 ui.table.from_pandas(peek_tables[table], title=table).classes('w-full mt-6').props("dense")
 
@@ -276,12 +274,12 @@ def show_mysql_tables():
 async def enable_cdc(source_table_path: str, destination_stream_topic: str):
     auth = (app.storage.general["MAPR_USER"], app.storage.general["MAPR_PASS"])
 
-    if not os.path.lexists(f"{MOUNT_PATH}{get_cluster_name()}{source_table_path}"):
+    if not os.path.lexists(f"{MOUNT_PATH}/{get_cluster_name()}{source_table_path}"):
         ui.notify(f"Table not found: {source_table_path}", type="warning")
         return
-    
+
     logger.debug("Check for changelog on: %s", source_table_path)
-    
+
     URL = f"https://{app.storage.general['cluster']}:8443/rest/table/changelog/list?path={source_table_path}&changelog={destination_stream_topic}"
 
     try:
@@ -300,7 +298,7 @@ async def enable_cdc(source_table_path: str, destination_stream_topic: str):
                 logger.debug("CDC check: %s", res)
 
                 if res["total"] == 0:
-                    # create CDC 
+                    # create CDC
                     URL = f"https://{app.storage.general['cluster']}:8443/rest/table/changelog/add?path={source_table_path}&changelog={destination_stream_topic}&useexistingtopic=true"
 
                     response = await client.get(URL, auth=auth)
@@ -315,7 +313,7 @@ async def enable_cdc(source_table_path: str, destination_stream_topic: str):
                             logger.warning("CDC add failed with: %s", res["errors"])
 
                     logger.info(response.text)
-                
+
     except Exception as error:
         logger.warning(error)
 
@@ -337,7 +335,7 @@ def configure_logging():
     logging.getLogger("httpx").setLevel(logging.WARNING)
 
     logging.getLogger("requests").setLevel(logging.WARNING)
-    
+
     logging.getLogger("watchfiles").setLevel(logging.FATAL)
 
     logging.getLogger("faker").setLevel(logging.FATAL)

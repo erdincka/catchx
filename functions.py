@@ -17,10 +17,10 @@ logger = logging.getLogger("functions")
 async def upsert_profile(transaction: dict):
     """
     Assign customer ID and fraud score for the receiver account in transaction
-    
+
     param: transaction dict: transaction record as dict
     """
-    
+
     profile = {
         "_id": get_customer_id(transaction['receiver_account']),
         "score": await dummy_fraud_score()
@@ -68,7 +68,7 @@ async def refine_transactions():
     # TODO: using DocumentDB here, change to BinaryDB
     silver_transactions_table = f"{BASEDIR}/{VOLUME_SILVER}/{tablename}"
 
-    if not os.path.lexists(f"{MOUNT_PATH}{get_cluster_name()}{BASEDIR}/{tier}/{tablename}"): # table not created yet
+    if not os.path.lexists(f"{MOUNT_PATH}/{get_cluster_name()}{BASEDIR}/{tier}/{tablename}"): # table not created yet
         ui.notify(f"Input table not found: {tablename} on {tier} volume", type="warning")
         return
 
@@ -115,7 +115,7 @@ async def refine_customers():
     # TODO: using DocumentDB here, change to BinaryDB
     silver_customers_table = f"{BASEDIR}/{VOLUME_SILVER}/{tablename}"
 
-    if not os.path.lexists(f"{MOUNT_PATH}{get_cluster_name()}{BASEDIR}/{tier}/{tablename}"): # table not created yet
+    if not os.path.lexists(f"{MOUNT_PATH}/{get_cluster_name()}{BASEDIR}/{tier}/{tablename}"): # table not created yet
         ui.notify(f"Input table not found: {tablename} on {tier}", type="warning")
         return
 
@@ -177,11 +177,11 @@ def iceberg_table_history(tier: str, tablename: str):
     """
     Get Iceberg table history and display in dialog
 
-    :param tier str: iceberg namespace matching the volume tier    
+    :param tier str: iceberg namespace matching the volume tier
     :param tablename str: iceberg table name
     """
 
-    if not os.path.exists(f"{MOUNT_PATH}{get_cluster_name()}{BASEDIR}/{tier}/{tablename}"): # table not created yet
+    if not os.path.exists(f"{MOUNT_PATH}/{get_cluster_name()}{BASEDIR}/{tier}/{tablename}"): # table not created yet
         ui.notify(f"Table not found: {tier}/{tablename}", type="warning")
         return
 
@@ -200,11 +200,11 @@ def iceberg_table_tail(tier: str, tablename: str):
     """
     Get last 5 records from Iceberg table and display in dialog
 
-    :param tier str: iceberg namespace matching the volume tier    
+    :param tier str: iceberg namespace matching the volume tier
     :param tablename str: iceberg table name
     """
 
-    if not os.path.exists(f"{MOUNT_PATH}{get_cluster_name()}{BASEDIR}/{tier}/{tablename}"): # table not created yet
+    if not os.path.exists(f"{MOUNT_PATH}/{get_cluster_name()}{BASEDIR}/{tier}/{tablename}"): # table not created yet
         ui.notify(f"Table not found: {tier}/{tablename}", type="warning")
         return
 
@@ -225,7 +225,7 @@ def peek_documents(tablepath: str):
     :param tablepath str: full path for the JSON table
     """
 
-    if not os.path.lexists(f"{MOUNT_PATH}{get_cluster_name()}{tablepath}"): # table not created yet
+    if not os.path.lexists(f"{MOUNT_PATH}/{get_cluster_name()}{tablepath}"): # table not created yet
         ui.notify(f"Table not found: {tablepath}", type="warning")
         return
 
@@ -234,7 +234,7 @@ def peek_documents(tablepath: str):
 
         docs = tables.get_documents(table_path=tablepath, limit=FETCH_RECORD_NUM)
         ui.table.from_pandas(pd.DataFrame.from_dict(docs)).classes('w-full mt-6').props("dense")
-        
+
     dialog.on("close", lambda d=dialog: d.delete())
     dialog.open()
 
@@ -265,11 +265,11 @@ def peek_sqlrecords(tablenames: list):
 async def create_golden():
 
     app.storage.user["busy"] = True
-    
+
     (msg, sev) = await run.io_bound(data_aggregation)
 
     ui.notify(msg, type=sev)
-    
+
     app.storage.user["busy"] = False
 
 
@@ -287,7 +287,7 @@ def data_aggregation():
     transactions_input_table = f"{BASEDIR}/{VOLUME_SILVER}/{TABLE_TRANSACTIONS}"
 
     for input_file in [profile_input_table, customers_input_table, transactions_input_table]:
-        if not os.path.lexists(f"{MOUNT_PATH}{get_cluster_name()}{input_file}"): # table not created yet
+        if not os.path.lexists(f"{MOUNT_PATH}/{get_cluster_name()}{input_file}"): # table not created yet
             return (f"Input table not found: {input_file}", "warning")
 
     profiles_df = pd.DataFrame.from_dict(tables.get_documents(table_path=profile_input_table, limit=None))
@@ -387,7 +387,7 @@ async def delete_volumes_and_streams():
 
     # delete app folder
     try:
-        basedir = f"{MOUNT_PATH}{get_cluster_name()}{BASEDIR}"
+        basedir = f"{MOUNT_PATH}/{get_cluster_name()}{BASEDIR}"
         # remove iceberg tables and metadata catalog
         if os.path.exists(f"{basedir}/iceberg.db"):
             catalog = iceberger.get_catalog()
@@ -411,7 +411,7 @@ async def delete_volumes_and_streams():
 
         ui.notify("Iceberg tables purged", type="warning")
 
-        if os.path.isdir(basedir): 
+        if os.path.isdir(basedir):
             shutil.rmtree(basedir, ignore_errors=True)
             ui.notify(f"{basedir} removed from {get_cluster_name()}", type="warning")
 

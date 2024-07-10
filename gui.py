@@ -181,15 +181,19 @@ async def handle_image_action(e: events.MouseEventArguments):
     element = e["element_id"]
 
     if element == "Fraud":
-        await domain_page()
+        # await domain_page()
+        ui.navigate.to(domain_ii, new_tab=True)
     # TODO: add information or configuration pages!
     elif element == "NFS":
+        await run_command_with_dialog("df -h /mnt; ls -lA /mnt")
         ui.notify("Bring existing data lakes into the Global Namespace.", type="info")
     elif element == "S3":
+        ui.navigate.to(app.storage.general.get("S3_SERVER", "http://localhost:9000"), new_tab=True)
         ui.notify(
             "Bring existing object stores into the Global Namespace.", type="info"
         )
     elif element == "IAM":
+        ui.navigate.to(f"https://{app.storage.general.get('cluster', 'localhost')}:8443/app/dfui/#/login", new_tab=True)
         ui.notify(
             "Integrate with central IAM provider for consistent access control across the enterprise",
             type="info",
@@ -228,9 +232,10 @@ async def handle_image_action(e: events.MouseEventArguments):
         code_generate().open()
 
     elif element == "IngestBatch":
-        app.storage.user["busy"] = True
-        await ingest_customers_iceberg()
-        app.storage.user["busy"] = False
+        ui.navigate.to(f"https://{app.storage.general.get('cluster', 'localhost')}:8780/home", new_tab=True)
+        # app.storage.user["busy"] = True
+        # await ingest_customers_iceberg()
+        # app.storage.user["busy"] = False
         # ui.button("History", on_click=lambda: iceberg_table_history(tier=VOLUME_BRONZE, tablename=TABLE_CUSTOMERS)).props("outline")
 
     elif element == "IngestBatchCode":
@@ -240,6 +245,7 @@ async def handle_image_action(e: events.MouseEventArguments):
         app.storage.user["busy"] = True
         await ingest_transactions()
         app.storage.user["busy"] = False
+        # ui.navigate.to(f"https://{app.storage.general.get('cluster', 'localhost')}:12443/nifi/", new_tab=True)
 
     elif element == "IngestStreamsCode":
         code_stream().open()
@@ -342,6 +348,7 @@ def mesh_ii():
         pass
 
 
+@ui.page(f"/{DATA_PRODUCT}", dark=False, title="Fraud Data Domain")
 async def domain_ii():
     """Draw an interactive image that shows demo pipeline for the data domain"""
 
@@ -394,16 +401,16 @@ async def domain_ii():
                 'flat round size="2em" color="primary"'
             ).classes("absolute top-10 left-2").tooltip("Source data")
 
-            # metric_badges_on_ii()
-            with ui.card().classes(
-                "flex-grow shrink absolute top-10 right-0 w-1/3 h-1/3 opacity-50 hover:opacity-100"
-            ):
-                ui.label("Realtime Visibility").classes("uppercase")
-                mon_chart = get_echart().classes("")
-                mon_chart.run_chart_method(
-                    ":showLoading",
-                    r'{text: "Waiting..."}',
-                )
+            metric_badges_on_ii()
+            # with ui.card().classes(
+            #     "flex-grow shrink absolute top-10 right-0 w-1/3 h-1/3 opacity-50 hover:opacity-100"
+            # ):
+            #     ui.label("Realtime Visibility").classes("uppercase")
+            #     mon_chart = get_echart().classes("")
+            #     mon_chart.run_chart_method(
+            #         ":showLoading",
+            #         r'{text: "Waiting..."}',
+            #     )
 
     # Block interaction when working
     with ui.dialog().props("persistent").bind_value_from(

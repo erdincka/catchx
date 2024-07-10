@@ -45,7 +45,7 @@ def create_csv_files():
     """
 
     # return if files already exist
-    if os.path.isfile(f"{MOUNT_PATH}{get_cluster_name()}{BASEDIR}/{TABLE_CUSTOMERS}.csv") and os.path.isfile(f"{MOUNT_PATH}{get_cluster_name()}{BASEDIR}/{TABLE_TRANSACTIONS}.csv"):
+    if os.path.isfile(f"{MOUNT_PATH}/{get_cluster_name()}{BASEDIR}/{TABLE_CUSTOMERS}.csv") and os.path.isfile(f"{MOUNT_PATH}/{get_cluster_name()}{BASEDIR}/{TABLE_TRANSACTIONS}.csv"):
         ui.notify("Files exist, skipping...")
         return
 
@@ -58,13 +58,13 @@ def create_csv_files():
         for _ in range(number_of_customers):
             customers.append(fake_customer())
 
-        with open(f"{MOUNT_PATH}{get_cluster_name()}{BASEDIR}/{TABLE_CUSTOMERS}.csv", "w", newline='') as csvfile:
+        with open(f"{MOUNT_PATH}/{get_cluster_name()}{BASEDIR}/{TABLE_CUSTOMERS}.csv", "w", newline='') as csvfile:
             fieldnames = fake_customer().keys()
             writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
             writer.writeheader()
             writer.writerows(customers)
             app.storage.general["raw_customers"] = len(customers)
-            
+
         # transactions
         transactions = []
         for _ in range(number_of_transactions):
@@ -73,7 +73,7 @@ def create_csv_files():
             receiver = customers[random.randrange(number_of_customers)]['account_number']
             transactions.append(fake_transaction(sender, receiver))
 
-        with open(f"{MOUNT_PATH}{get_cluster_name()}{BASEDIR}/{TABLE_TRANSACTIONS}.csv", "w", newline='') as csvfile:
+        with open(f"{MOUNT_PATH}/{get_cluster_name()}{BASEDIR}/{TABLE_TRANSACTIONS}.csv", "w", newline='') as csvfile:
             fieldnames = fake_transaction("X", "Y").keys()
             writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
             writer.writeheader()
@@ -82,32 +82,32 @@ def create_csv_files():
 
         ui.notify(f"Created files with {len(customers)} customers and {len(transactions)} transactions", type='positive')
         return True
-    
+
     except Exception as error:
         logger.warning(error)
         return False
 
 
 async def peek_mocked_data():
-    await run_command_with_dialog(f"tail {MOUNT_PATH}{get_cluster_name()}{BASEDIR}/{TABLE_CUSTOMERS}.csv {MOUNT_PATH}{get_cluster_name()}{BASEDIR}/{TABLE_TRANSACTIONS}.csv")
+    await run_command_with_dialog(f"tail {MOUNT_PATH}/{get_cluster_name()}{BASEDIR}/{TABLE_CUSTOMERS}.csv {MOUNT_PATH}/{get_cluster_name()}{BASEDIR}/{TABLE_TRANSACTIONS}.csv")
 
 
 async def publish_transactions(limit: int = 10):
     """
     Publish transactions from csv file into the topic
-    """    
+    """
 
     stream_path = f"{BASEDIR}/{STREAM_INCOMING}"
 
     count = 0
-    
+
     # return if stream not created
-    if not os.path.lexists(f"{MOUNT_PATH}{get_cluster_name()}{stream_path}"):
+    if not os.path.lexists(f"{MOUNT_PATH}/{get_cluster_name()}{stream_path}"):
         ui.notify(f"Stream not created {stream_path}", type="warning")
-        return 
+        return
 
     try:
-        with open(f"{MOUNT_PATH}{get_cluster_name()}{BASEDIR}/transactions.csv", "r", newline='') as csvfile:
+        with open(f"{MOUNT_PATH}/{get_cluster_name()}{BASEDIR}/transactions.csv", "r", newline='') as csvfile:
             csv_reader = csv.DictReader(csvfile)
 
             for transaction in csv_reader:
@@ -147,8 +147,8 @@ async def dummy_fraud_score():
 async def upload_to_s3():
     import boto3
 
-    customer_file = f"{MOUNT_PATH}{get_cluster_name()}{BASEDIR}/{TABLE_CUSTOMERS}.csv"
-    transaction_file = f"{MOUNT_PATH}{get_cluster_name()}{BASEDIR}/{TABLE_CUSTOMERS}.csv"
+    customer_file = f"{MOUNT_PATH}/{get_cluster_name()}{BASEDIR}/{TABLE_CUSTOMERS}.csv"
+    transaction_file = f"{MOUNT_PATH}/{get_cluster_name()}{BASEDIR}/{TABLE_CUSTOMERS}.csv"
     # session = boto3.Session(
     #     aws_access_key_id=app.storage.general["S3_ACCESS_KEY"],
     #     aws_secret_access_key=app.storage.general["S3_SECRET_KEY"],
