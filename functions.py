@@ -242,7 +242,7 @@ def peek_documents(tablepath: str):
     dialog.open()
 
 
-def peek_sqlrecords(tablenames: list):
+async def peek_sqlrecords(tablenames: list):
     """
     Get `FETCH_RECORD_NUM` documents from SQL DB tables
 
@@ -255,11 +255,14 @@ def peek_sqlrecords(tablenames: list):
         ui.button(icon="close", on_click=dialog.close).props("flat round dense").classes("absolute right-2 top-2")
 
         for tablename in tablenames:
-            docs = pd.read_sql(
-                f"SELECT * FROM {tablename} ORDER BY _id DESC LIMIT {FETCH_RECORD_NUM}",
-                con=mydb,
-            )
-            ui.table.from_pandas(docs, title=tablename, row_key="_id").classes('w-full mt-6').props("dense")
+            try:
+                docs = pd.read_sql(
+                    f"SELECT * FROM {tablename} ORDER BY _id DESC LIMIT {FETCH_RECORD_NUM}",
+                    con=mydb,
+                )
+                ui.table.from_pandas(docs, title=tablename, row_key="_id").classes('w-full mt-6').props("dense")
+            except Exception as error:
+                logger.warning(error)
 
     dialog.on("close", lambda d=dialog: d.delete())
     dialog.open()
@@ -311,11 +314,21 @@ def data_aggregation():
     mydb = f"mysql+pymysql://{app.storage.general['MYSQL_USER']}:{app.storage.general['MYSQL_PASS']}@{app.storage.general['cluster']}/{DATA_PRODUCT}"
 
     # upsert by reading existing records and updating them
-    existing_customers = pd.read_sql_table(table_name="customers", con=mydb)
+    try:
+        existing_customers = pd.read_sql_table(table_name="customers", con=mydb)
+    except Exception as error:
+        existing_customers = pd.DataFrame()
+        logger.warning(error)
+
     all_customers = pd.concat([existing_customers, updated_customers]).drop_duplicates(subset="_id", keep="last")
     num_customers = all_customers.to_sql(name="customers", con=mydb, if_exists='replace', index=False)
 
-    existing_transactions = pd.read_sql_table(table_name="transactions", con=mydb)
+    try:
+        existing_transactions = pd.read_sql_table(table_name="transactions", con=mydb)
+    except Exception as error:
+        existing_transactions = pd.DataFrame()
+        logger.warning(error)
+
     all_transactions = pd.concat([existing_transactions, transactions_df]).drop_duplicates(subset="_id", keep="last")
     num_transactions = all_transactions.to_sql(
         name="transactions", con=mydb, if_exists="replace", index=False

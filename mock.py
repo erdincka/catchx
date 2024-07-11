@@ -44,13 +44,15 @@ def create_csv_files():
     Create customers and transactions CSV files with randomly generated data
     """
 
+    number_of_customers = 200
+    number_of_transactions = 1_000
+
     # return if files already exist
     if os.path.isfile(f"{MOUNT_PATH}/{get_cluster_name()}{BASEDIR}/{TABLE_CUSTOMERS}.csv") and os.path.isfile(f"{MOUNT_PATH}/{get_cluster_name()}{BASEDIR}/{TABLE_TRANSACTIONS}.csv"):
         ui.notify("Files exist, skipping...")
+        app.storage.general["raw_transactions"] = number_of_transactions
+        app.storage.general["raw_customers"] = number_of_customers
         return
-
-    number_of_customers = 200
-    number_of_transactions = 1_000
 
     try:
         # customers

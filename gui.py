@@ -298,7 +298,7 @@ async def handle_image_action(e: events.MouseEventArguments):
         app.storage.user["busy"] = False
 
     elif element == "GoldCustomers":
-        peek_sqlrecords([TABLE_FRAUD, TABLE_TRANSACTIONS, TABLE_CUSTOMERS])
+        await peek_sqlrecords([TABLE_FRAUD, TABLE_TRANSACTIONS, TABLE_CUSTOMERS])
 
     elif element == "ReportView":
         ui.navigate.to(
@@ -402,6 +402,11 @@ async def domain_ii():
             ).classes("absolute top-10 left-2").tooltip("Source data")
 
             metric_badges_on_ii()
+            with ui.card().classes(
+                "flex-grow shrink absolute top-10 right-0 w-1/3 h-1/3 opacity-50 hover:opacity-100"
+            ):
+                ui.label("Realtime Visibility").classes("uppercase")
+                # ui.table()
             # with ui.card().classes(
             #     "flex-grow shrink absolute top-10 right-0 w-1/3 h-1/3 opacity-50 hover:opacity-100"
             # ):
