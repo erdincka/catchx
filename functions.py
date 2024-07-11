@@ -212,7 +212,10 @@ def iceberg_table_tail(tier: str, tablename: str):
         ui.button(icon="close", on_click=dialog.close).props("flat round dense").classes("absolute right-2 top-2")
 
         df = iceberger.tail(tier=tier, tablename=tablename)
-        ui.table.from_pandas(df).classes('w-full mt-6').props("dense")
+
+        logger.info(df)
+
+        ui.table.from_pandas(df, row_key="_id", title=f"{tier}.{tablename}").classes('w-full mt-6').props("dense")
 
     dialog.on("close", lambda d=dialog: d.delete())
     dialog.open()

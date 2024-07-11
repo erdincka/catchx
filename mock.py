@@ -111,10 +111,9 @@ async def publish_transactions(limit: int = 10):
             csv_reader = csv.DictReader(csvfile)
 
             for transaction in csv_reader:
-                # only publish randomly selected transactions, and only 50 of them by default
+                # only publish randomly selected transactions, and only 10 of them by default
                 if count == limit: break
                 if random.randrange(10) < 3: # ~30% to be selected randomly
-
                     if await run.io_bound(streams.produce, stream_path, TOPIC_TRANSACTIONS, json.dumps(transaction)):
                         logger.debug("Sent %s", transaction["_id"])
                         # add delay
@@ -138,7 +137,7 @@ async def dummy_fraud_score():
     """Return a random percentile with adding a delay to simulate querying to an AI model"""
 
     # add delay
-    await asyncio.sleep(0.02)
+    await asyncio.sleep(0.01)
 
     # respond with a random probability, using string to avoid OJAI conversion to this \"score\": {\"$numberLong\": 46}}
     return str(random.randint(0, 100))

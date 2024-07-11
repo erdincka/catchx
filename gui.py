@@ -232,10 +232,10 @@ async def handle_image_action(e: events.MouseEventArguments):
         code_generate().open()
 
     elif element == "IngestBatch":
-        ui.navigate.to(f"https://{app.storage.general.get('cluster', 'localhost')}:8780/home", new_tab=True)
-        # app.storage.user["busy"] = True
-        # await ingest_customers_iceberg()
-        # app.storage.user["busy"] = False
+        # ui.navigate.to(f"https://{app.storage.general.get('cluster', 'localhost')}:8780/home", new_tab=True)
+        app.storage.user["busy"] = True
+        await ingest_customers_iceberg()
+        app.storage.user["busy"] = False
         # ui.button("History", on_click=lambda: iceberg_table_history(tier=VOLUME_BRONZE, tablename=TABLE_CUSTOMERS)).props("outline")
 
     elif element == "IngestBatchCode":
@@ -441,7 +441,6 @@ async def domain_page():
     dialog.open()
 
 
-# NOT USED
 def metric_badges_on_ii():
     """
     Place badges with counters in real-time as they are updated by monitoring_metrics()
@@ -452,75 +451,75 @@ def metric_badges_on_ii():
         app.storage.general,
         "raw_transactions",
         lambda x: x if x is not None else 0,
-    ).classes("absolute top-[330px] left-[120px]")
+    ).classes("absolute top-[250px] left-[100px]")
     ui.badge("0", color="orange").bind_text_from(
         app.storage.general,
         "raw_customers",
         lambda x: x if x is not None else 0,
-    ).classes("absolute top-[545px] left-[120px]")
+    ).classes("absolute top-[420px] left-[100px]")
 
     # ingest counts
     ui.badge("0", color="lightteal").bind_text_from(
         app.storage.general,
         "ingest_transactions_published",
         lambda x: x if x is not None else 0,
-    ).classes("absolute top-[335px] left-[320px]").tooltip("published transactions")
+    ).classes("absolute top-[250px] left-[280px]").tooltip("published transactions")
     ui.badge("0", color="teal").bind_text_from(
         app.storage.general,
         "ingest_transactions_consumed",
         lambda x: x if x is not None else 0,
-    ).classes("absolute top-[355px] left-[320px]").tooltip("consumed transactions")
+    ).classes("absolute top-[280px] left-[280px]").tooltip("consumed transactions")
     ui.badge("0", color="orange").bind_text_from(
         app.storage.general,
         "ingest_customers",
         lambda x: x if x is not None else 0,
-    ).classes("absolute top-[560px] left-[320px]").tooltip("# of customers")
+    ).classes("absolute top-[460px] left-[280px]").tooltip("# of customers")
 
     # bronze counts
     ui.badge("0", color="teal").bind_text_from(
         app.storage.general,
         "bronze_transactions",
         lambda x: x if x is not None else 0,
-    ).classes("absolute top-[305px] left-[555px]").tooltip("# of transactions")
+    ).classes("absolute top-[280px] left-[450px]").tooltip("# of transactions")
     ui.badge("0", color="orange").bind_text_from(
         app.storage.general,
         "bronze_customers",
         lambda x: x if x is not None else 0,
-    ).classes("absolute top-[545px] left-[550px]").tooltip("# of customers")
+    ).classes("absolute top-[450px] left-[450px]").tooltip("# of customers")
 
     # silver counts
     ui.badge("0", color="darkturquoise").bind_text_from(
         app.storage.general,
         "silver_profiles",
         lambda x: x if x is not None else 0,
-    ).classes("absolute top-[145px] left-[840px]").tooltip("# of profiles")
+    ).classes("absolute top-[140px] left-[680px]").tooltip("# of profiles")
     ui.badge("0", color="teal").bind_text_from(
         app.storage.general,
         "silver_transactions",
         lambda x: x if x is not None else 0,
-    ).classes("absolute top-[330px] left-[840px]").tooltip("# of transactions")
+    ).classes("absolute top-[280px] left-[680px]").tooltip("# of transactions")
     ui.badge("0", color="orange").bind_text_from(
         app.storage.general,
         "silver_customers",
         lambda x: x if x is not None else 0,
-    ).classes("absolute top-[545px] left-[845px]").tooltip("# of customers")
+    ).classes("absolute top-[450px] left-[680px]").tooltip("# of customers")
 
     # gold counts
     ui.badge("0", color="red").bind_text_from(
         app.storage.general,
         "gold_fraud",
         lambda x: x if x is not None else 0,
-    ).classes("absolute top-[555px] left-[1130px]").tooltip("# of fraud")
+    ).classes("absolute top-[420px] left-[870px]").tooltip("# of fraud")
     ui.badge("0", color="teal").bind_text_from(
         app.storage.general,
         "gold_transactions",
         lambda x: x if x is not None else 0,
-    ).classes("absolute top-[575px] left-[1130px]").tooltip("# of transactions")
+    ).classes("absolute top-[440px] left-[870px]").tooltip("# of transactions")
     ui.badge("0", color="orange").bind_text_from(
         app.storage.general,
         "gold_customers",
         lambda x: x if x is not None else 0,
-    ).classes("absolute top-[595px] left-[1130px]").tooltip("# of customers")
+    ).classes("absolute top-[460px] left-[870px]").tooltip("# of customers")
 
 
 # NOT USED

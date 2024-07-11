@@ -15,7 +15,7 @@ def produce(stream: str, topic: str, message: str):
     except Exception as error:
         logger.warning(error)
         return False
-    
+
     finally:
         p.flush()
 

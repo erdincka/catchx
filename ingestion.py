@@ -33,7 +33,7 @@ async def ingest_transactions():
     for record in await run.io_bound(streams.consume, stream=input_stream_path, topic=input_topic, consumer_group="ingestion"):
         txn = json.loads(record)
 
-        logger.debug("Ingesting transaction: %s", txn["_id"])
+        logger.info("Ingesting transaction: %s", txn["_id"])
 
         transactions.append(txn)
         # update the profile

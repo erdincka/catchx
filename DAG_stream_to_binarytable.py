@@ -29,7 +29,7 @@ def consume_messages_from_stream():
 
     session = StreamSession()
     consumer = session.consumer(
-        topic="/path/to/stream:incoming_transactions",
+        topic="/app/incoming:transactions",
         group_id="airflow_consumer_group",
         enable_auto_commit=True,
         auto_offset_reset="earliest",
@@ -55,7 +55,7 @@ def write_to_binary_table(**context):
 
     for msg in messages:
         response = requests.post(
-            "http://<mapr-data-access-gateway-url>/rest/table/app/transactions",
+            "http://localhost:8443/rest/table/app/flowed_transactions",
             headers=headers,
             data=json.dumps(msg),
         )

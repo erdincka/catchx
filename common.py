@@ -327,6 +327,9 @@ def configure_logging():
                     format="%(asctime)s:%(levelname)s:%(name)s (%(funcName)s:%(lineno)d): %(message)s",
                     datefmt='%H:%M:%S')
 
+    # during development
+    logger.setLevel(logging.DEBUG)
+
     # INSECURE REQUESTS ARE OK in Lab
     logging.getLogger("urllib3").setLevel(logging.WARNING)
 

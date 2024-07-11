@@ -159,12 +159,13 @@ async def incoming_topic_stats():
     try:
         URL = f"https://{app.storage.general['cluster']}:8443/rest/stream/topic/info?path={stream_path}&topic={topic}"
         auth = (app.storage.general["MAPR_USER"], app.storage.general["MAPR_PASS"])
+
         async with httpx.AsyncClient(verify=False) as client:  # using async httpx instead of sync requests to avoid blocking the event loop
             response = await client.get(URL, auth=auth, timeout=2.0)
 
             if response is None or response.status_code != 200:
                 # possibly not connected or topic not populated yet, just ignore
-                logger.debug(f"Failed to get topic stats for {topic}")
+                logger.warning(f"Failed to get topic stats for {topic}")
 
             else:
                 metrics = response.json()
@@ -291,11 +292,11 @@ async def bronze_stats():
         if os.path.lexists(f"{MOUNT_PATH}/{get_cluster_name()}{ttable}"):
             num_transactions = len(tables.get_documents(ttable, limit=None))
             series.append({ "transactions": num_transactions })
-            # app.storage.general["bronze_transactions"] = num_transactions
+            app.storage.general["bronze_transactions"] = num_transactions
         if os.path.isdir(f"{MOUNT_PATH}/{get_cluster_name()}{ctable}"): # isdir for iceberg tables
             num_customers = len(iceberger.find_all(VOLUME_BRONZE, TABLE_CUSTOMERS))
             series.append({ "customers": num_customers })
-            # app.storage.general["bronze_customers"] = num_customers
+            app.storage.general["bronze_customers"] = num_customers
 
         # Don't update metrics for empty results
         if len(series) == 0: return
@@ -326,15 +327,15 @@ async def silver_stats():
         if os.path.lexists(f"{MOUNT_PATH}/{get_cluster_name()}{ptable}"):
             num_profiles = len(tables.get_documents(ptable, limit=None))
             series.append({ "profiles": num_profiles })
-            # app.storage.general["silver_profiles"] = num_profiles
+            app.storage.general["silver_profiles"] = num_profiles
         if os.path.lexists(f"{MOUNT_PATH}/{get_cluster_name()}{ttable}"):
             num_transactions = len(tables.get_documents(ttable, limit=None))
             series.append({ "transactions": num_transactions })
-            # app.storage.general["silver_transactions"] = num_transactions
+            app.storage.general["silver_transactions"] = num_transactions
         if os.path.lexists(f"{MOUNT_PATH}/{get_cluster_name()}{ctable}"):
             num_customers = len(tables.get_documents(ctable, limit=None))
             series.append({ "customers": num_customers })
-            # app.storage.general["silver_customers"] = num_customers
+            app.storage.general["silver_customers"] = num_customers
 
         # Don't update metrics for empty results
         if len(series) == 0: return
@@ -369,15 +370,15 @@ async def gold_stats():
         # TODO: find a better/more efficient way to count records
         num_fraud = pd.read_sql(f"SELECT COUNT('_id') FROM {TABLE_FRAUD}", con=mydb).values[:1].flat[0]
         series.append({ TABLE_FRAUD: num_fraud })
-        # app.storage.general["gold_fraud"] = num_fraud
+        app.storage.general["gold_fraud"] = num_fraud
 
         num_transactions = pd.read_sql(f"SELECT COUNT('_id') FROM {TABLE_TRANSACTIONS}", con=mydb).values[:1].flat[0]
         series.append({ TABLE_TRANSACTIONS: num_transactions })
-        # app.storage.general["gold_transactions"] = num_transactions
+        app.storage.general["gold_transactions"] = num_transactions
 
         num_customers = pd.read_sql(f"SELECT COUNT('_id') FROM {TABLE_CUSTOMERS}", con=mydb).values[:1].flat[0]
         series.append({ TABLE_CUSTOMERS: num_customers })
-        # app.storage.general["gold_customers"] = num_customers
+        app.storage.general["gold_customers"] = num_customers
 
         # Don't update metrics for empty results
         if len(series) == 0: return

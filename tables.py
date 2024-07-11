@@ -1,7 +1,7 @@
 import socket
 from mapr.ojai.storage.ConnectionFactory import ConnectionFactory
 
-from nicegui import app 
+from nicegui import app
 
 from common import *
 
@@ -19,7 +19,7 @@ def get_connection():
             "ssl=true;" \
             "sslCA=/opt/mapr/conf/ssl_truststore.pem;" \
             f"sslTargetNameOverride={socket.getfqdn(app.storage.general['cluster'])}"
-    
+
     return ConnectionFactory.get_connection(connection_str=connection_str)
 
 
@@ -41,15 +41,17 @@ def upsert_document(table_path: str, json_dict: dict):
 
         new_document = connection.new_document(dictionary=json_dict)
 
+        logger.debug("upsert new doc: %s", new_document)
+
         store.insert_or_replace(new_document)
 
-        logger.debug("upsert for %s", json_dict["_id"])
+        logger.debug("doc upserted %s", json_dict["_id"])
 
     except Exception as error:
         logger.warning(error)
         return False
 
-    # finally:        
+    # finally:
     #     if connection: connection.close()
 
     return True
@@ -72,7 +74,7 @@ def upsert_documents(table_path: str, docs: list):
         store = connection.get_or_create_store(table_path)
 
         logger.info("Upserting %d documents from list", len(docs))
-        
+
         store.insert_or_replace(doc_stream=docs)
 
     except Exception as error:
@@ -139,7 +141,7 @@ def search_documents(table: str, selectClause: list, whereClause: dict):
     except Exception as error:
         logger.warning(error)
 
-    finally:        
+    finally:
         # close the OJAI connection
         # connection.close()
         return doc

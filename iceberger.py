@@ -108,11 +108,15 @@ def tail(tier: str, tablename: str):
 
     if catalog is not None:
 
+        logger.info("Loading table from %s.%s", tier, tablename)
+
         table = catalog.load_table(f'{tier}.{tablename}')
 
         df = table.scan().to_pandas()
 
-        return df.tail()
+        logger.info(df)
+
+        return df
 
 
 def history(tier: str, tablename: str):
@@ -185,6 +189,8 @@ def find_by_field(tier: str, tablename: str, field: str, value: str):
             table = catalog.load_table(
                 f'{tier}.{tablename}',
             )
+
+            logger.info("table path: %s.%s", tier, tablename)
 
             filtered = table.scan(
                 row_filter=EqualTo(field, value),
