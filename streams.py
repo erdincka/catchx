@@ -14,6 +14,7 @@ def produce(stream: str, topic: str, message: str):
 
     except Exception as error:
         logger.warning(error)
+        ui.notify(error, type='warning')
         return False
 
     finally:
@@ -43,7 +44,8 @@ def consume(stream: str, topic: str, consumer_group: str):
             if not message.error(): yield message.value().decode("utf-8")
 
             elif message.error().code() == KafkaError._PARTITION_EOF:
-                logger.info("No more messages in %s", topic)
+                logger.info("No more messages in topic: %s", topic)
+                ui.notify(f"No more messages in {topic}")
                 raise EOFError
             # silently ignore other errors
             else: logger.warning(message.error())

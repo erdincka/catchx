@@ -170,7 +170,7 @@ async def incoming_topic_stats():
             else:
                 metrics = response.json()
                 if not metrics["status"] == "ERROR":
-                    logger.debug(metrics)
+                    # logger.debug(metrics)
 
                     series = []
                     for m in metrics["data"]:
@@ -324,10 +324,16 @@ async def silver_stats():
     ctable = f"{BASEDIR}/{VOLUME_SILVER}/{TABLE_CUSTOMERS}"
 
     try:
+        # logger.info("Searching table %s", f"{MOUNT_PATH}/{get_cluster_name()}{ptable}")
         if os.path.lexists(f"{MOUNT_PATH}/{get_cluster_name()}{ptable}"):
+            # logger.info("Found table %s", ptable)
             num_profiles = len(tables.get_documents(ptable, limit=None))
+            # logger.debug("Got metrics for silver profiles %d", num_profiles)
             series.append({ "profiles": num_profiles })
             app.storage.general["silver_profiles"] = num_profiles
+        else:
+            logger.warning("Cannot get metric for silver profiles")
+
         if os.path.lexists(f"{MOUNT_PATH}/{get_cluster_name()}{ttable}"):
             num_transactions = len(tables.get_documents(ttable, limit=None))
             series.append({ "transactions": num_transactions })
@@ -364,12 +370,16 @@ async def gold_stats():
         # return if table is missing
         engine = create_engine(mydb)
         with engine.connect() as conn:
+            # logger.debug("Engine connected")
             # return if table is not created
-            if TABLE_FRAUD not in [ t for t in conn.execute(text(f"SHOW TABLES LIKE '{TABLE_FRAUD}';")) ]: return
+            if TABLE_FRAUD not in [ t for t in conn.execute(text(f"SHOW TABLES LIKE '{TABLE_FRAUD}%';")) ]:
+                ui.notify(f"Gold table {TABLE_FRAUD} not found")
+                return
 
         # TODO: find a better/more efficient way to count records
         num_fraud = pd.read_sql(f"SELECT COUNT('_id') FROM {TABLE_FRAUD}", con=mydb).values[:1].flat[0]
         series.append({ TABLE_FRAUD: num_fraud })
+        logger.debug("Found %d fraud activity", num_fraud)
         app.storage.general["gold_fraud"] = num_fraud
 
         num_transactions = pd.read_sql(f"SELECT COUNT('_id') FROM {TABLE_TRANSACTIONS}", con=mydb).values[:1].flat[0]
@@ -400,7 +410,8 @@ async def monitoring_metrics():
     """
 
     incoming = await incoming_topic_stats()
-    logger.debug(incoming)
+    # logger.debug(incoming)
+
     if incoming is not None:
         metrics = incoming["values"]
         app.storage.general["ingest_transactions_published"] = next(
@@ -412,7 +423,8 @@ async def monitoring_metrics():
         )
 
     bronze = await bronze_stats()
-    logger.debug(bronze)
+    # logger.debug(bronze)
+
     if bronze is not None:
         metrics = bronze["values"]
         app.storage.general["bronze_transactions"] = next(
@@ -423,7 +435,8 @@ async def monitoring_metrics():
         )
 
     silver = await silver_stats()
-    logger.debug(silver)
+    # logger.debug(silver)
+
     if silver is not None:
         metrics = silver["values"]
         app.storage.general["silver_profiles"] = next(
@@ -437,7 +450,8 @@ async def monitoring_metrics():
         )
 
     gold = await gold_stats()
-    logger.debug(gold)
+    # logger.debug(gold)
+
     if gold is not None:
         metrics = gold["values"]
         app.storage.general["gold_fraud"] = next(

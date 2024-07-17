@@ -72,8 +72,6 @@ async def refine_transactions():
         ui.notify(f"Input table not found: {tablename} on {tier} volume", type="warning")
         return
 
-    app.storage.user["busy"] = True
-
     # df = iceberger.find_all(tier=tier, tablename=tablename)
     df = pd.DataFrame.from_dict(tables.get_documents(table_path=f"{BASEDIR}/{tier}/{tablename}", limit=None))
     ui.notify(f"Found {df.count(axis=1).size} rows in {tablename}")
@@ -96,7 +94,7 @@ async def refine_transactions():
         ui.notify(f"Failed to write into table: {error}", type='negative')
 
     finally:
-        app.storage.user["busy"] = False
+        app.storage.general["busy"] = False
 
 
 # SSE-TODO: output to be written to maprdb binary table
@@ -170,7 +168,7 @@ async def refine_customers():
         ui.notify(f"Failed to write into table: {error}", type='negative')
 
     finally:
-        app.storage.user["busy"] = False
+        app.storage.general["busy"] = False
 
 
 def iceberg_table_history(tier: str, tablename: str):
@@ -213,9 +211,10 @@ def iceberg_table_tail(tier: str, tablename: str):
 
         df = iceberger.tail(tier=tier, tablename=tablename)
 
-        logger.info(df)
+        logger.debug(df)
 
-        ui.table.from_pandas(df, row_key="_id", title=f"{tier}.{tablename}").classes('w-full mt-6').props("dense")
+        ui.label(f"Total records: {df.shape[0]}") # shape[0] giving total rows
+        ui.table.from_pandas(df.tail(), row_key="_id", title=f"{tier}.{tablename}").classes('w-full mt-6').props("dense")
 
     dialog.on("close", lambda d=dialog: d.delete())
     dialog.open()
@@ -228,6 +227,7 @@ def peek_documents(tablepath: str):
     :param tablepath str: full path for the JSON table
     """
 
+    logger.info("Reading %s", f"{MOUNT_PATH}/{get_cluster_name()}{tablepath}")
     if not os.path.lexists(f"{MOUNT_PATH}/{get_cluster_name()}{tablepath}"): # table not created yet
         ui.notify(f"Table not found: {tablepath}", type="warning")
         return
@@ -270,13 +270,13 @@ async def peek_sqlrecords(tablenames: list):
 
 async def create_golden():
 
-    app.storage.user["busy"] = True
+    app.storage.general["busy"] = True
 
     (msg, sev) = await run.io_bound(data_aggregation)
 
     ui.notify(msg, type=sev)
 
-    app.storage.user["busy"] = False
+    app.storage.general["busy"] = False
 
 
 def data_aggregation():
@@ -365,7 +365,7 @@ def reporting():
 async def delete_volumes_and_streams():
     auth = (app.storage.general["MAPR_USER"], app.storage.general["MAPR_PASS"])
 
-    app.storage.user['busy'] = True
+    app.storage.general['busy'] = True
 
     for vol in [VOLUME_BRONZE, VOLUME_SILVER, VOLUME_GOLD]:
 
@@ -385,7 +385,7 @@ async def delete_volumes_and_streams():
                     ui.notify(f"{vol}: {res['errors'][0]['desc']}", type='negative')
 
     # Delete streams
-    for stream in [STREAM_INCOMING, STREAM_MONITORING]:
+    for stream in [STREAM_INCOMING, STREAM_CHANGELOG]:
         URL = f"https://{app.storage.general['cluster']}:8443/rest/stream/delete?path={BASEDIR}/{stream}"
         async with httpx.AsyncClient(verify=False) as client:
             response = await client.post(URL, auth=auth)
@@ -449,4 +449,4 @@ async def delete_volumes_and_streams():
         logger.warning(error)
         ui.notify(f"Failed to remove db tables: {error}", type='negative')
 
-    app.storage.user['busy'] = False
+    app.storage.general['busy'] = False

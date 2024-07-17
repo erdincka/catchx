@@ -38,7 +38,39 @@ You can open Log window by selecting the hamburger menu on the footer, and selec
 
 Setup Data Fabric cluster with Spark, create a user with volume, table and stream creation rights, as well as with audit monitoring (for monitoring charts). Or for demo environments, simply use `mapr` user.
 
-Setup MySQL (possibly used for Hive too), on Data Fabric cluster, and create/allow a user with remote connection, DB creation and permissions.
+
+Setup MariaDB (possibly used for Hive too), on Data Fabric cluster, and create/allow a user with remote connection, DB creation and permissions.
+
+## Install MariaDB
+
+Follow the doc.
+
+## Install Hive metastore
+
+Install hive and hive metastore
+
+`yum install mapr-hive mapr-hiveserver2 mapr-hivemetastore`
+
+### Download MariaDB packages:
+
+`wget https://downloads.mariadb.com/Connectors/java/connector-java-2.5.4/mariadb-java-client-2.5.4.jar`
+`wget https://downloads.mariadb.com/Connectors/java/connector-java-2.5.4/mariadb-java-client-2.5.4-sources.jar`
+`wget https://downloads.mariadb.com/Connectors/java/connector-java-2.5.4/mariadb-java-client-2.5.4-javadoc.jar`
+
+Copy files to /opt/mapr/hive/hive-3.1.3/lib/
+
+Reconfigure cluster:
+
+`/opt/mapr/server/configure.sh -R`
+
+Follow the doc to set up database:
+
+Edit `/opt/mapr/hive/hive-3.1.3/conf/hive-site.xml`
+
+Initialize: `/opt/mapr/hive/hive-3.1.3/bin/schematool -dbType mysql -initSchema`
+
+
+## Create Dashboard DBs
 
 ```shell
 
@@ -55,6 +87,44 @@ FLUSH PRIVILEGES;
 exit
 
 ```
+
+
+### Nifi, Airflow and Spark
+
+Setup Airflow and Spark packages
+
+`dnf install mapr-spark mapr-spark-master mapr-spark-historyserver mapr-spark-thriftserver`
+
+
+`dnf install mapr-airflow-webserver mapr-airflow-scheduler mapr-airflow mapr-nifi`
+
+
+`cp /opt/mapr/spark/spark-3.3.3/conf/workers.template /opt/mapr/spark/spark-3.3.3/conf/workers`
+
+`/opt/mapr/server/configure.sh -R`
+
+`export SPARK_HOME=/opt/mapr/spark/spark-3.3.3`
+
+#### Run these as mapr user
+`ssh-keygen -t rsa -P '' -f ~/.ssh/id_rsa`
+`ssh-copy-id <worker_host>`
+
+As root:
+
+`$SPARK_HOME/sbin/start-workers.sh`
+
+
+`/opt/mapr/nifi/nifi-1.19.1/bin/nifi.sh set-single-user-credentials admin Admin123.Admin123.`
+
+
+`airflow users  create --role Admin --username admin --email admin --firstname admin --lastname admin --password admin`
+
+
+```bash
+maprcli node services -name airflow-webserver  -action restart -nodes `hostname -f`
+```
+
+--- or airflow configures mapr/mapr as default user/password ---
 
 
 ### Setting up NFSv4

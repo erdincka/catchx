@@ -18,14 +18,15 @@ STORAGE_SECRET = "ezmer@1r0cks"
 
 DATA_PRODUCT = "fraud" # make this a single word, used for dir and database names, no spaces or fancy characters
 BASEDIR = "/app"
-MOUNT_PATH = "/edfs/mapr"
+MOUNT_PATH = "/mapr"
+EXTERNAL_NFS_PATH = "/users" # TODO: make this user defined
 
 VOLUME_BRONZE = "bronze"
 VOLUME_SILVER = "silver"
 VOLUME_GOLD = "gold"
 
 STREAM_INCOMING = "incoming"
-STREAM_MONITORING = "monitoring"
+STREAM_CHANGELOG = "changelog"
 
 TOPIC_TRANSACTIONS = "transactions"
 
@@ -60,6 +61,24 @@ TRANSACTION_CATEGORIES = [
     "Transfers",
     "Other"
 ]
+
+
+HPE_COLORS = {
+    "green": "#01A982",
+    "purple": "#7630EA",
+    "teal": "#00E8CF",
+    "blue": "#00739D",
+    "red": "#C54E4B",
+    "orange": "#FF8300",
+    "yellow": "#FEC901",
+    "darkgreen": "#008567",
+    "darkpurple": "#6633BC",
+    "darkteal": "#117B82",
+    "darkblue": "#00567A",
+    "darkred": "#A2423D",
+    "darkorange": "#9B6310",
+    "darkyellow": "#8D741C",
+}
 
 logger = logging.getLogger("common")
 
@@ -179,7 +198,7 @@ async def create_volumes():
 
     auth = (app.storage.general["MAPR_USER"], app.storage.general["MAPR_PASS"])
 
-    app.storage.user['busy'] = True
+    app.storage.general['busy'] = True
 
     # create base folder if not exists
     basedir = f"{MOUNT_PATH}/{get_cluster_name()}{BASEDIR}"
@@ -212,20 +231,20 @@ async def create_volumes():
             ui.notify(f"Failed to connect to REST. Please manually set /opt/mapr/conf/mapr-clusters.conf file with the hostname/ip address of the apiserver!", type='warning')
             return
 
-    app.storage.user['busy'] = False
+    app.storage.general['busy'] = False
 
 
 async def create_streams():
     auth = (app.storage.general["MAPR_USER"], app.storage.general["MAPR_PASS"])
 
-    for stream in [STREAM_INCOMING, STREAM_MONITORING]:
+    for stream in [STREAM_INCOMING, STREAM_CHANGELOG]:
         URL = f"https://{app.storage.general['cluster']}:8443/rest/stream/create?path={BASEDIR}/{stream}&ttl=38400&compression=lz4&produceperm=p&consumeperm=p&topicperm=p"
 
-        # ensure monitoring is used for changelog
-        if stream == "monitoring":
+        # ensure changelog stream is enabled for cdc
+        if stream == STREAM_CHANGELOG:
             URL += "&ischangelog=true&defaultpartitions=1"
 
-        app.storage.user['busy'] = True
+        app.storage.general['busy'] = True
         try:
             async with httpx.AsyncClient(verify=False) as client:
                 response = await client.post(URL, auth=auth)
@@ -248,7 +267,7 @@ async def create_streams():
             return
 
         finally:
-            app.storage.user['busy'] = False
+            app.storage.general['busy'] = False
 
 
 def show_mysql_tables():
@@ -323,7 +342,7 @@ def configure_logging():
     Set up logging and supress third party errors
     """
 
-    logging.basicConfig(level=logging.INFO,
+    logging.basicConfig(level=logging.DEBUG,
                     format="%(asctime)s:%(levelname)s:%(name)s (%(funcName)s:%(lineno)d): %(message)s",
                     datefmt='%H:%M:%S')
 
@@ -345,6 +364,9 @@ def configure_logging():
 
     logging.getLogger("pyiceberg.io").setLevel(logging.WARNING)
 
+    logging.getLogger("mapr.ojai.storage.OJAIConnection").setLevel(logging.WARNING)
+    logging.getLogger("mapr.ojai.storage.OJAIDocumentStore").setLevel(logging.WARNING)
+
     # https://sam.hooke.me/note/2023/10/nicegui-binding-propagation-warning/
     binding.MAX_PROPAGATION_TIME = 0.05
 
@@ -361,7 +383,7 @@ def toggle_debug(arg: ValueChangeEventArguments):
 def gracefully_fail(exc: Exception):
     print("gracefully failing...")
     logger.exception(exc)
-    app.storage.user["busy"] = False
+    app.storage.general["busy"] = False
 
 
 def not_implemented():

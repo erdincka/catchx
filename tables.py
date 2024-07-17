@@ -162,6 +162,7 @@ def get_documents(table_path: str, limit: int = FETCH_RECORD_NUM):
     try:
         connection = get_connection()
 
+        # logger.debug("Requesting docs from %s", table_path)
         table = connection.get_store(table_path)
 
         # Create a query to get the last n records based on the timestamp field
@@ -176,7 +177,7 @@ def get_documents(table_path: str, limit: int = FETCH_RECORD_NUM):
                 .build()
 
         # Run the query and return the results as list
-        logger.debug("Returned docs: %d", len([doc for doc in table.find(query)]))
+        # logger.debug("Returned docs for %s: %d", table_path, len([doc for doc in table.find(query)]))
         return [doc for doc in table.find(query)]
 
     except Exception as error:

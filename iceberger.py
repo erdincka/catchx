@@ -84,7 +84,7 @@ def write(tier: str, tablename: str, records: list) -> bool:
             )
 
         except:
-            logger.info("Table exists, appending to: " + tablename)
+            logger.debug("Table exists, appending to: " + tablename)
             table = catalog.load_table(f"{tier}.{tablename}")
 
         existing = table.scan().to_pandas()
@@ -93,6 +93,7 @@ def write(tier: str, tablename: str, records: list) -> bool:
 
         merged = pd.concat([existing, incoming]).drop_duplicates(subset="_id", keep="last")
 
+        ui.notify(f"Appending {merged.size} records to {tablename}")
         table.append(pa.Table.from_pandas(merged, preserve_index=False))
 
         return True
@@ -102,7 +103,7 @@ def write(tier: str, tablename: str, records: list) -> bool:
 
 
 def tail(tier: str, tablename: str):
-    """Return last 5 records from tablename"""
+    """Return all records from tablename"""
 
     catalog = get_catalog()
 
@@ -114,7 +115,7 @@ def tail(tier: str, tablename: str):
 
         df = table.scan().to_pandas()
 
-        logger.info(df)
+        # logger.debug(df)
 
         return df
 

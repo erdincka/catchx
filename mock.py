@@ -39,6 +39,66 @@ def fake_transaction(sender: str, receiver: str):
     }
 
 
+async def create_transactions(count: int = 100):
+    transactions = []
+
+    customers = []
+    try:
+        with open(f"{MOUNT_PATH}/{get_cluster_name()}{BASEDIR}/{TABLE_CUSTOMERS}.csv", "r", newline='') as csvfile:
+            reader = csv.DictReader(csvfile)
+            customers = [row for row in reader]
+
+    except:
+        ui.notify("Failed to read customers, create them first!", type='warning')
+        return
+
+    try:
+        # generate transaction with randomly selected sender and reciever accounts
+        for _ in range(count):
+            sender = customers[random.randrange(len(customers))]['account_number']
+            receiver = customers[random.randrange(len(customers))]['account_number']
+            transactions.append(fake_transaction(sender, receiver))
+
+        with open(
+            f"{MOUNT_PATH}/{get_cluster_name()}{BASEDIR}/{TABLE_TRANSACTIONS}.csv",
+            "w",
+            newline="",
+        ) as csvfile:
+            fieldnames = fake_transaction("X", "Y").keys()
+            writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+            writer.writeheader()
+            writer.writerows(transactions)
+            app.storage.general["raw_transactions"] = len(transactions)
+
+    except Exception as error:
+        ui.notify(error, type='warning')
+
+    logger.info("%d transactions created", count)
+    ui.notify(f"{count} transactions created")
+
+
+async def create_customers(count: int = 200):
+    try:
+        # customers
+        customers = []
+        for _ in range(count):
+            customers.append(fake_customer())
+
+        with open(f"{MOUNT_PATH}/{get_cluster_name()}{BASEDIR}/{TABLE_CUSTOMERS}.csv", "w", newline='') as csvfile:
+            fieldnames = fake_customer().keys()
+            writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+            writer.writeheader()
+            writer.writerows(customers)
+            app.storage.general["raw_customers"] = len(customers)
+
+    except Exception as error:
+        logger.warning(error)
+        return False
+
+    logger.info("%d customers created", count)
+    ui.notify(f"{count} customers created")
+
+# NOT USED
 def create_csv_files():
     """
     Create customers and transactions CSV files with randomly generated data
@@ -90,8 +150,11 @@ def create_csv_files():
         return False
 
 
-async def peek_mocked_data():
-    await run_command_with_dialog(f"tail {MOUNT_PATH}/{get_cluster_name()}{BASEDIR}/{TABLE_CUSTOMERS}.csv {MOUNT_PATH}/{get_cluster_name()}{BASEDIR}/{TABLE_TRANSACTIONS}.csv")
+async def peek_mocked_customers():
+    await run_command_with_dialog(f"tail {MOUNT_PATH}/{get_cluster_name()}{BASEDIR}/{TABLE_CUSTOMERS}.csv")
+
+async def peek_mocked_transactions():
+    await run_command_with_dialog(f"tail {MOUNT_PATH}/{get_cluster_name()}{BASEDIR}/{TABLE_TRANSACTIONS}.csv")
 
 
 async def publish_transactions(limit: int = 10):
@@ -117,7 +180,7 @@ async def publish_transactions(limit: int = 10):
                 if count == limit: break
                 if random.randrange(10) < 3: # ~30% to be selected randomly
                     if await run.io_bound(streams.produce, stream_path, TOPIC_TRANSACTIONS, json.dumps(transaction)):
-                        logger.debug("Sent %s", transaction["_id"])
+                        logger.info("Sent %s", transaction["_id"])
                         # add delay
                         # await asyncio.sleep(0.2)
                     else:
@@ -145,37 +208,40 @@ async def dummy_fraud_score():
     return str(random.randint(0, 100))
 
 
-async def upload_to_s3():
-    import boto3
+async def upload_to_s3(file: str):
+    """ Upload the file to the external S3 bucket
+    :param file str: full path for the file to upload
+    """
 
-    customer_file = f"{MOUNT_PATH}/{get_cluster_name()}{BASEDIR}/{TABLE_CUSTOMERS}.csv"
-    transaction_file = f"{MOUNT_PATH}/{get_cluster_name()}{BASEDIR}/{TABLE_CUSTOMERS}.csv"
-    # session = boto3.Session(
-    #     aws_access_key_id=app.storage.general["S3_ACCESS_KEY"],
-    #     aws_secret_access_key=app.storage.general["S3_SECRET_KEY"],
-    # )
-    # s3 = session.resource("s3")
+    from minio import Minio
 
-    s3 = boto3.client(
-        "s3",
-        endpoint_url=f"https://{app.storage.general['cluster']}:9000/",
-        verify=False,
-        aws_access_key_id=app.storage.general["S3_ACCESS_KEY"],
-        aws_secret_access_key=app.storage.general["S3_SECRET_KEY"],
-    )
+    bucket_name = DATA_PRODUCT
 
-    # create bucket if not exists
-    bucket = s3.create_bucket(
-        Bucket=DATA_PRODUCT,
-    )
-    print(bucket)
+    try:
+        client = Minio(
+            endpoint=app.storage.general.get('S3_SERVER',"localhost"),
+            access_key=app.storage.general["S3_ACCESS_KEY"],
+            secret_key=app.storage.general["S3_SECRET_KEY"],
+            secure=False,
+        )
 
-    # s3.put_bucket_policy(Bucket=bucket_name, Policy=bucket_policy)
-    # result = s3.get_bucket_policy(Bucket=DATA_PRODUCT)
-    # print(result["Policy"])
+        # Make the bucket if it doesn't exist.
+        found = client.bucket_exists(bucket_name)
+        if not found:
+            client.make_bucket(bucket_name)
+            logger.info("Created bucket %s", bucket_name)
+        else:
+            logger.info("Bucket %s already exists", bucket_name)
 
-    # s3.meta.client.upload_file(
-    #     Filename=customer_file,
-    #     Bucket=bucket,
-    #     Key=f"{TABLE_CUSTOMERS}.csv",
-    # )
+        # Upload the file, renaming it in the process
+        client.fput_object(
+            bucket_name,
+            os.path.basename(file),
+            file,
+        )
+
+    except Exception as error:
+        logger.warning(error)
+        return False
+
+    return True

@@ -7,10 +7,7 @@ from datetime import datetime, timedelta
 import pandas as pd
 import pyarrow as pa
 from pyiceberg.catalog import load_catalog
-# from pyiceberg.schema import Schema
-# from pyiceberg.schema import NestedField
-# from pyiceberg.types import StringType, LongType, DoubleType, TimestampType
-# import pandas.api.types as ptypes
+
 
 # Define the default arguments
 default_args = {

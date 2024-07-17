@@ -23,7 +23,7 @@ async def ingest_transactions():
         ui.notify(f"Stream not found {input_stream_path}", type="warning")
         return
 
-    app.storage.user['busy'] = True
+    app.storage.general['busy'] = True
 
     # Output table
     output_table_path = f"{BASEDIR}/{VOLUME_BRONZE}/{TABLE_TRANSACTIONS}"
@@ -42,7 +42,7 @@ async def ingest_transactions():
     if len(transactions) > 0:
         # Write into DocumentDB for Bronze tier (raw data) - this will allow CDC for fraud detection process
         if tables.upsert_documents(table_path=output_table_path, docs=transactions):
-            ui.notify(f"Saved {len(transactions)} transactions in {output_table_path}", type="positive")
+            ui.notify(f"Saved {len(transactions)} records in {output_table_path}", type="positive")
         else:
             ui.notify(f"Failed to update table: {TABLE_TRANSACTIONS} in {VOLUME_BRONZE}", type='negative')
         # # Write into iceberg for Bronze tier (raw data)
@@ -52,10 +52,11 @@ async def ingest_transactions():
         # else:
         #     ui.notify(f"Failed to save table: {TABLE_TRANSACTIONS} in {VOLUME_BRONZE}", type='negative')
     # release when done
-    app.storage.user['busy'] = False
+    app.storage.general['busy'] = False
 
 
 # SSE-TODO: read from stream, upsert profiles table, and write raw data into iceberg table
+### AVAILABLE IN THE AIRFLOW DAG
 async def ingest_transactions_spark():
 
     stream_path = f"{BASEDIR}/{STREAM_INCOMING}" # input
@@ -96,13 +97,13 @@ async def ingest_customers_iceberg():
     tablename = TABLE_CUSTOMERS
 
     csvpath = f"{MOUNT_PATH}/{get_cluster_name()}{BASEDIR}/{TABLE_CUSTOMERS}.csv"
-    app.storage.user['busy'] = True
 
     try:
         with open(csvpath, "r", newline='') as csvfile:
             csv_reader = csv.DictReader(csvfile)
 
             logger.info("Reading %s", csvpath)
+            ui.notify(f"Reading customers from {csvpath}")
 
             # Write into iceberg for Bronze tier (raw data)
             new_customers = [cust for cust in csv_reader]
@@ -120,7 +121,7 @@ async def ingest_customers_iceberg():
         return False
 
     finally:
-        app.storage.user['busy'] = False
+        app.storage.general['busy'] = False
 
 
 async def fraud_detection():

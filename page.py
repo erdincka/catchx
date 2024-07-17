@@ -15,7 +15,7 @@ def app_init():
     # Reset services
 
     # and previous run state if it was hang
-    app.storage.user["busy"] = False
+    app.storage.general["busy"] = False
 
     # reset the cluster info
     if "clusters" not in app.storage.general:
@@ -25,64 +25,6 @@ def app_init():
     if "MAPR_USER" not in app.storage.general:
         app.storage.general["MAPR_USER"] = os.environ.get("MAPR_USER", "")
         app.storage.general["MAPR_PASS"] = os.environ.get("MAPR_PASS", "")
-
-
-def header():
-    with ui.header(elevated=True).classes('items-center justify-between uppercase'):
-        ui.label(f"{APP_NAME}: {TITLE}")
-
-        ui.space()
-
-        with ui.row().classes("place-items-center"):
-            ui.button("Data Hub", on_click=cluster_configuration_dialog).props("outline color=white")
-            ui.link(target=f"https://{app.storage.general.get('MAPR_USER', 'mapr')}:{app.storage.general.get('MAPR_PASS', 'mapr123')}@{app.storage.general.get('cluster', 'localhost')}:8443/app/mcs/", new_tab=True).bind_text_from(app.storage.general, "cluster", backward=lambda x: app.storage.general["clusters"].get(x, "localhost") if x else "None").classes("text-white hover:text-blue-600")
-
-
-def footer():
-    with ui.footer():
-
-        with ui.row().classes("w-full items-center"):
-
-            # Endpoints
-            ui.label("Volumes:")
-
-            with ui.button_group().props('flat color=dark'):
-                # GNS
-                ui.button("GNS", on_click=lambda: run_command_with_dialog(f"df -h {MOUNT_PATH}; ls -lA {MOUNT_PATH}"))
-                # App folder
-                ui.button("Data Domain", on_click=lambda: run_command_with_dialog(f"ls -lA {MOUNT_PATH}/{get_cluster_name()}{BASEDIR}"))
-                # Volumes
-                ui.button(VOLUME_BRONZE, on_click=lambda: run_command_with_dialog(f"ls -lAR {MOUNT_PATH}/{get_cluster_name()}{BASEDIR}/{VOLUME_BRONZE}"))
-                ui.button(VOLUME_SILVER, on_click=lambda: run_command_with_dialog(f"ls -lAR {MOUNT_PATH}/{get_cluster_name()}{BASEDIR}/{VOLUME_SILVER}"))
-                ui.button(VOLUME_GOLD, on_click=show_mysql_tables)
-                # ui.button(VOLUME_GOLD, on_click=lambda: run_command_with_dialog(f"ls -lAR {MOUNT_PATH}/{get_cluster_name()}{BASEDIR}/{VOLUME_GOLD}"))
-
-            ui.button("Upload to S3", on_click=upload_to_s3).bind_visibility_from(app.storage.general, "S3_SECRET_KEY")
-            ui.space()
-
-            # ui.button("CDC", on_click=lambda: enable_cdc(source_table_path=f"{BASEDIR}/{VOLUME_BRONZE}/{TABLE_TRANSACTIONS}", destination_stream_topic=f"{BASEDIR}/{STREAM_MONITORING}:{TOPIC_TRANSACTIONS}"))
-            # ui.switch("Lights on!", on_change=lights_on).props("flat outline color=dark keep-color").bind_value(app.storage.general, "lightson")
-            # ui.space()
-
-            ui.switch(on_change=toggle_debug).tooltip("Debug").props("color=dark keep-color")
-
-            ui.spinner("ios", size="2em", color="red").bind_visibility_from(
-                app.storage.user, "busy"
-            ).tooltip("Busy")
-
-            ui.link(
-                "Source",
-                target=DATA_DOMAIN.get("link", ""),
-                new_tab=True,
-            ).bind_visibility_from(
-                DATA_DOMAIN, "link", backward=lambda x: x is not None
-            ).classes(
-                "text-white hover:text-blue-600"
-            )
-            ui.icon("check_circle", size="2em", color="green").bind_visibility_from(
-                app.storage.user, "busy", lambda x: not x
-            ).tooltip("Ready")
-
 
 
 def demo_steps():
@@ -98,7 +40,8 @@ def demo_steps():
             with ui.row().classes("w-full place-items-center"):
                 ui.label("Create CSVs: ").classes("w-40")
                 ui.button("Create", on_click=create_csv_files)
-                ui.button("Peek Data", on_click=peek_mocked_data).props("outline")
+                ui.button("Peek Customer Feed", on_click=peek_mocked_customers).props("outline")
+                ui.button("Peek Transaction Feed", on_click=peek_mocked_transactions).props("outline")
                 ui.button("Into S3", color='warning', on_click=not_implemented).props('outline').bind_visibility_from(app.storage.general, "S3_SECRET_KEY")
                 ui.button("Show Bucket", color='warning', on_click=not_implemented).props('outline').bind_visibility_from(app.storage.general, "S3_SECRET_KEY")
                 ui.button("Code", on_click=generate_dialog.open, color="info").props("outline")
@@ -110,7 +53,7 @@ def demo_steps():
 
             with ui.row().classes("w-full place-items-center"):
                 ui.label("Publish to Kafka stream: ").classes("w-40")
-                ui.button("Publish", on_click=publish_transactions).bind_enabled_from(app.storage.user, "busy", backward=lambda x: not x)
+                ui.button("Publish", on_click=publish_transactions).bind_enabled_from(app.storage.general, "busy", backward=lambda x: not x)
                 ui.button("Code", on_click=publish_dialog.open, color="info").props("outline")
 
         with ui.expansion("Ingestion & ETL Processing (Bronze)", caption="Realtime processing on incoming data", group="flow"):
@@ -121,7 +64,7 @@ def demo_steps():
 
             with ui.row().classes("w-full place-items-center"):
                 ui.label("Batch ingestion: ").classes("w-40")
-                ui.button("Customers", on_click=ingest_customers_iceberg).bind_enabled_from(app.storage.user, "busy", backward=lambda x: not x)
+                ui.button("Customers", on_click=ingest_customers_iceberg).bind_enabled_from(app.storage.general, "busy", backward=lambda x: not x)
                 ui.button("History", on_click=lambda: iceberg_table_history(tier=VOLUME_BRONZE, tablename=TABLE_CUSTOMERS)).props("outline")
                 ui.button("Tail", on_click=lambda: iceberg_table_tail(tier=VOLUME_BRONZE, tablename=TABLE_CUSTOMERS)).props("outline")
                 ui.button("Code", on_click=batch_dialog.open, color="info").props("outline")
@@ -135,9 +78,9 @@ def demo_steps():
 
             with ui.row().classes("w-full place-items-center"):
                 ui.label("Stream ingestion: ").classes("w-40")
-                ui.button("Transactions", on_click=ingest_transactions).bind_enabled_from(app.storage.user, "busy", backward=lambda x: not x)
+                ui.button("Transactions", on_click=ingest_transactions).bind_enabled_from(app.storage.general, "busy", backward=lambda x: not x)
                 ui.button("Peek", on_click=lambda: peek_documents(tablepath=f"{BASEDIR}/{VOLUME_BRONZE}/{TABLE_TRANSACTIONS}")).props("outline")
-                ui.button("Using Airflow", color='warning', on_click=not_implemented).props("outline").bind_enabled_from(app.storage.user, "busy", backward=lambda x: not x)
+                ui.button("Using Airflow", color='warning', on_click=not_implemented).props("outline").bind_enabled_from(app.storage.general, "busy", backward=lambda x: not x)
                 ui.button("Code", on_click=stream_dialog.open, color="info").props("outline")
 
         with ui.expansion("Enrich & Clean (Silver)", caption="Integrate with data catalogue and clean/enrich data into silver tier", group="flow"):
@@ -148,8 +91,8 @@ def demo_steps():
 
             with ui.row().classes("w-full place-items-center"):
                 ui.label("Data enrichment: ").classes("w-40")
-                ui.button("Customers", on_click=refine_customers).bind_enabled_from(app.storage.user, "busy", backward=lambda x: not x)
-                ui.button("Transactions", on_click=refine_transactions).bind_enabled_from(app.storage.user, "busy", backward=lambda x: not x)
+                ui.button("Customers", on_click=refine_customers).bind_enabled_from(app.storage.general, "busy", backward=lambda x: not x)
+                ui.button("Transactions", on_click=refine_transactions).bind_enabled_from(app.storage.general, "busy", backward=lambda x: not x)
                 ui.button("Code", on_click=enrich_dialog.open, color="info").props("outline")
 
             with ui.row().classes("w-full place-items-center"):
@@ -166,7 +109,7 @@ def demo_steps():
 
             with ui.row().classes("w-full place-items-center"):
                 ui.label("Data aggregation: ").classes("w-40")
-                ui.button("Summarize", on_click=create_golden).bind_enabled_from(app.storage.user, "busy", backward=lambda x: not x).bind_visibility_from(app.storage.general, 'MYSQL_PASS', backward=lambda x: x is not None and len(x) > 0)
+                ui.button("Summarize", on_click=create_golden).bind_enabled_from(app.storage.general, "busy", backward=lambda x: not x).bind_visibility_from(app.storage.general, 'MYSQL_PASS', backward=lambda x: x is not None and len(x) > 0)
                 ui.button("Code", on_click=aggregate_dialog.open, color="info").props("outline")
 
         with ui.expansion("Check transactions for Fraud", caption="Process every transaction and check for fraud", group="flow"):
@@ -201,7 +144,7 @@ def cluster_configuration_dialog():
         with ui.card_section():
             ui.label("External Data Lakes").classes("text-lg w-full")
             with ui.row().classes("w-full place-items-center"):
-                ui.input("S3 URL", placeholder="https://hostname:9000").bind_value(app.storage.general, "S3_SERVER")
+                ui.input("Minio Host", placeholder="minio.local").bind_value(app.storage.general, "S3_SERVER")
                 ui.input("NFS Server", placeholder="nfs-server.dom").bind_value(app.storage.general, "NFS_SERVER")
                 ui.button(
                     "Mount",
@@ -270,14 +213,14 @@ def cluster_configuration_dialog():
             ui.label("Create the Entities").classes("text-lg w-full")
             ui.label("required volumes and streams")
             with ui.row().classes("w-full place-items-center mt-4"):
-                ui.button("Volumes", on_click=create_volumes).bind_enabled_from(app.storage.user, "busy", backward=lambda x: not x)
-                ui.button("Streams", on_click=create_streams).bind_enabled_from(app.storage.user, "busy", backward=lambda x: not x)
+                ui.button("Volumes", on_click=create_volumes).bind_enabled_from(app.storage.general, "busy", backward=lambda x: not x)
+                ui.button("Streams", on_click=create_streams).bind_enabled_from(app.storage.general, "busy", backward=lambda x: not x)
 
         ui.separator()
         with ui.card_section():
             ui.label("Clean up!").classes("text-lg")
             ui.label("Use when done with the demo. This will remove all volumes and streams, ALL DATA will be gone!").classes("text-sm text-italic")
-            ui.button("DELETE ALL!", on_click=delete_volumes_and_streams, color="negative").classes("mt-4").bind_enabled_from(app.storage.user, "busy", backward=lambda x: not x)
+            ui.button("DELETE ALL!", on_click=delete_volumes_and_streams, color="negative").classes("mt-4").bind_enabled_from(app.storage.general, "busy", backward=lambda x: not x)
 
     dialog.on("close", lambda d=dialog: d.delete())
     dialog.open()
