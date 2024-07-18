@@ -574,3 +574,41 @@ async def update_metrics(chart: ui.chart):
         chart.run_chart_method('hideLoading')
 
     logger.info("Finished in: %ss", timeit.default_timer() - tick)
+
+def monitoring_card():
+    # Realtime monitoring information
+    # metric_badges_on_ii()
+    with ui.card().classes(
+        "flex-grow shrink absolute top-10 right-0 w-1/3 h-1/3 opacity-50 hover:opacity-100"
+    ):
+        ui.label("Realtime Visibility").classes("uppercase")
+        with ui.grid(columns=2).classes("w-full"):
+            for metric in [
+                "ingest_transactions_published",
+                "ingest_transactions_consumed",
+                "bronze_transactions",
+                "bronze_customers",
+                "silver_profiles",
+                "silver_transactions",
+                "silver_customers",
+                "gold_transactions",
+                "gold_fraud",
+                "gold_customers",
+            ]:
+                with ui.row().classes("w-full place-content-between"):
+                    ui.label(metric).classes("text-xs m-0 p-0")
+                    ui.badge().bind_text_from(
+                        app.storage.general, metric
+                    ).props("color=red align=middle").classes(
+                        "size-xs self-end"
+                    )
+
+    # with ui.card().classes(
+    #     "flex-grow shrink absolute top-10 right-0 w-1/3 h-1/3 opacity-50 hover:opacity-100"
+    # ):
+    #     ui.label("Realtime Visibility").classes("uppercase")
+    #     mon_chart = get_echart().classes("")
+    #     mon_chart.run_chart_method(
+    #         ":showLoading",
+    #         r'{text: "Waiting..."}',
+    #     )

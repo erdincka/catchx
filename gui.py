@@ -468,8 +468,13 @@ async def domain_ii():
     # with ui.row().classes("w-full flex flex-nowrap relative"):
     with theme.frame(DATA_PRODUCT):
 
-        # <rect id="PublishTransactions" x="300" y="1460" rx="80" ry="80" width="350" height="350" fill={action_color} {rest_of_svg} />
-
+        svg_overlay = f"""
+            <rect id="PublishTransactionsCode" x="200" y="1560" rx="60" ry="60" width="350" height="350" fill={code_color} {rest_of_svg} />
+        #"""
+        # <rect id="CreateTransactions" x="210" y="1555" rx="80" ry="80" width="350" height="340" fill={action_color} {rest_of_svg} />
+        # <rect id="CreateTransactionsCode" x="580" y="1690" rx="20" ry="20" width="330" height="80" fill={code_color} {rest_of_svg} />
+        # <rect id="CreateCustomers" x="210" y="2500" rx="80" ry="80" width="350" height="340" fill={action_color} {rest_of_svg} />
+        # <rect id="CreateCustomersCode" x="580" y="2620" rx="20" ry="20" width="330" height="80" fill={code_color} {rest_of_svg} />
         # <g>
         #     <rect id="PublishTransactions" x="580" y="1520" rx="40" ry="40" width="330" height="150" fill={secondary_action_color} {rest_of_svg} />
         #     <text x="635" y="1620" font-family="Verdana" font-size="60" fill="blue">Publish</text>
@@ -505,12 +510,7 @@ async def domain_ii():
 
         with ui.interactive_image(
             DATA_DOMAIN["diagram"],
-            content=f"""
-            <rect id="CreateTransactions" x="210" y="1555" rx="80" ry="80" width="350" height="340" fill={action_color} {rest_of_svg} />
-            <rect id="CreateTransactionsCode" x="580" y="1690" rx="20" ry="20" width="330" height="80" fill={code_color} {rest_of_svg} />
-            <rect id="CreateCustomers" x="210" y="2500" rx="80" ry="80" width="350" height="340" fill={action_color} {rest_of_svg} />
-            <rect id="CreateCustomersCode" x="580" y="2620" rx="20" ry="20" width="330" height="80" fill={code_color} {rest_of_svg} />
-            # """,
+            content=svg_overlay,
         ).on(
             "svg:pointerup",
             lambda e: handle_image_action(e.args),
@@ -520,56 +520,36 @@ async def domain_ii():
         ).props(
             "fit=scale-down"
         ):
-            with ui.element("div").classes("w-40 absolute top-10 left-2"):
-                ui.label("Feed Files").classes("text-bold")
+            with ui.list().props("bordered dense").classes("w-80 absolute top-10 left-2"):
+                ui.item_label("Source data").props("header").classes("text-bold")
                 ui.separator()
-                with ui.row(wrap=True, align_items="start"):
-                    ui.button(
-                        f"{MOUNT_PATH}/{get_cluster_name()}{BASEDIR}/{TABLE_CUSTOMERS}.csv",
-                        on_click=peek_mocked_customers,
-                    ).props("flat").classes("lowercase").tooltip("Mocked customers")
+                with ui.row().classes("w-full no-wrap p-0"):
+                    with ui.button_group().props("flat"):
+                        ui.button(icon="o_library_add", on_click=create_customers).classes("mx-0 px-1").props("flat")
+                        ui.button(icon="o_integration_instructions", on_click=code_create_customers).classes("mx-0 px-1").props("flat")
+                    with ui.item(on_click=peek_mocked_customers).props("dense").classes("mx-0 gx-0"):
+                        with ui.item_section():
+                            ui.item_label(f"{MOUNT_PATH}/{get_cluster_name()}{BASEDIR}/{TABLE_CUSTOMERS}.csv")
 
-                    ui.button(
-                        f"{MOUNT_PATH}/{get_cluster_name()}{BASEDIR}/{TABLE_TRANSACTIONS}.csv",
-                        on_click=peek_mocked_transactions,
-                    ).props("flat").classes("lowercase").tooltip("Mocked transactions")
+                with ui.row().classes("w-full no-wrap p-0"):
+                    with ui.button_group().props("flat"):
+                        ui.button(icon="o_library_add", on_click=create_transactions).classes("mx-0 px-1").props("flat")
+                        ui.button(icon="o_integration_instructions", on_click=code_create_transactions).classes("mx-0 px-1").props("flat")
+                    with ui.item(on_click=peek_mocked_transactions).props("dense").classes("mx-0 gx-0"):
+                        with ui.item_section():
+                            ui.item_label(f"{MOUNT_PATH}/{get_cluster_name()}{BASEDIR}/{TABLE_TRANSACTIONS}.csv")
 
-            # Realtime monitoring information
-            # metric_badges_on_ii()
-            with ui.card().classes(
-                "flex-grow shrink absolute top-10 right-0 w-1/3 h-1/3 opacity-50 hover:opacity-100"
-            ):
-                ui.label("Realtime Visibility").classes("uppercase")
-                with ui.grid(columns=2).classes("w-full"):
-                    for metric in [
-                        "ingest_transactions_published",
-                        "ingest_transactions_consumed",
-                        "bronze_transactions",
-                        "bronze_customers",
-                        "silver_profiles",
-                        "silver_transactions",
-                        "silver_customers",
-                        "gold_transactions",
-                        "gold_fraud",
-                        "gold_customers",
-                    ]:
-                        with ui.row().classes("w-full place-content-between"):
-                            ui.label(metric).classes("text-xs m-0 p-0")
-                            ui.badge().bind_text_from(
-                                app.storage.general, metric
-                            ).props("color=red align=middle").classes(
-                                "size-xs self-end"
-                            )
 
-            # with ui.card().classes(
-            #     "flex-grow shrink absolute top-10 right-0 w-1/3 h-1/3 opacity-50 hover:opacity-100"
-            # ):
-            #     ui.label("Realtime Visibility").classes("uppercase")
-            #     mon_chart = get_echart().classes("")
-            #     mon_chart.run_chart_method(
-            #         ":showLoading",
-            #         r'{text: "Waiting..."}',
-            #     )
+                # with ui.row(wrap=True, align_items="start"):
+                #     ui.button(
+                #         f"{MOUNT_PATH}/{get_cluster_name()}{BASEDIR}/{TABLE_CUSTOMERS}.csv",
+                #         on_click=peek_mocked_customers,
+                #     ).props("flat").classes("lowercase").tooltip("Mocked customers")
+
+                #     ui.button(
+                #         f"{MOUNT_PATH}/{get_cluster_name()}{BASEDIR}/{TABLE_TRANSACTIONS}.csv",
+                #         on_click=peek_mocked_transactions,
+                #     ).props("flat").classes("lowercase").tooltip("Mocked transactions")
 
     # Block interaction when working
     with ui.dialog().props("persistent").bind_value_from(

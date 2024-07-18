@@ -4,13 +4,13 @@ import sys
 
 from nicegui import app
 
-sys.path.append("/opt/mapr/spark/spark-3.3.3/python/lib/py4j-0.10.9.5-src.zip")
-sys.path.append("/opt/mapr/spark/spark-3.3.3/python/lib/pyspark.zip")
+# sys.path.append("/opt/mapr/spark/spark-3.3.3/python/lib/py4j-0.10.9.5-src.zip")
+# sys.path.append("/opt/mapr/spark/spark-3.3.3/python/lib/pyspark.zip")
 
 os.environ["SPARK_HOME"] = "/opt/mapr/spark/spark-3.3.3"
 
 from pyspark.sql import SparkSession
-from py4j.java_gateway import java_import
+# from py4j.java_gateway import java_import
 # from pyspark.sql.types import StringType, StructType
 # from datetime import datetime
 # import time
@@ -18,6 +18,7 @@ from py4j.java_gateway import java_import
 # from pyspark.sql.types import StructType, StructField, StringType, IntegerType, FloatType
 # import pyspark.sql.functions as F
 
+# wget -O /opt/mapr/spark/spark-3.3.3/jars/iceberg-spark-runtime-3.3_2.12-1.4.2.jar https://search.maven.org/remotecontent?filepath=org/apache/iceberg/iceberg-spark-runtime-3.3_2.12/1.4.2/iceberg-spark-runtime-3.3_2.12-1.4.2.jar
 
 logger = logging.getLogger("sparking")
 logger.setLevel(logging.DEBUG)
@@ -34,7 +35,7 @@ def ingest(input_file: str):
         spark = SparkSession.builder.master(f"spark://{app.storage.general.get('cluster', 'localhost')}:7077").appName("ETL").getOrCreate()
         spark.sparkContext.setLogLevel("ALL")
         print(f"Spark context: {spark}")
-        java_import(spark._sc._jvm, "org.apache.spark.sql.api.python.*")
+        # java_import(spark._sc._jvm, "org.apache.spark.sql.api.python.*")
         df = spark.read.csv(input_file, header=True, inferSchema=True)
         print(df.count())
 
@@ -62,7 +63,6 @@ def ingest(input_file: str):
 #     # Verify the partition size
 #     partition_size = spark.conf.get("spark.sql.files.maxPartitionBytes").replace("b","")
 #     print(f"Partition Size: {partition_size} in bytes and {int(partition_size) / 1024 / 1024} in MB")
-
 
 
 #     # Save log entry to a log file with today's date in the filename

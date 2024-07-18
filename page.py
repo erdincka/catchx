@@ -196,7 +196,7 @@ def cluster_configuration_dialog():
             ui.label("Configure and Login").classes("text-lg w-full")
             ui.label("login if not using JWT").classes("text-sm text-italic")
             with ui.row().classes("w-full place-items-center mt-4"):
-                ui.button("configure.sh -R", on_click=lambda: run_command_with_dialog("/opt/mapr/server/configure.sh -R"))
+                ui.button("configure.sh -R", on_click=lambda: run_command_with_dialog(f"/opt/mapr/server/configure.sh -c -secure -N {get_cluster_name()} -C {app.storage.general.get('MAPR_CLUSTER', 'localhost')}"))
                 ui.button("maprlogin", on_click=lambda: run_command_with_dialog(f"echo {app.storage.general['MAPR_PASS']} | maprlogin password -user {app.storage.general['MAPR_USER']}"))
             with ui.row().classes("w-full place-items-center mt-4"):
                 ui.button(f"remount {MOUNT_PATH}", on_click=lambda: run_command_with_dialog(f"[ -d {MOUNT_PATH} ] && umount -l {MOUNT_PATH}; [ -d {MOUNT_PATH} ] || mkdir -p {MOUNT_PATH}; mount -t nfs -o nolock,soft {app.storage.general['cluster']}:/mapr {MOUNT_PATH}"))
