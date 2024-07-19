@@ -77,7 +77,7 @@ def handle_image_info(e: events.MouseEventArguments):
 
 # dialogs for various phases
 # automatically clear the content for other dialogs
-def code_publish():
+def code_publish_transactions():
     with ui.dialog().props("full-width") as publish_codeview, ui.card().classes(
         "grow relative"
     ):
@@ -285,7 +285,7 @@ async def handle_image_action(e: events.MouseEventArguments):
         await publish_transactions()
 
     elif element == "PublishTransactionsCode":
-        code_publish().open()
+        code_publish_transactions().open()
 
     elif element == "CreateCustomers":
         await create_customers()
@@ -308,9 +308,6 @@ async def handle_image_action(e: events.MouseEventArguments):
 
     elif element == "IngestCustomersIcebergCode":
         code_batch().open()
-
-    elif element == "IngestCustomersIcebergCode":
-        not_implemented()
 
     elif element == "IngestTransactions":
         await ingest_transactions()
@@ -470,6 +467,7 @@ async def domain_ii():
 
         svg_overlay = f"""
             <rect id="PublishTransactionsCode" x="200" y="1560" rx="60" ry="60" width="350" height="350" fill={code_color} {rest_of_svg} />
+            <rect id="PublishTransactions" x="580" y="1685" rx="40" ry="40" width="330" height="100" fill={action_color} {rest_of_svg} />
         #"""
         # <rect id="CreateTransactions" x="210" y="1555" rx="80" ry="80" width="350" height="340" fill={action_color} {rest_of_svg} />
         # <rect id="CreateTransactionsCode" x="580" y="1690" rx="20" ry="20" width="330" height="80" fill={code_color} {rest_of_svg} />

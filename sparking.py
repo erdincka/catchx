@@ -10,37 +10,49 @@ from nicegui import app
 os.environ["SPARK_HOME"] = "/opt/mapr/spark/spark-3.3.3"
 
 from pyspark.sql import SparkSession
-# from py4j.java_gateway import java_import
-# from pyspark.sql.types import StringType, StructType
-# from datetime import datetime
-# import time
-# from pathlib import Path
-# from pyspark.sql.types import StructType, StructField, StringType, IntegerType, FloatType
-# import pyspark.sql.functions as F
 
 # wget -O /opt/mapr/spark/spark-3.3.3/jars/iceberg-spark-runtime-3.3_2.12-1.4.2.jar https://search.maven.org/remotecontent?filepath=org/apache/iceberg/iceberg-spark-runtime-3.3_2.12/1.4.2/iceberg-spark-runtime-3.3_2.12-1.4.2.jar
 
 logger = logging.getLogger("sparking")
 logger.setLevel(logging.DEBUG)
 
-#######
-#######
-#  scp mapr@10.1.1.31:/opt/mapr/spark/spark-3.3.3/conf/hive-site.xml /opt/mapr/spark/spark-3.3.3/conf/hive-site.xml
-#######
-#######
+spark = (
+    SparkSession.builder.appName("Spark ETL")
+    .config(
+        "spark.jars.packages", "org.apache.iceberg:iceberg-spark-runtime-3.3_2.12:1.4.2"
+    )
+    .config("spark.executor.cores=1")
+    .config("spark.driver.cores=1")
+    .config("spark.sql.extensions=org.apache.iceberg.spark.extensions.IcebergSparkSessionExtensions")
+    .config("spark.sql.defaultCatalog=fraud")
+    .config("spark.sql.catalog.fraud=org.apache.iceberg.spark.SparkCatalog")
+    .config("spark.sql.catalog.fraud.type=hive")
+    .config("spark.sql.catalog.fraud.uri=thrift://localhost:9083")
+    .config("spark.sql.catalog.fraud.default-namespace=bronze")
+    .config("spark.sql.catalog.fraud.warehouse=/app/iceberg")
+    .config("spark.sql.parquet.writeLegacyFormat=true")
+    .config("spark.sql.legacy.pathOptionBehavior.enabled=true")
+    .getOrCreate()
+)
+spark.sparkContext.setLogLevel("INFO")
+
+df = spark.read.option("header", True).csv("/mapr/fraud/app/customers.csv")
+
+# check the dataframe
+df.show()
 
 
-def ingest(input_file: str):
-    try:
-        spark = SparkSession.builder.master(f"spark://{app.storage.general.get('cluster', 'localhost')}:7077").appName("ETL").getOrCreate()
-        spark.sparkContext.setLogLevel("ALL")
-        print(f"Spark context: {spark}")
-        # java_import(spark._sc._jvm, "org.apache.spark.sql.api.python.*")
-        df = spark.read.csv(input_file, header=True, inferSchema=True)
-        print(df.count())
+# def ingest(input_file: str):
+#     try:
+#         spark = SparkSession.builder.master(f"spark://{app.storage.general.get('cluster', 'localhost')}:7077").appName("ETL").getOrCreate()
+#         spark.sparkContext.setLogLevel("ALL")
+#         print(f"Spark context: {spark}")
+#         # java_import(spark._sc._jvm, "org.apache.spark.sql.api.python.*")
+#         df = spark.read.csv(input_file, header=True, inferSchema=True)
+#         print(df.count())
 
-    except Exception as error:
-        logger.warning("cannot use spark: %s", error)
+#     except Exception as error:
+#         logger.warning("cannot use spark: %s", error)
 
 
 # def sse_code():
