@@ -1,7 +1,7 @@
 
 # Data Fabric demo app
 
-`docker run -d -t --name catchx -p 3000:3000 --cap-add sys_admin erdincka/catchx`
+`docker run -d -t --name catchx -p 3000:3000 --cap-add SYS_ADMIN erdincka/catchx`
 
 `docker exec -it catchx bash`
 
@@ -19,7 +19,7 @@ This application expects certain runtime environment (container) with required l
 
 Before running the demo, ensure that you have Ezmeral Data Fabric connectivity is established and a user ticket is generated for the user defined in `MAPR_USER` environment variable.
 
-App uses `/apps/catchx_*` volumes on the connected cluster, so do not run this app on a cluster which already has this path/volume configured.
+App uses `/app/*` volumes on the connected cluster, so do not run this app on a cluster which already has this path/volume configured.
 
 Follow the steps to walk through the demo.
 
@@ -95,9 +95,7 @@ Setup Airflow and Spark packages
 
 `dnf install mapr-spark mapr-spark-master mapr-spark-historyserver mapr-spark-thriftserver`
 
-
 `dnf install mapr-airflow-webserver mapr-airflow-scheduler mapr-airflow mapr-nifi`
-
 
 `cp /opt/mapr/spark/spark-3.3.3/conf/workers.template /opt/mapr/spark/spark-3.3.3/conf/workers`
 
