@@ -177,3 +177,4 @@ In `/opt/mapr/conf/ssl-server.xml`
 
 `scp mapr@10.2.50.35:/opt/mapr/conf/maprkeycreds.* /opt/mapr/conf/`
 `scp mapr@10.2.50.35:/opt/mapr/conf/maprtrustcreds.* /opt/mapr/conf/`
+`scp mapr@10.2.50.35:/opt/mapr/conf/maprhsm.conf /opt/mapr/conf/`
