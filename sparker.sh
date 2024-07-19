@@ -2,18 +2,21 @@
 
 SPARK_HOME=/opt/mapr/spark/spark-3.3.3
 
-  # --master spark://vm35.ez.win.lab:7077 \
+  # --deploy-mode cluster \
+  # --total-executor-cores 2 \
 $SPARK_HOME/bin/pyspark \
-  --master yarn \
-  --deploy-mode cluster \
+  --master spark://vm35.ez.win.lab:7077 \
   --jars /opt/mapr/spark/spark-3.3.3/jars \
   --packages org.apache.iceberg:iceberg-spark-runtime-3.3_2.12:1.4.2 \
   --num-executors 2 \
-  --total-executor-cores 2 \
   --executor-cores 1 \
   --executor-memory 1G \
   --driver-cores 1 \
   --driver-memory 1G \
+  --conf spark.driver.host=10.1.1.110 \
+  --conf spark.driver.bindAddress=172.17.0.2 \
+  --conf spark.driver.port=51400 \
+  --conf spark.driver.blockManagerPort=51500 \
   --conf spark.executor.cores=1 \
   --conf spark.cores.max=2 \
   --conf spark.executor.memory=1g \

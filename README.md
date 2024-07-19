@@ -160,3 +160,20 @@ mount --bind /srv /export/server/
 And test it:
 
 `mount -t nfs4 -o proto=tcp,nolock,sec=sys 10.2.50.18:/ /mnt/`
+
+
+
+## Container configuration for Spark
+
+In `/opt/mapr/conf/ssl-server.xml`
+
+```xml
+<property>
+  <name>hadoop.security.credential.provider.path</name>
+  <value>localjceks://file/opt/mapr/conf/maprkeycreds.jceks,localjceks://file/opt/mapr/conf/maprtrustcreds.jceks</value>
+  <description>File-based key and trust store credential provider.</description>
+</property>
+```
+
+`scp mapr@10.2.50.35:/opt/mapr/conf/maprkeycreds.* /opt/mapr/conf/`
+`scp mapr@10.2.50.35:/opt/mapr/conf/maprtrustcreds.* /opt/mapr/conf/`
