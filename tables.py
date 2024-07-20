@@ -10,17 +10,26 @@ logger = logging.getLogger("tables")
 # suppress ojai connection logging
 logging.getLogger("mapr.ojai.storage.OJAIConnection").setLevel(logging.NOTSET)
 
+ojaiconnection = None
+
 def get_connection():
     """
     Returns an OJAIConnection object for configured cluster
     """
+
+    # Use singleton
+    global ojaiconnection
+    if ojaiconnection is not None: return ojaiconnection
 
     connection_str = f"{app.storage.general['cluster']}:5678?auth=basic;user={app.storage.general['MAPR_USER']};password={app.storage.general['MAPR_PASS']};" \
             "ssl=true;" \
             "sslCA=/opt/mapr/conf/ssl_truststore.pem;" \
             f"sslTargetNameOverride={socket.getfqdn(app.storage.general['cluster'])}"
 
-    return ConnectionFactory.get_connection(connection_str=connection_str)
+    ojaiconnection = ConnectionFactory.get_connection(connection_str=connection_str)
+    logger.debug("Got new maprdb connection using OJAI")
+
+    return ojaiconnection
 
 
 def upsert_document(table_path: str, json_dict: dict):

@@ -26,7 +26,7 @@ def produce(stream: str, topic: str, message: str):
 def consume(stream: str, topic: str, consumer_group: str):
     from confluent_kafka import Consumer, KafkaError
 
-    logger.debug("Stream: %s\nTopic: %s", stream, topic)
+    logger.debug("Stream: %s Topic: %s", stream, topic)
 
     consumer = Consumer(
         {"group.id": consumer_group, "default.topic.config": {"auto.offset.reset": "earliest"}}
@@ -45,7 +45,7 @@ def consume(stream: str, topic: str, consumer_group: str):
 
             elif message.error().code() == KafkaError._PARTITION_EOF:
                 logger.info("No more messages in topic: %s", topic)
-                ui.notify(f"No more messages in {topic}")
+                # ui.notify(f"No more messages in {topic}")
                 raise EOFError
             # silently ignore other errors
             else: logger.warning(message.error())

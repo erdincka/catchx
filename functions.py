@@ -25,6 +25,9 @@ async def upsert_profile(transaction: dict):
         "_id": get_customer_id(transaction['receiver_account']),
         "score": await dummy_fraud_score()
     }
+    
+    logger.debug("Profile update %s", profile)
+    
     # skip unmatched records (txn records left from previous data sets, ie, new customer csv ingested)
     if profile['_id'] == None: return
 

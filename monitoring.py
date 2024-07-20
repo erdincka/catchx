@@ -4,6 +4,7 @@ import socket
 import timeit
 import httpx
 from nicegui import ui, app
+import sqlalchemy
 
 from common import *
 import iceberger
@@ -198,8 +199,8 @@ async def incoming_topic_stats():
                         # )
                     # logger.info("Metrics %s", series)
                     # update counter
-                    # app.storage.general["ingest_transactions_published"] = m["maxoffset"] + 1
-                    # app.storage.general["ingest_transactions_consumed"] = m["minoffsetacrossconsumers"]
+                    # app.storage.general["in_txn_pushed"] = m["maxoffset"] + 1
+                    # app.storage.general["in_txn_pulled"] = m["minoffsetacrossconsumers"]
 
                     return {
                         "name": "Incoming",
@@ -325,6 +326,9 @@ async def silver_stats():
 
     try:
         # logger.info("Searching table %s", f"{MOUNT_PATH}/{get_cluster_name()}{ptable}")
+
+        tick = timeit.default_timer()
+
         if os.path.lexists(f"{MOUNT_PATH}/{get_cluster_name()}{ptable}"):
             # logger.info("Found table %s", ptable)
             num_profiles = len(tables.get_documents(ptable, limit=None))
@@ -343,6 +347,7 @@ async def silver_stats():
             series.append({ "customers": num_customers })
             app.storage.general["silver_customers"] = num_customers
 
+        logger.debug("Silver stat time: %f", timeit.default_timer() - tick)
         # Don't update metrics for empty results
         if len(series) == 0: return
 
@@ -372,29 +377,33 @@ async def gold_stats():
         with engine.connect() as conn:
             # logger.debug("Engine connected")
             # return if table is not created
-            if TABLE_FRAUD not in [ t for t in conn.execute(text(f"SHOW TABLES LIKE '{TABLE_FRAUD}%';")) ]:
-                ui.notify(f"Gold table {TABLE_FRAUD} not found")
+            # logger.debug([ t for t in conn.execute(text(f"SHOW TABLES LIKE '{TABLE_FRAUD}%';")) ])
+            if not sqlalchemy.inspect(engine).has_table(TABLE_FRAUD):
+                logger.warning("Gold table %s not found", TABLE_FRAUD)
                 return
 
-        # TODO: find a better/more efficient way to count records
-        num_fraud = pd.read_sql(f"SELECT COUNT('_id') FROM {TABLE_FRAUD}", con=mydb).values[:1].flat[0]
-        series.append({ TABLE_FRAUD: num_fraud })
-        logger.debug("Found %d fraud activity", num_fraud)
-        app.storage.general["gold_fraud"] = num_fraud
+            # tick = timeit.default_timer()
 
-        num_transactions = pd.read_sql(f"SELECT COUNT('_id') FROM {TABLE_TRANSACTIONS}", con=mydb).values[:1].flat[0]
-        series.append({ TABLE_TRANSACTIONS: num_transactions })
-        app.storage.general["gold_transactions"] = num_transactions
+            num_fraud = conn.execute(text(f"SELECT COUNT('_id') FROM {TABLE_FRAUD}")).scalar()
+            # logger.debug("Found %d fraud activity", num_fraud)
+            series.append({ TABLE_FRAUD: num_fraud })
+            app.storage.general["gold_fraud"] = num_fraud
 
-        num_customers = pd.read_sql(f"SELECT COUNT('_id') FROM {TABLE_CUSTOMERS}", con=mydb).values[:1].flat[0]
-        series.append({ TABLE_CUSTOMERS: num_customers })
-        app.storage.general["gold_customers"] = num_customers
+            num_transactions = conn.execute(text(f"SELECT COUNT('_id') FROM {TABLE_TRANSACTIONS}")).scalar()
+            series.append({ TABLE_TRANSACTIONS: num_transactions })
+            app.storage.general["gold_transactions"] = num_transactions
 
-        # Don't update metrics for empty results
-        if len(series) == 0: return
+            num_customers = conn.execute(text(f"SELECT COUNT('_id') FROM {TABLE_CUSTOMERS}")).scalar()
+            series.append({ TABLE_CUSTOMERS: num_customers })
+            app.storage.general["gold_customers"] = num_customers
+
+            # logger.debug("Gold stat time: %f", timeit.default_timer() - tick)
+
+            # Don't update metrics for empty results
+            if len(series) == 0: return
 
     except Exception as error:
-        logger.warning("STAT get error %s", error)
+        logger.warning("STAT got error %s", error)
         return
 
     return {
@@ -414,11 +423,14 @@ async def monitoring_metrics():
 
     if incoming is not None:
         metrics = incoming["values"]
-        app.storage.general["ingest_transactions_published"] = next(
+
+        logger.debug("incoming: %s", metrics)
+
+        app.storage.general["in_txn_pushed"] = next(
             iter([m["publishedMsgs"] for m in metrics if "publishedMsgs" in m]), None
         )
 
-        app.storage.general["ingest_transactions_consumed"] = next(
+        app.storage.general["in_txn_pulled"] = next(
             iter([m["consumedMsgs"] for m in metrics if "consumedMsgs" in m]), None
         )
 
@@ -579,13 +591,13 @@ def monitoring_card():
     # Realtime monitoring information
     # metric_badges_on_ii()
     with ui.card().classes(
-        "flex-grow shrink absolute top-10 right-0 w-1/3 h-1/3 opacity-50 hover:opacity-100"
+        "flex-grow shrink absolute top-10 right-0 w-1/4 h-1/3 opacity-50 hover:opacity-100"
     ):
         ui.label("Realtime Visibility").classes("uppercase")
         with ui.grid(columns=2).classes("w-full"):
             for metric in [
-                "ingest_transactions_published",
-                "ingest_transactions_consumed",
+                "in_txn_pushed",
+                "in_txn_pulled",
                 "bronze_transactions",
                 "bronze_customers",
                 "silver_profiles",
@@ -603,12 +615,95 @@ def monitoring_card():
                         "size-xs self-end"
                     )
 
-    # with ui.card().classes(
-    #     "flex-grow shrink absolute top-10 right-0 w-1/3 h-1/3 opacity-50 hover:opacity-100"
-    # ):
-    #     ui.label("Realtime Visibility").classes("uppercase")
-    #     mon_chart = get_echart().classes("")
-    #     mon_chart.run_chart_method(
-    #         ":showLoading",
-    #         r'{text: "Waiting..."}',
-    #     )
+    with ui.card().classes(
+        "flex-grow shrink absolute top-10 right-0 w-1/3 h-1/3 opacity-50 hover:opacity-100"
+    ):
+        ui.label("Realtime Visibility").classes("uppercase")
+        mon_chart = get_echart().classes("")
+        mon_chart.run_chart_method(
+            ":showLoading",
+            r'{text: "Waiting..."}',
+        )
+
+### NOT USED
+def metric_badges_on_ii():
+    """
+    Place badges with counters in real-time as they are updated by monitoring_metrics()
+    """
+
+    # raw counts
+    ui.badge("0", color="teal").bind_text_from(
+        app.storage.general,
+        "raw_transactions",
+        lambda x: x if x is not None else 0,
+    ).classes("absolute top-[250px] left-[100px]")
+    ui.badge("0", color="orange").bind_text_from(
+        app.storage.general,
+        "raw_customers",
+        lambda x: x if x is not None else 0,
+    ).classes("absolute top-[420px] left-[100px]")
+
+    # ingest counts
+    ui.badge("0", color="lightteal").bind_text_from(
+        app.storage.general,
+        "in_txn_pushed",
+        lambda x: x if x is not None else 0,
+    ).classes("absolute top-[250px] left-[280px]").tooltip("published transactions")
+    ui.badge("0", color="teal").bind_text_from(
+        app.storage.general,
+        "in_txn_pulled",
+        lambda x: x if x is not None else 0,
+    ).classes("absolute top-[280px] left-[280px]").tooltip("consumed transactions")
+    ui.badge("0", color="orange").bind_text_from(
+        app.storage.general,
+        "ingest_customers",
+        lambda x: x if x is not None else 0,
+    ).classes("absolute top-[460px] left-[280px]").tooltip("# of customers")
+
+    # bronze counts
+    ui.badge("0", color="teal").bind_text_from(
+        app.storage.general,
+        "bronze_transactions",
+        lambda x: x if x is not None else 0,
+    ).classes("absolute top-[280px] left-[450px]").tooltip("# of transactions")
+    ui.badge("0", color="orange").bind_text_from(
+        app.storage.general,
+        "bronze_customers",
+        lambda x: x if x is not None else 0,
+    ).classes("absolute top-[450px] left-[450px]").tooltip("# of customers")
+
+    # silver counts
+    ui.badge("0", color="darkturquoise").bind_text_from(
+        app.storage.general,
+        "silver_profiles",
+        lambda x: x if x is not None else 0,
+    ).classes("absolute top-[140px] left-[680px]").tooltip("# of profiles")
+    ui.badge("0", color="teal").bind_text_from(
+        app.storage.general,
+        "silver_transactions",
+        lambda x: x if x is not None else 0,
+    ).classes("absolute top-[280px] left-[680px]").tooltip("# of transactions")
+    ui.badge("0", color="orange").bind_text_from(
+        app.storage.general,
+        "silver_customers",
+        lambda x: x if x is not None else 0,
+    ).classes("absolute top-[450px] left-[680px]").tooltip("# of customers")
+
+    # gold counts
+    ui.badge("0", color="red").bind_text_from(
+        app.storage.general,
+        "gold_fraud",
+        lambda x: x if x is not None else 0,
+    ).classes("absolute top-[420px] left-[870px]").tooltip("# of fraud")
+    ui.badge("0", color="teal").bind_text_from(
+        app.storage.general,
+        "gold_transactions",
+        lambda x: x if x is not None else 0,
+    ).classes("absolute top-[440px] left-[870px]").tooltip("# of transactions")
+    ui.badge("0", color="orange").bind_text_from(
+        app.storage.general,
+        "gold_customers",
+        lambda x: x if x is not None else 0,
+    ).classes("absolute top-[460px] left-[870px]").tooltip("# of customers")
+
+

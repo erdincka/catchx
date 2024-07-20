@@ -138,7 +138,7 @@ def cluster_configuration_dialog():
             with ui.row().classes("w-full place-items-center mt-4"):
                 ui.label("Select Data Domain").classes("text-lg")
                 ui.button(icon="refresh", on_click=update_clusters).props("flat round")
-            ui.toggle(app.storage.general["clusters"]).bind_value(app.storage.general, "cluster")
+            ui.toggle(app.storage.general.get("clusters", [])).bind_value(app.storage.general, "cluster")
 
         ui.separator()
         with ui.card_section():
