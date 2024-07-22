@@ -77,7 +77,7 @@ async def refine_transactions():
 
     # df = iceberger.find_all(tier=tier, tablename=tablename)
     df = pd.DataFrame.from_dict(tables.get_documents(table_path=f"{BASEDIR}/{tier}/{tablename}", limit=None))
-    ui.notify(f"Found {df.count(axis=1).size} rows in {tablename}")
+    ui.notify(f"Found {df.shape[0]} rows in {tablename}")
 
     # assign a random category to the transaction
     df['category'] = df.apply(lambda _: random.choice(TRANSACTION_CATEGORIES), axis=1)
@@ -86,7 +86,7 @@ async def refine_transactions():
     # df.rename(columns={'id': '_id'}, inplace=True)
 
     try:
-        logger.info("Loading %s documents into %s", df.count(axis=1).size, silver_transactions_table)
+        logger.info("Loading %s documents into %s", df.shape[0], silver_transactions_table)
         if await run.io_bound(tables.upsert_documents, table_path=silver_transactions_table, docs=df.to_dict("records")):
             ui.notify(f"Records are written to {silver_transactions_table}", type='positive')
         else:
@@ -125,16 +125,15 @@ async def refine_customers():
     logger.info("Reading from iceberg")
 
     df = iceberger.find_all(tier=tier, tablename=tablename)
-    ui.notify(f"Found {df.count(axis=1).size} rows in {tablename}")
-    logger.info("Read %d rows", df.count(axis=1).size)
+    ui.notify(f"Found {df.shape[0]} rows in {tablename}")
+    logger.info("Read %d rows", df.shape[0])
 
     df.drop_duplicates(subset="_id", keep="last", ignore_index=True, inplace=True)
-    logger.info("Removed duplicates, left with %d records", df.count(axis=1).size)
+    logger.info("Removed duplicates, left with %d records", df.shape[0])
 
-    logger.debug("Add country_name from country_code")
-    # add country_name column with short name (from ISO2 country code)
-    df['country_name'] = cc.pandas_convert(df['country_code'], src="ISO2", to="name_short")
-    logger.debug("Added country_name from country_code")
+    # add country column with short name (from ISO2 country code)
+    df['country'] = cc.pandas_convert(df['country_code'], src="ISO2", to="name_short")
+    logger.debug("Added country name from country_code")
 
     # find and add iso3166-2 subdivision code (used for country map)
     @lru_cache()
@@ -160,7 +159,7 @@ async def refine_customers():
     df.rename(columns={'id': '_id'}, inplace=True)
 
     try:
-        logger.info("Loading %s documents into %s", df.count(axis=1).size, silver_customers_table)
+        logger.info("Loading %s documents into %s", df.shape[0], silver_customers_table)
         if await run.io_bound(tables.upsert_documents, table_path=silver_customers_table, docs=df.to_dict("records")):
             ui.notify(f"Records are written to {silver_customers_table}", type='positive')
         else:
@@ -338,31 +337,6 @@ def data_aggregation():
     )
 
     return (f"{num_customers} customers and {num_transactions} transactions updated in {VOLUME_GOLD} tier", 'positive')
-
-
-def reporting():
-    not_implemented()
-    # Reports / Dashboards
-    # Profiles (silver)
-        # Statistics (mean, std, min, percentiles, max)
-        # top 10 by score
-    # profile_aggregate = df_profiles.describe()
-    # profile_top_10_by_score = df_profiles.sort_values("score", ascending = False).head(10)
-
-    # Customers
-        # Statistics (mean, std, min, percentiles, max)
-        # top 10 spenders
-        # top 10 receivers
-        # monthly spend per customer
-        # monthly recieved per customer
-        # top 10 txn (send + recieve)
-    # customers_aggregate = df_customers.describe()
-
-    # Transactions
-        # Statistics (mean, std, min, percentiles, max)
-        # txn per month
-        # amount per month per currency
-    # transactions_aggregate = df_transactions.describe()
 
 
 async def delete_volumes_and_streams():

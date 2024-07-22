@@ -50,7 +50,7 @@ def upsert_document(table_path: str, json_dict: dict):
 
         new_document = connection.new_document(dictionary=json_dict)
 
-        logger.debug("upsert new doc: %s", new_document)
+        # logger.debug("upsert new doc: %s", new_document)
 
         store.insert_or_replace(new_document)
 
@@ -172,6 +172,7 @@ def get_documents(table_path: str, limit: int = FETCH_RECORD_NUM):
         connection = get_connection()
 
         # logger.debug("Requesting docs from %s", table_path)
+
         table = connection.get_store(table_path)
 
         # Create a query to get the last n records based on the timestamp field
@@ -187,7 +188,10 @@ def get_documents(table_path: str, limit: int = FETCH_RECORD_NUM):
 
         # Run the query and return the results as list
         # logger.debug("Returned docs for %s: %d", table_path, len([doc for doc in table.find(query)]))
-        return [doc for doc in table.find(query)]
+        # tick = timeit.default_timer()
+        results = table.find(query)
+        # logger.debug("TEST time: %f", timeit.default_timer() - tick)
+        return [doc for doc in results]
 
     except Exception as error:
         logger.warning("Failed to get document: %s", error)

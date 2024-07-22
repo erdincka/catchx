@@ -1,16 +1,24 @@
-TODO:
+# TODO
+
+A lot, but start with these first.
 
 
-- configure.sh yerine, 
-    - selected cluster as first item in mapr-clusters.conf
-    - copy maprtrustcreds.* 
-    - copy maprkeycreds.*
-    - ...?
+## FIX
 
-- monitoring charts/tables - updates for consumed incoming txns
+- fix table types (silver-txn = binary, silver-profiles = binary)
 
-- checkfraudcode not configured yet
+HBase setup required. mapr-sasl integration in hbase-site.xml. Refer to docs.
 
-- check table types (bronze-txn = docdb, silver-txn = binary, silver-profiles = binary, silver-customers = docdb)
+
+## NICE TO HAVE
+
+- enrich dashboard
 
 - move gold table to delta -> connect to superset
+
+- apply cdc logs for fraud detection
+
+- integrate with Open Metadata
+
+- integrate with MS EntraID
+

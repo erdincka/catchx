@@ -13,6 +13,8 @@ from monitoring import *
 import streams
 import iceberger
 import theme
+import happybaser
+
 
 logger = logging.getLogger("gui")
 
@@ -110,7 +112,7 @@ def code_create_transactions():
         ui.button(icon="close", on_click=generate_codeview.close).props(
             "flat round dense"
         ).classes("absolute right-2 top-2")
-        ui.code(inspect.getsource(create_transactions)).classes("w-full mt-6")
+        ui.code(inspect.getsource(get_new_transactions)).classes("w-full mt-6")
         ui.code(inspect.getsource(fake_transaction)).classes("w-full")
     generate_codeview.on("close", lambda d=generate_codeview: d.delete())
     return generate_codeview
@@ -278,7 +280,7 @@ async def handle_image_action(e: events.MouseEventArguments):
 
     # Data Domain functions
     elif element == "CreateTransactions":
-        await create_transactions()
+        await get_new_transactions()
 
     elif element == "CreateTransactionsCode":
         code_create_transactions().open()
@@ -359,6 +361,9 @@ async def handle_image_action(e: events.MouseEventArguments):
     elif element == "CheckFraud":
         await fraud_detection()
 
+    elif element == "CheckFraudCode":
+        await code_getscore().open()
+
     elif element == "GetScoreCode":
         code_getscore().open()
 
@@ -370,6 +375,9 @@ async def handle_image_action(e: events.MouseEventArguments):
             app.storage.general.get("DASHBOARD_URL", "about:blank"),
             new_tab=True,
         )
+
+    elif element == "legend":
+        pass
 
     else:
         logger.warning(element)
@@ -453,6 +461,7 @@ async def mesh_ii():
             "Upload Transactions"
         )
 
+
 @ui.page(f"/{DATA_PRODUCT}", dark=False, title="Fraud Data Domain")
 async def domain_ii():
     """Draw an interactive image that shows demo pipeline for the data domain"""
@@ -485,13 +494,13 @@ async def domain_ii():
         svg_overlay = f"""
             <rect id="PublishTransactions" x="580" y="1685" rx="40" ry="40" width="330" height="100" fill={action_color} {rest_of_svg} />
             <rect id="PublishTransactionsCode" x="200" y="1560" rx="60" ry="60" width="350" height="350" fill={code_color} {rest_of_svg} />
-            <rect id="NifiStreams" x="1430" y="1695" rx="20" ry="20" width="300" height="80" fill={action_color} {rest_of_svg} />
+            <rect id="NifiStreams" x="1430" y="1695" rx="20" ry="20" width="300" height="80" fill={secondary_action_color} {rest_of_svg} />
             <rect id="NifiStreamsCode" x="980" y="1580" rx="20" ry="20" width="435" height="266" fill={code_color} {rest_of_svg} />
             <rect id="IngestTransactions" x="1340" y="1900" rx="20" ry="20" width="380" height="90" fill={action_color} {rest_of_svg} />
-            <rect id="IngestTransactionsCode" x="1070" y="1860" rx="20" ry="20" width="260" height="180" fill={secondary_action_color} {rest_of_svg} />
+            <rect id="IngestTransactionsCode" x="1070" y="1860" rx="20" ry="20" width="260" height="180" fill={code_color} {rest_of_svg} />
             <rect id="IngestCustomersIceberg" x="1350" y="2890" rx="20" ry="20" width="290" height="90" fill={action_color} {rest_of_svg} />
-            <rect id="IngestCustomersIcebergCode" x="1070" y="2830" rx="20" ry="20" width="260" height="180" fill={secondary_action_color} {rest_of_svg} />
-            <rect id="AirflowBatch" x="1430" y="2640" rx="20" ry="20" width="220" height="80" fill={action_color} {rest_of_svg} />
+            <rect id="IngestCustomersIcebergCode" x="1070" y="2830" rx="20" ry="20" width="260" height="180" fill={code_color} {rest_of_svg} />
+            <rect id="AirflowBatch" x="1430" y="2640" rx="20" ry="20" width="220" height="80" fill={secondary_action_color} {rest_of_svg} />
             <rect id="AirflowBatchCode" x="970" y="2540" rx="20" ry="20" width="431" height="268" fill={code_color} {rest_of_svg} />
             <rect id="BronzeTransactions" x="2070" y="1450" rx="20" ry="20" width="350" height="430" fill={info_color} {rest_of_svg} />
             <rect id="BronzeCustomers" x="2060" y="2460" rx="20" ry="20" width="350" height="410" fill={info_color} {rest_of_svg} />
@@ -510,6 +519,15 @@ async def domain_ii():
             <rect id="CheckFraudCode" x="3970" y="1330" rx="20" ry="20" width="300" height="260" fill={code_color} {rest_of_svg} />
             <rect id="CheckFraud" x="4300" y="1425" rx="20" ry="20" width="400" height="80" fill={action_color} {rest_of_svg} />
             <rect id="ReportView" x="5810" y="2500" rx="20" ry="20" width="390" height="265" fill={info_color} {rest_of_svg} />
+            <g>
+                <rect id="legend" x="6500" y="3250" rx="20" ry="20" width="400" height="100" fill={action_color} pointer-events="none" cursor="default" {rest_of_svg} />
+                <text x="6590" y="3320" font-family="Verdana" font-size="50" fill="blue">Run task</text>
+                <rect id="legend" x="6500" y="3425" rx="20" ry="20" width="400" height="100" fill={secondary_action_color} pointer-events="none" cursor="default" {rest_of_svg} />
+                <text x="6590" y="3495" font-family="Verdana" font-size="50" fill="blue">Open tool</text>
+                <rect id="legend" x="6500" y="3600" rx="20" ry="20" width="400" height="100" fill={code_color} pointer-events="none" cursor="default" {rest_of_svg} />
+                <text x="6570" y="3670" font-family="Verdana" font-size="50" fill="blue">Show code</text>
+            </g>
+
         #"""
 
         with ui.interactive_image(
@@ -523,7 +541,7 @@ async def domain_ii():
             "relative"
         ).props(
             "fit=scale-down"
-        ):
+        ).bind_content_from(app.storage.general, "show_svg", backward=lambda x: svg_overlay if x else ""):
             with ui.list().props("bordered dense").classes("w-80 absolute top-10 left-2"):
                 ui.item_label("Source data").props("header").classes("text-bold")
                 ui.separator()
@@ -537,14 +555,17 @@ async def domain_ii():
 
                 with ui.row().classes("w-full no-wrap p-0"):
                     with ui.button_group().props("flat"):
-                        ui.button(icon="o_library_add", on_click=create_transactions).classes("mx-0 px-1").props("flat")
+                        ui.button(icon="o_library_add").classes("mx-0 px-1").props("flat disabled")
                         ui.button(icon="o_integration_instructions", on_click=code_create_transactions).classes("mx-0 px-1").props("flat")
-                    with ui.item(on_click=peek_mocked_transactions).props("dense").classes("mx-0 gx-0"):
+                    with ui.item(on_click=sample_transactions).props("dense").classes("mx-0 gx-0"):
                         with ui.item_section():
-                            ui.item_label(f"{MOUNT_PATH}/{get_cluster_name()}{BASEDIR}/{TABLE_TRANSACTIONS}.csv")
+                            ui.item_label(TABLE_TRANSACTIONS)
+                            # ui.item_label(f"{MOUNT_PATH}/{get_cluster_name()}{BASEDIR}/{TABLE_TRANSACTIONS}.csv")
 
             # Realtime monitoring information
-            # monitoring_card()
+            monitoring_card()
+            await monitoring_charts()
+            # metric_badges_on_ii()
 
     # Block interaction when working
     with ui.dialog().props("persistent").bind_value_from(
@@ -552,20 +573,8 @@ async def domain_ii():
     ), ui.card():
         ui.spinner("ios", color="red", size="3em")
 
-    # # Run monitoring for metrics
-    ui.timer(MON_REFRESH_INTERVAL10, monitoring_metrics)
-
-
-async def open_dialog(awaitable_content):
-    with ui.dialog().props("full-width full-height") as dialog, ui.card().classes(
-        "relative"
-    ):
-        ui.button(icon="close", on_click=dialog.close).props(
-            "flat round dense"
-        ).classes("absolute right-2 top-2")
-        await awaitable_content()
-
-    dialog.open()
+    # Monitoring metrics are updated in monitoring_charts()
+    # ui.timer(MON_REFRESH_INTERVAL10, monitoring_metrics)
 
 
 # NOT USED

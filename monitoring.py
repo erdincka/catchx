@@ -1,7 +1,6 @@
 import datetime
 import json
 import socket
-import timeit
 import httpx
 from nicegui import ui, app
 import sqlalchemy
@@ -19,6 +18,10 @@ def get_echart():
         {
             "tooltip": {
                 "trigger": "axis",
+                # 'position': ["20%","80%"],
+                "axisPointer": {
+                    "type": "shadow",
+                },
             },
             "title": {"left": 10, "text": ""},
             # "legend": {"right": "center"},
@@ -91,7 +94,7 @@ async def update_chart(chart: ui.echart, metric_caller, *args):
     metric = await metric_caller(*args)
 
     if metric:
-        logger.debug("Got metric from %s: %s", metric_caller.__name__, metric)
+        # logger.debug("Got metric from %s: %s", metric_caller.__name__, metric)
 
         chart.options["xAxis"]["data"].append(metric["time"])
         # chart.options["title"]["text"] = metric["name"].title()
@@ -199,8 +202,8 @@ async def incoming_topic_stats():
                         # )
                     # logger.info("Metrics %s", series)
                     # update counter
-                    # app.storage.general["in_txn_pushed"] = m["maxoffset"] + 1
-                    # app.storage.general["in_txn_pulled"] = m["minoffsetacrossconsumers"]
+                    app.storage.general["in_txn_pushed"] = m["maxoffset"] + 1
+                    app.storage.general["in_txn_pulled"] = m["minoffsetacrossconsumers"]
 
                     return {
                         "name": "Incoming",
@@ -239,7 +242,7 @@ async def txn_consumer_stats():
 
             else:
                 metrics = response.json()
-                logger.debug(metrics)
+                # logger.debug(metrics)
 
                 if not metrics["status"] == "ERROR":
                     series = []
@@ -290,14 +293,18 @@ async def bronze_stats():
     ctable = f"{BASEDIR}/{VOLUME_BRONZE}/{TABLE_CUSTOMERS}"
 
     try:
+        tick = timeit.default_timer()
+
         if os.path.lexists(f"{MOUNT_PATH}/{get_cluster_name()}{ttable}"):
             num_transactions = len(tables.get_documents(ttable, limit=None))
             series.append({ "transactions": num_transactions })
-            app.storage.general["bronze_transactions"] = num_transactions
+            app.storage.general["brnz_transactions"] = num_transactions
         if os.path.isdir(f"{MOUNT_PATH}/{get_cluster_name()}{ctable}"): # isdir for iceberg tables
             num_customers = len(iceberger.find_all(VOLUME_BRONZE, TABLE_CUSTOMERS))
             series.append({ "customers": num_customers })
-            app.storage.general["bronze_customers"] = num_customers
+            app.storage.general["brnz_customers"] = num_customers
+
+        logger.debug("Bronze stat time: %f", timeit.default_timer() - tick)
 
         # Don't update metrics for empty results
         if len(series) == 0: return
@@ -334,18 +341,18 @@ async def silver_stats():
             num_profiles = len(tables.get_documents(ptable, limit=None))
             # logger.debug("Got metrics for silver profiles %d", num_profiles)
             series.append({ "profiles": num_profiles })
-            app.storage.general["silver_profiles"] = num_profiles
+            app.storage.general["slvr_profiles"] = num_profiles
         else:
             logger.warning("Cannot get metric for silver profiles")
 
         if os.path.lexists(f"{MOUNT_PATH}/{get_cluster_name()}{ttable}"):
             num_transactions = len(tables.get_documents(ttable, limit=None))
             series.append({ "transactions": num_transactions })
-            app.storage.general["silver_transactions"] = num_transactions
+            app.storage.general["slvr_transactions"] = num_transactions
         if os.path.lexists(f"{MOUNT_PATH}/{get_cluster_name()}{ctable}"):
             num_customers = len(tables.get_documents(ctable, limit=None))
             series.append({ "customers": num_customers })
-            app.storage.general["silver_customers"] = num_customers
+            app.storage.general["slvr_customers"] = num_customers
 
         logger.debug("Silver stat time: %f", timeit.default_timer() - tick)
         # Don't update metrics for empty results
@@ -382,7 +389,7 @@ async def gold_stats():
                 logger.warning("Gold table %s not found", TABLE_FRAUD)
                 return
 
-            # tick = timeit.default_timer()
+            tick = timeit.default_timer()
 
             num_fraud = conn.execute(text(f"SELECT COUNT('_id') FROM {TABLE_FRAUD}")).scalar()
             # logger.debug("Found %d fraud activity", num_fraud)
@@ -397,7 +404,7 @@ async def gold_stats():
             series.append({ TABLE_CUSTOMERS: num_customers })
             app.storage.general["gold_customers"] = num_customers
 
-            # logger.debug("Gold stat time: %f", timeit.default_timer() - tick)
+            logger.debug("Gold stat time: %f", timeit.default_timer() - tick)
 
             # Don't update metrics for empty results
             if len(series) == 0: return
@@ -439,10 +446,10 @@ async def monitoring_metrics():
 
     if bronze is not None:
         metrics = bronze["values"]
-        app.storage.general["bronze_transactions"] = next(
+        app.storage.general["brnz_transactions"] = next(
             iter([m["transactions"] for m in metrics if "transactions" in m]), None
         )
-        app.storage.general["bronze_customers"] = next(
+        app.storage.general["brnz_customers"] = next(
             iter([m["customers"] for m in metrics if "customers" in m]), None
         )
 
@@ -451,13 +458,13 @@ async def monitoring_metrics():
 
     if silver is not None:
         metrics = silver["values"]
-        app.storage.general["silver_profiles"] = next(
+        app.storage.general["slvr_profiles"] = next(
             iter([m["profiles"] for m in metrics if "profiles" in m]), None
         )
-        app.storage.general["silver_transactions"] = next(
+        app.storage.general["slvr_transactions"] = next(
             iter([m["transactions"] for m in metrics if "transactions" in m]), None
         )
-        app.storage.general["silver_customers"] = next(
+        app.storage.general["slvr_customers"] = next(
             iter([m["customers"] for m in metrics if "customers" in m]), None
         )
 
@@ -480,59 +487,41 @@ async def monitoring_metrics():
 
 async def monitoring_charts():
     # Monitoring charts
-    with ui.card().classes("flex-grow shrink sticky"):
+    with ui.card().classes("flex-grow shrink sticky h-96"):
         ui.label("Realtime Visibility").classes("uppercase")
+        with ui.row().classes("w-full place-content-stretch no-wrap"):
+            # # monitor using /var/mapr/mapr.monitoring/metricstreams/0
+            # streams_chart = get_echart()
+            # streams_chart.run_chart_method(':showLoading', r'{text: "Waiting..."}',)
+            # ui.timer(MON_REFRESH_INTERVAL, lambda c=streams_chart, s=mapr_monitoring: chart_listener(c, s), once=True)
 
-        # # monitor using /var/mapr/mapr.monitoring/metricstreams/0
-        # streams_chart = get_echart()
-        # streams_chart.run_chart_method(':showLoading', r'{text: "Waiting..."}',)
-        # ui.timer(MON_REFRESH_INTERVAL, lambda c=streams_chart, s=mapr_monitoring: chart_listener(c, s), once=True)
+            # TODO: embed grafana dashboard
+            # https://10.1.1.31:3000/d/pUfMqVUIz/demo-monitoring?orgId=1
 
-        incoming_chart = get_echart().classes("h-1/4")
-        incoming_chart.run_chart_method(
-            ":showLoading",
-            r'{text: "Waiting..."}',
-        )
-        ui.timer(
-            MON_REFRESH_INTERVAL3,
-            lambda c=incoming_chart: update_chart(c, incoming_topic_stats),
-        )
+            consumer_chart = get_echart()
+            consumer_chart.run_chart_method(':showLoading', r'{text: "Waiting..."}')
 
-        # TODO: embed grafana dashboard
-        # https://10.1.1.31:3000/d/pUfMqVUIz/demo-monitoring?orgId=1
+            incoming_chart = get_echart().classes("")
+            incoming_chart.run_chart_method(":showLoading", r'{text: "Waiting..."}')
 
-        # consumer_chart = get_echart()
-        # consumer_chart.run_chart_method(':showLoading', r'{text: "Waiting..."}',)
-        # ui.timer(MON_REFRESH_INTERVAL3, lambda c=consumer_chart: update_chart(c, txn_consumer_stats))
+            bronze_chart = get_echart().classes("")
+            bronze_chart.run_chart_method(":showLoading", r'{text: "Waiting..."}')
 
-        bronze_chart = get_echart().classes("h-1/4")
-        bronze_chart.run_chart_method(
-            ":showLoading",
-            r'{text: "Waiting..."}',
-        )
-        ui.timer(
-            MON_REFRESH_INTERVAL5, lambda c=bronze_chart: update_chart(c, bronze_stats)
-        )
+            silver_chart = get_echart().classes("")
+            silver_chart.run_chart_method(":showLoading", r'{text: "Waiting..."}')
 
-        silver_chart = get_echart().classes("h-1/4")
-        silver_chart.run_chart_method(
-            ":showLoading",
-            r'{text: "Waiting..."}',
-        )
-        ui.timer(
-            MON_REFRESH_INTERVAL5 + 1,
-            lambda c=silver_chart: update_chart(c, silver_stats),
-        )
+            gold_chart = get_echart().classes("")
+            gold_chart.run_chart_method(":showLoading", r'{text: "Waiting..."}')
 
-        gold_chart = get_echart().classes("h-1/4")
-        gold_chart.run_chart_method(
-            ":showLoading",
-            r'{text: "Waiting..."}',
-        )
-        ui.timer(
-            MON_REFRESH_INTERVAL5 + 2, lambda c=gold_chart: update_chart(c, gold_stats)
-        )
+            ui.timer(MON_REFRESH_INTERVAL3, lambda c=incoming_chart: update_chart(c, incoming_topic_stats))
 
+            ui.timer(MON_REFRESH_INTERVAL5, lambda c=bronze_chart: update_chart(c, bronze_stats))
+
+            ui.timer(MON_REFRESH_INTERVAL5 + 1, lambda c=silver_chart: update_chart(c, silver_stats))
+
+            ui.timer(MON_REFRESH_INTERVAL5 + 2, lambda c=gold_chart: update_chart(c, gold_stats))
+
+            ui.timer(MON_REFRESH_INTERVAL5 + 3, lambda c=consumer_chart: update_chart(c, txn_consumer_stats))
 
 async def update_metrics(chart: ui.chart):
 
@@ -589,20 +578,19 @@ async def update_metrics(chart: ui.chart):
 
 def monitoring_card():
     # Realtime monitoring information
-    # metric_badges_on_ii()
     with ui.card().classes(
-        "flex-grow shrink absolute top-10 right-0 w-1/4 h-1/3 opacity-50 hover:opacity-100"
+        "flex-grow shrink absolute top-10 right-0 w-1/4 opacity-50 hover:opacity-100"
     ):
         ui.label("Realtime Visibility").classes("uppercase")
         with ui.grid(columns=2).classes("w-full"):
             for metric in [
                 "in_txn_pushed",
                 "in_txn_pulled",
-                "bronze_transactions",
-                "bronze_customers",
-                "silver_profiles",
-                "silver_transactions",
-                "silver_customers",
+                "brnz_transactions",
+                "brnz_customers",
+                "slvr_profiles",
+                "slvr_transactions",
+                "slvr_customers",
                 "gold_transactions",
                 "gold_fraud",
                 "gold_customers",
@@ -615,15 +603,6 @@ def monitoring_card():
                         "size-xs self-end"
                     )
 
-    with ui.card().classes(
-        "flex-grow shrink absolute top-10 right-0 w-1/3 h-1/3 opacity-50 hover:opacity-100"
-    ):
-        ui.label("Realtime Visibility").classes("uppercase")
-        mon_chart = get_echart().classes("")
-        mon_chart.run_chart_method(
-            ":showLoading",
-            r'{text: "Waiting..."}',
-        )
 
 ### NOT USED
 def metric_badges_on_ii():
@@ -663,29 +642,29 @@ def metric_badges_on_ii():
     # bronze counts
     ui.badge("0", color="teal").bind_text_from(
         app.storage.general,
-        "bronze_transactions",
+        "brnz_transactions",
         lambda x: x if x is not None else 0,
     ).classes("absolute top-[280px] left-[450px]").tooltip("# of transactions")
     ui.badge("0", color="orange").bind_text_from(
         app.storage.general,
-        "bronze_customers",
+        "brnz_customers",
         lambda x: x if x is not None else 0,
     ).classes("absolute top-[450px] left-[450px]").tooltip("# of customers")
 
     # silver counts
     ui.badge("0", color="darkturquoise").bind_text_from(
         app.storage.general,
-        "silver_profiles",
+        "slvr_profiles",
         lambda x: x if x is not None else 0,
     ).classes("absolute top-[140px] left-[680px]").tooltip("# of profiles")
     ui.badge("0", color="teal").bind_text_from(
         app.storage.general,
-        "silver_transactions",
+        "slvr_transactions",
         lambda x: x if x is not None else 0,
     ).classes("absolute top-[280px] left-[680px]").tooltip("# of transactions")
     ui.badge("0", color="orange").bind_text_from(
         app.storage.general,
-        "silver_customers",
+        "slvr_customers",
         lambda x: x if x is not None else 0,
     ).classes("absolute top-[450px] left-[680px]").tooltip("# of customers")
 

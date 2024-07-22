@@ -8,32 +8,35 @@ from nicegui import ui
 logger = logging.getLogger("iceberger")
 logging.getLogger("pyiceberg.io").setLevel(logging.DEBUG)
 
+catalog = None
 
-def hive_cat():
-    try:
-        from pyiceberg import catalog
-        catalog = catalog.load_catalog(
-            "default",
-            **{
-                "uri": "hive://10.1.1.31:10000/default",
-                "ssl": True,
-                # "s3.endpoint": "",
-                # "s3.access-key-id": "2XVBOI33OQ9LYDZ1X5IPIRXMYVD8HWWN6938VNVDI03YHHBK4XP273GXD5BURQNQ44E14Y0SMCG7F7FJ9YK8HJ3EEOQR8VCA2",
-                # "s3.secret-access-key": "FGOGA7I2BVV99HFPNRFOAUF79WOSZBO4V6T0D0P1ZGHSFLUTQ275HIO",
-            },
-        )
-        print(catalog)
-        print(catalog.list_namespaces())
+# def hive_cat():
+#     try:
+#         from pyiceberg import catalog
+#         catalog = catalog.load_catalog(
+#             "default",
+#             **{
+#                 "uri": "hive://10.1.1.31:10000/default",
+#                 "ssl": True,
+#                 # "s3.endpoint": "",
+#                 # "s3.access-key-id": "2XVBOI33OQ9LYDZ1X5IPIRXMYVD8HWWN6938VNVDI03YHHBK4XP273GXD5BURQNQ44E14Y0SMCG7F7FJ9YK8HJ3EEOQR8VCA2",
+#                 # "s3.secret-access-key": "FGOGA7I2BVV99HFPNRFOAUF79WOSZBO4V6T0D0P1ZGHSFLUTQ275HIO",
+#             },
+#         )
+#         print(catalog)
+#         print(catalog.list_namespaces())
 
-    except Exception as error:
-        logger.warning("Iceberg Catalog error: %s", error)
-        ui.notify(f"Iceberg catalog error: {error}", type='negative')
+#     except Exception as error:
+#         logger.warning("Iceberg Catalog error: %s", error)
+#         ui.notify(f"Iceberg catalog error: {error}", type='negative')
 
 
 def get_catalog():
     """Return the catalog, create if not exists"""
 
-    catalog = None
+    global catalog
+
+    if catalog is not None: return catalog
 
     try:
         from pyiceberg.catalog.sql import SqlCatalog
@@ -50,6 +53,7 @@ def get_catalog():
         ui.notify(f"Iceberg catalog error: {error}", type='negative')
 
     finally:
+        logger.debug("Got new catalog for Iceberg")
         return catalog
 
 
@@ -93,7 +97,7 @@ def write(tier: str, tablename: str, records: list) -> bool:
 
         merged = pd.concat([existing, incoming]).drop_duplicates(subset="_id", keep="last")
 
-        ui.notify(f"Appending {merged.size} records to {tablename}")
+        ui.notify(f"Appending {merged.shape[0]} records to {tablename}")
         table.append(pa.Table.from_pandas(merged, preserve_index=False))
 
         return True

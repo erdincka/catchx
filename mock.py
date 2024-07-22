@@ -34,12 +34,12 @@ def fake_transaction(sender: str, receiver: str):
         "sender_account": sender,
         "receiver_account": receiver,
         "amount": round(fake.pyint(0, 10_000), 2),
-        "currency": fake.currency_code(),
+        # "currency": fake.currency_code(),
         "transaction_date": fake.past_datetime(start_date="-12M").timestamp(),
     }
 
 
-async def create_transactions(count: int = 100):
+async def get_new_transactions(count: int = 100):
     transactions = []
 
     customers = []
@@ -50,7 +50,7 @@ async def create_transactions(count: int = 100):
 
     except:
         ui.notify("Failed to read customers, create them first!", type='warning')
-        return
+        return None
 
     try:
         # generate transaction with randomly selected sender and reciever accounts
@@ -58,6 +58,19 @@ async def create_transactions(count: int = 100):
             sender = customers[random.randrange(len(customers))]['account_number']
             receiver = customers[random.randrange(len(customers))]['account_number']
             transactions.append(fake_transaction(sender, receiver))
+
+        logger.info(f"Returning {len(transactions)} transactions")
+
+    except Exception as error:
+        ui.notify(error, type='warning')
+
+    finally:
+        return transactions
+
+async def create_transactions(count: int = 100):
+
+    try:
+        transactions = get_new_transactions(count)
 
         with open(
             f"{MOUNT_PATH}/{get_cluster_name()}{BASEDIR}/{TABLE_TRANSACTIONS}.csv",
@@ -74,7 +87,7 @@ async def create_transactions(count: int = 100):
         ui.notify(error, type='warning')
 
     logger.info("%d transactions created", count)
-    ui.notify(f"{count} transactions created")
+    ui.notify(f"{count} transactions written to file {TABLE_TRANSACTIONS}.csv")
 
 
 async def create_customers(count: int = 200):
@@ -156,15 +169,30 @@ async def peek_mocked_customers():
 async def peek_mocked_transactions():
     await run_command_with_dialog(f"tail {MOUNT_PATH}/{get_cluster_name()}{BASEDIR}/{TABLE_TRANSACTIONS}.csv")
 
+async def sample_transactions():
+    txlist = await get_new_transactions(10)
+    if txlist is None:
+        ui.notify("No transaction returned.", type='warning')
 
-async def publish_transactions(limit: int = 10):
+    with ui.dialog().props("full-width full-height") as dialog, ui.card().classes(
+        "relative"
+    ):
+        ui.button(icon="close", on_click=dialog.close).props(
+            "flat round dense"
+        ).classes("absolute right-2 top-2")
+        l = ui.log().classes("m-6")
+        for t in txlist: l.push(t)
+
+    dialog.open()
+
+async def publish_transactions(count: int = 10):
     """
     Publish transactions from csv file into the topic
     """
 
     stream_path = f"{BASEDIR}/{STREAM_INCOMING}"
 
-    count = 0
+    # count = 0
 
     # return if stream not created
     if not os.path.lexists(f"{MOUNT_PATH}/{get_cluster_name()}{stream_path}"):
@@ -172,13 +200,14 @@ async def publish_transactions(limit: int = 10):
         return
 
     try:
-        with open(f"{MOUNT_PATH}/{get_cluster_name()}{BASEDIR}/transactions.csv", "r", newline='') as csvfile:
-            csv_reader = csv.DictReader(csvfile)
+        # with open(f"{MOUNT_PATH}/{get_cluster_name()}{BASEDIR}/transactions.csv", "r", newline='') as csvfile:
+        #     csv_reader = csv.DictReader(csvfile)
 
-            for transaction in csv_reader:
+        for transaction in await get_new_transactions(count):
+        #     for transaction in csv_reader:
                 # only publish randomly selected transactions, and only 10 of them by default
-                if count == limit: break
-                if random.randrange(10) < 3: # ~30% to be selected randomly
+                # if count == limit: break
+                # if random.randrange(10) < 3: # ~30% to be selected randomly
                     if await run.io_bound(streams.produce, stream_path, TOPIC_TRANSACTIONS, json.dumps(transaction)):
                         logger.info("Sent %s", transaction["_id"])
                         # add delay
@@ -186,9 +215,9 @@ async def publish_transactions(limit: int = 10):
                     else:
                         logger.warning("Failed to send transaction to %s", TOPIC_TRANSACTIONS)
 
-                    count += 1
+                #     count += 1
 
-                else: logger.debug("Skipped transaction: %s", transaction["_id"])
+                # else: logger.debug("Skipped transaction: %s", transaction["_id"])
 
     except Exception as error:
         logger.warning("Cannot read transactions: %s", error)

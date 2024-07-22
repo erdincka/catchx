@@ -1,4 +1,6 @@
 import inspect
+import io
+from fastapi.responses import StreamingResponse
 from nicegui import ui, app
 
 from functions import *
@@ -12,7 +14,20 @@ import tables
 
 def app_init():
 
-    # Reset services
+    # Reset metrics
+    for metric in [
+                "in_txn_pushed",
+                "in_txn_pulled",
+                "brnz_transactions",
+                "brnz_customers",
+                "slvr_profiles",
+                "slvr_transactions",
+                "slvr_customers",
+                "gold_transactions",
+                "gold_fraud",
+                "gold_customers",
+            ]:
+        app.storage.general[metric] = 0
 
     # and previous run state if it was hang
     app.storage.general["busy"] = False
@@ -128,6 +143,11 @@ def cluster_configuration_dialog():
         # with close button
         ui.button(icon="close", on_click=dialog.close).props("flat round dense").classes("absolute right-2 top-2")
 
+        # save/restore the configuration
+        with ui.row():
+            ui.button(icon="download", on_click=config_show().open)
+            ui.button(icon="upload", on_click=config_load().open)
+
         with ui.card_section().classes("w-full mt-6"):
             ui.label("Upload Client Files").classes("text-lg w-full")
             ui.label("config.tar and/or jwt_tokens.tar.gz").classes("text-sm text-italic")
@@ -195,12 +215,17 @@ def cluster_configuration_dialog():
         with ui.card_section():
             ui.label("Configure and Login").classes("text-lg w-full")
             ui.label("login if not using JWT").classes("text-sm text-italic")
-            with ui.row().classes("w-full place-items-center mt-4"):
-                ui.button("configure.sh -R", on_click=lambda: run_command_with_dialog(f"/opt/mapr/server/configure.sh -c -secure -N {get_cluster_name()} -C {app.storage.general.get('cluster', 'localhost')}"))
-                ui.button("maprlogin", on_click=lambda: run_command_with_dialog(f"echo {app.storage.general['MAPR_PASS']} | maprlogin password -user {app.storage.general['MAPR_USER']}"))
-            with ui.row().classes("w-full place-items-center mt-4"):
-                ui.button(f"remount {MOUNT_PATH}", on_click=lambda: run_command_with_dialog(f"[ -d {MOUNT_PATH} ] && umount -l {MOUNT_PATH}; [ -d {MOUNT_PATH} ] || mkdir -p {MOUNT_PATH}; mount -t nfs -o nolock,soft {app.storage.general['cluster']}:/mapr {MOUNT_PATH}"))
-                ui.button("List Cluster /", on_click=lambda: run_command_with_dialog(f"ls -la {MOUNT_PATH}/{get_cluster_name()}")).props('outline')
+            if "MAPR_USER" in app.storage.general.keys() and "cluster" in app.storage.general.keys():
+                cluster = app.storage.general.get("cluster", "127.0.0.1")
+                os.environ["CLUSTER_NAME"] = get_cluster_name()
+                os.environ["CLUSTER_IP"] = cluster if cluster is not None else "127.0.0.1"
+                os.environ["MAPR_USER"] = app.storage.general.get("MAPR_USER", "mapr")
+                with ui.row().classes("w-full place-items-center mt-4"):
+                        ui.button("Reconfigure", on_click=lambda: run_command_with_dialog("bash /app/reconfigure.sh"))
+                        ui.button("maprlogin", on_click=lambda: run_command_with_dialog(f"echo {app.storage.general['MAPR_PASS']} | maprlogin password -user {app.storage.general['MAPR_USER']}"))
+                with ui.row().classes("w-full place-items-center mt-4"):
+                    ui.button(f"remount {MOUNT_PATH}", on_click=lambda: run_command_with_dialog(f"[ -d {MOUNT_PATH} ] && umount -l {MOUNT_PATH}; [ -d {MOUNT_PATH} ] || mkdir -p {MOUNT_PATH}; mount -t nfs -o nolock,soft {app.storage.general['cluster']}:/mapr {MOUNT_PATH}"))
+                    ui.button("List Cluster /", on_click=lambda: run_command_with_dialog(f"ls -la {MOUNT_PATH}/{get_cluster_name()}")).props('outline')
 
         ui.separator()
         with ui.card_section():
@@ -226,6 +251,57 @@ def cluster_configuration_dialog():
     dialog.open()
 
 
+def config_show():
+    with ui.dialog() as config_show, ui.card().classes("grow"):
+        ui.code(json.dumps(app.storage.general, indent=2), language="json").classes("w-full text-wrap")
+        with ui.row().classes("w-full"):
+            ui.button(
+                "Save",
+                icon="save",
+                on_click=lambda: ui.download("/config"),
+            )
+            ui.space()
+            ui.button(
+                "Close",
+                icon="cancel",
+                on_click=config_show.close,
+            )
+    return config_show
+
+
+def config_load():
+    with ui.dialog() as config_load, ui.card().classes("grow"):
+        ui.upload(label="Config JSON", auto_upload=True, on_upload=lambda e: save_config(e.content.read().decode("utf-8"), config_load)).classes(
+            "max-w-full"
+        )
+
+    return config_load
+
+
+def save_config(val: str, dialog):
+    try:
+        for key, value in json.loads(val.replace("\n", "")).items():
+            app.storage.general[key] = value
+        dialog.close()
+        ui.notify("Settings loaded", type="positive")
+    except (TypeError, json.decoder.JSONDecodeError, ValueError) as error:
+        ui.notify("Not a valid json", type="negative")
+        logger.warning(error)
+
+
+@app.get("/config")
+def download(content: str = None):
+    # by default downloading settings
+    if content is None:
+        content = app.storage.general
+
+    string_io = io.StringIO(json.dumps(content))  # create a file-like object from the string
+
+    headers = {"Content-Disposition": "attachment; filename=config.json"}
+    return StreamingResponse(string_io, media_type="text/plain", headers=headers)
+
+
+# NOT USED
 async def lights_on():
 
     if create_csv_files():

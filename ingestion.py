@@ -19,9 +19,9 @@ async def ingest_transactions():
     input_stream_path = f"{BASEDIR}/{STREAM_INCOMING}"
     input_topic = TOPIC_TRANSACTIONS
 
-    if not os.path.lexists(f"{MOUNT_PATH}/{get_cluster_name()}{input_stream_path}"): # stream not created yet
-        ui.notify(f"Stream not found {input_stream_path}", type="warning")
-        return
+    # if not os.path.lexists(f"{MOUNT_PATH}/{get_cluster_name()}{input_stream_path}"): # stream not created yet
+    #     ui.notify(f"Stream not found {input_stream_path}", type="warning")
+    #     return
 
     app.storage.general['busy'] = True
 

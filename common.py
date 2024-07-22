@@ -3,6 +3,8 @@ import datetime
 import logging
 import os
 import tarfile
+import timeit
+import inspect
 
 import httpx
 from nicegui import ui, events, app, binding
@@ -189,6 +191,7 @@ def get_cluster_name():
     clustername = app.storage.general.get('clusters', {}).get(app.storage.general.get('cluster', ''), '')
     if clustername != "":
         return clustername
+    else: return "maprdemo.mapr.io"
 
 
 async def create_volumes():
@@ -388,3 +391,17 @@ def gracefully_fail(exc: Exception):
 
 def not_implemented():
     ui.notify('Not implemented', type='warning')
+
+
+async def open_dialog(content_function):
+    with ui.dialog().props("full-width full-height") as dialog, ui.card().classes(
+        "relative"
+    ):
+        ui.button(icon="close", on_click=dialog.close).props(
+            "flat round dense"
+        ).classes("absolute right-2 top-2")
+        if inspect.iscoroutinefunction(content_function):
+            await content_function()
+        else: content_function()
+
+    dialog.open()
