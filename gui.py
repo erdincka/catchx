@@ -13,7 +13,6 @@ from monitoring import *
 import streams
 import iceberger
 import theme
-import happybaser
 
 
 logger = logging.getLogger("gui")
@@ -460,8 +459,6 @@ async def mesh_ii():
         ).tooltip(
             "Upload Transactions"
         )
-
-        # ui.button("HBase", on_click=happybaser.connect).classes("absolute bottom-0 left-0")
 
 
 @ui.page(f"/{DATA_PRODUCT}", dark=False, title="Fraud Data Domain")
