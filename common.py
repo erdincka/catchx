@@ -237,6 +237,38 @@ async def create_volumes():
     app.storage.general['busy'] = False
 
 
+async def create_tables():
+    auth = (app.storage.general["MAPR_USER"], app.storage.general["MAPR_PASS"])
+
+    URL = f"https://{app.storage.general['cluster']}:8443/rest/table/create?path={BASEDIR}/{VOLUME_BRONZE}/b{TABLE_TRANSACTIONS}&tabletype=binary&defaultreadperm=p&defaultwriteperm=p&defaultappendperm=p&defaultunmaskedreadperm=p"
+
+    app.storage.general['busy'] = True
+    try:
+        async with httpx.AsyncClient(verify=False) as client:
+            response = await client.post(URL, auth=auth)
+
+            if response is None or response.status_code != 200:
+                # possibly not an issue if stream already exists
+                logger.warning(f"REST failed for create stream: %s", stream)
+                logger.warning("Response: %s", response.text)
+
+            else:
+                res = response.json()
+                if res['status'] == "OK":
+                    ui.notify(f"Stream \"{stream}\" created", type='positive')
+                elif res['status'] == "ERROR":
+                    ui.notify(f"Stream: \"{stream}\": {res['errors'][0]['desc']}", type='negative')
+
+    except Exception as error:
+        logger.warning("Failed to connect %s: %s", URL, type(error))
+        ui.notify(f"Failed to connect to REST: {error}", type='negative')
+        return
+
+    finally:
+        app.storage.general['busy'] = False
+
+
+
 async def create_streams():
     auth = (app.storage.general["MAPR_USER"], app.storage.general["MAPR_PASS"])
 

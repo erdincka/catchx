@@ -240,6 +240,7 @@ def cluster_configuration_dialog():
             with ui.row().classes("w-full place-items-center mt-4"):
                 ui.button("Volumes", on_click=create_volumes).bind_enabled_from(app.storage.general, "busy", backward=lambda x: not x)
                 ui.button("Streams", on_click=create_streams).bind_enabled_from(app.storage.general, "busy", backward=lambda x: not x)
+                ui.button("Tables", on_click=create_binarytable).bind_enabled_from(app.storage.general, "busy", backward=lambda x: not x)
 
         ui.separator()
         with ui.card_section():

@@ -485,10 +485,23 @@ async def monitoring_metrics():
         )
 
 
+def switch_monitoring(value, timers):
+    for timer in timers:
+        if value: timer.activate()
+        else: timer.deactivate()
+    
 async def monitoring_charts():
+
     # Monitoring charts
     with ui.card().classes("flex-grow shrink sticky h-96"):
-        ui.label("Realtime Visibility").classes("uppercase")
+
+        timers = []
+
+        with ui.row().classes("w-full"):
+            ui.label("Realtime Visibility").classes("uppercase")
+            ui.space()
+            ui.switch(on_change=lambda x, t=timers: switch_monitoring(x.value, t))
+
         with ui.row().classes("w-full place-content-stretch no-wrap"):
             # # monitor using /var/mapr/mapr.monitoring/metricstreams/0
             # streams_chart = get_echart()
@@ -513,15 +526,16 @@ async def monitoring_charts():
             gold_chart = get_echart().classes("")
             gold_chart.run_chart_method(":showLoading", r'{text: "Waiting..."}')
 
-            ui.timer(MON_REFRESH_INTERVAL3, lambda c=incoming_chart: update_chart(c, incoming_topic_stats))
+            timers.append(ui.timer(MON_REFRESH_INTERVAL5 + 3, lambda c=consumer_chart: update_chart(c, txn_consumer_stats), active=False))
 
-            ui.timer(MON_REFRESH_INTERVAL5, lambda c=bronze_chart: update_chart(c, bronze_stats))
+            timers.append(ui.timer(MON_REFRESH_INTERVAL3, lambda c=incoming_chart: update_chart(c, incoming_topic_stats), active=False))
 
-            ui.timer(MON_REFRESH_INTERVAL5 + 1, lambda c=silver_chart: update_chart(c, silver_stats))
+            timers.append(ui.timer(MON_REFRESH_INTERVAL5, lambda c=bronze_chart: update_chart(c, bronze_stats), active=False))
 
-            ui.timer(MON_REFRESH_INTERVAL5 + 2, lambda c=gold_chart: update_chart(c, gold_stats))
+            timers.append(ui.timer(MON_REFRESH_INTERVAL5 + 1, lambda c=silver_chart: update_chart(c, silver_stats), active=False))
 
-            ui.timer(MON_REFRESH_INTERVAL5 + 3, lambda c=consumer_chart: update_chart(c, txn_consumer_stats))
+            timers.append(ui.timer(MON_REFRESH_INTERVAL5 + 2, lambda c=gold_chart: update_chart(c, gold_stats), active=False))
+
 
 async def update_metrics(chart: ui.chart):
 

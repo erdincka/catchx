@@ -29,17 +29,17 @@ spark = (
     .config("spark.sql.catalog.fraud.type=hive")
     .config("spark.sql.catalog.fraud.uri=thrift://localhost:9083")
     .config("spark.sql.catalog.fraud.default-namespace=bronze")
-    .config("spark.sql.catalog.fraud.warehouse=/app/iceberg")
+    .config("spark.sql.catalog.fraud.warehouse=/app/iceberg.db")
     .config("spark.sql.parquet.writeLegacyFormat=true")
     .config("spark.sql.legacy.pathOptionBehavior.enabled=true")
     .getOrCreate()
 )
 spark.sparkContext.setLogLevel("INFO")
 
-df = spark.read.option("header", True).csv("/mapr/fraud/app/customers.csv")
+# df = spark.read.option("header", True).csv("/mapr/fraud/app/customers.csv")
 
 # check the dataframe
-df.show()
+# df.show()
 
 
 # def ingest(input_file: str):

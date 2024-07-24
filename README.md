@@ -59,6 +59,9 @@ Install hive and hive metastore
 
 Copy files to /opt/mapr/hive/hive-3.1.3/lib/
 
+Install MariaDB connector for NiFi
+`wget https://dlm.mariadb.com/3852266/Connectors/java/connector-java-3.4.1/mariadb-java-client-3.4.1.jar -O /mapr/fraud/user/root/mariadb-java-client-3.4.1.jar`
+
 Reconfigure cluster:
 
 `/opt/mapr/server/configure.sh -R`
@@ -176,3 +179,4 @@ In `/opt/mapr/conf/ssl-server.xml`
 `scp mapr@10.2.50.35:/opt/mapr/conf/maprkeycreds.* /opt/mapr/conf/`
 `scp mapr@10.2.50.35:/opt/mapr/conf/maprtrustcreds.* /opt/mapr/conf/`
 `scp mapr@10.2.50.35:/opt/mapr/conf/maprhsm.conf /opt/mapr/conf/`
+

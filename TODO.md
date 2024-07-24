@@ -7,12 +7,16 @@ A lot, but start with these first.
 
 - fix table types (silver-txn = binary, silver-profiles = binary)
 
-HBase setup required. mapr-sasl integration in hbase-site.xml. Refer to docs.
+    Using NiFi, it is ok. Happybase auth not working.
 
 
 ## NICE TO HAVE
 
-- enrich dashboard
+- enrich dashboard, customer info
+
+    - add silver tables for data scientists/analysts
+
+- complete NiFi / Airflow for continious flow
 
 - move gold table to delta -> connect to superset
 

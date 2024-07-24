@@ -70,7 +70,9 @@ async def get_new_transactions(count: int = 100):
 async def create_transactions(count: int = 100):
 
     try:
-        transactions = get_new_transactions(count)
+        transactions = await get_new_transactions(count)
+
+        if len(transactions) == 0: return # silently discard if transaction creation is failed
 
         with open(
             f"{MOUNT_PATH}/{get_cluster_name()}{BASEDIR}/{TABLE_TRANSACTIONS}.csv",
@@ -231,7 +233,7 @@ async def dummy_fraud_score():
     """Return a random percentile with adding a delay to simulate querying to an AI model"""
 
     # add delay
-    await asyncio.sleep(0.01)
+    await asyncio.sleep(0.001)
 
     # respond with a random probability, using string to avoid OJAI conversion to this \"score\": {\"$numberLong\": 46}}
     return str(random.randint(0, 100))
