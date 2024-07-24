@@ -220,6 +220,7 @@ def cluster_configuration_dialog():
                 os.environ["CLUSTER_NAME"] = get_cluster_name()
                 os.environ["CLUSTER_IP"] = cluster if cluster is not None else "127.0.0.1"
                 os.environ["MAPR_USER"] = app.storage.general.get("MAPR_USER", "mapr")
+                os.environ["MAPR_PASS"] = app.storage.general.get("MAPR_PASS", "mapr123")
                 with ui.row().classes("w-full place-items-center mt-4"):
                         ui.button("Reconfigure", on_click=lambda: run_command_with_dialog("bash /app/reconfigure.sh"))
                         ui.button("maprlogin", on_click=lambda: run_command_with_dialog(f"echo {app.storage.general['MAPR_PASS']} | maprlogin password -user {app.storage.general['MAPR_USER']}"))
@@ -240,7 +241,7 @@ def cluster_configuration_dialog():
             with ui.row().classes("w-full place-items-center mt-4"):
                 ui.button("Volumes", on_click=create_volumes).bind_enabled_from(app.storage.general, "busy", backward=lambda x: not x)
                 ui.button("Streams", on_click=create_streams).bind_enabled_from(app.storage.general, "busy", backward=lambda x: not x)
-                ui.button("Tables", on_click=create_binarytable).bind_enabled_from(app.storage.general, "busy", backward=lambda x: not x)
+                ui.button("Tables", on_click=create_tables).bind_enabled_from(app.storage.general, "busy", backward=lambda x: not x)
 
         ui.separator()
         with ui.card_section():

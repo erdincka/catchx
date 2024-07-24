@@ -25,7 +25,10 @@ else
   echo "Skip /opt/mapr/conf/ssl-server.xml"
 fi
 
-# ssh-copy-id $MAPR_USER@$CLUSTER_IP
+[[ -f /root/.ssh/id_rsa ]] || ssh-keygen -t rsa -N "" -f /root/.ssh/id_rsa
+
+sshpass -p "${MAPR_PASS}" ssh-copy-id "${MAPR_USER}@${CLUSTER_IP}"
+
 scp $MAPR_USER@$CLUSTER_IP:/opt/mapr/conf/maprkeycreds.* /opt/mapr/conf/
 scp $MAPR_USER@$CLUSTER_IP:/opt/mapr/conf/maprtrustcreds.* /opt/mapr/conf/
 scp $MAPR_USER@$CLUSTER_IP:/opt/mapr/conf/maprhsm.conf /opt/mapr/conf/

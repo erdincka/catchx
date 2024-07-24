@@ -240,24 +240,49 @@ async def create_volumes():
 async def create_tables():
     auth = (app.storage.general["MAPR_USER"], app.storage.general["MAPR_PASS"])
 
-    URL = f"https://{app.storage.general['cluster']}:8443/rest/table/create?path={BASEDIR}/{VOLUME_BRONZE}/b{TABLE_TRANSACTIONS}&tabletype=binary&defaultreadperm=p&defaultwriteperm=p&defaultappendperm=p&defaultunmaskedreadperm=p"
-
     app.storage.general['busy'] = True
     try:
+        # Create table
         async with httpx.AsyncClient(verify=False) as client:
-            response = await client.post(URL, auth=auth)
+            response = await client.post(
+                f"https://{app.storage.general['cluster']}:8443/rest/table/create?path={BASEDIR}/{VOLUME_BRONZE}/b{TABLE_TRANSACTIONS}&tabletype=binary&defaultreadperm=p&defaultwriteperm=p&defaultappendperm=p&defaultunmaskedreadperm=p",
+                auth=auth
+            )
+
+            # logger.debug(response.json())
 
             if response is None or response.status_code != 200:
-                # possibly not an issue if stream already exists
-                logger.warning(f"REST failed for create stream: %s", stream)
+                # possibly not an issue if table already exists
+                logger.warning(f"REST failed for create table: %s", TABLE_TRANSACTIONS)
                 logger.warning("Response: %s", response.text)
 
             else:
                 res = response.json()
                 if res['status'] == "OK":
-                    ui.notify(f"Stream \"{stream}\" created", type='positive')
+                    ui.notify(f"Table \"{TABLE_TRANSACTIONS}\" created", type='positive')
                 elif res['status'] == "ERROR":
-                    ui.notify(f"Stream: \"{stream}\": {res['errors'][0]['desc']}", type='negative')
+                    ui.notify(f"Table: \"{TABLE_TRANSACTIONS}\": {res['errors'][0]['desc']}", type='negative')
+
+        # Create Column Family
+        async with httpx.AsyncClient(verify=False) as client:
+            response = await client.post(
+                f"https://{app.storage.general['cluster']}:8443/rest/table/cf/create?path={BASEDIR}/{VOLUME_BRONZE}/b{TABLE_TRANSACTIONS}&cfname=cf1",
+                auth=auth
+            )
+
+            logger.debug(response.json())
+
+            if response is None or response.status_code != 200:
+                # possibly not an issue if table already exists
+                logger.warning(f"REST failed for create table: %s", TABLE_TRANSACTIONS)
+                logger.warning("Response: %s", response.text)
+
+            else:
+                res = response.json()
+                if res['status'] == "OK":
+                    ui.notify(f"Column Family cf1 created", type='positive')
+                elif res['status'] == "ERROR":
+                    ui.notify(f"Column Family ERROR: {res['errors'][0]['desc']}", type='negative')
 
     except Exception as error:
         logger.warning("Failed to connect %s: %s", URL, type(error))
