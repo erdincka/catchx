@@ -98,7 +98,11 @@ def write(tier: str, tablename: str, records: list) -> bool:
         merged = pd.concat([existing, incoming]).drop_duplicates(subset="_id", keep="last")
 
         ui.notify(f"Appending {merged.shape[0]} records to {tablename}")
-        table.append(pa.Table.from_pandas(merged, preserve_index=False))
+        try:
+            table.append(pa.Table.from_pandas(merged, preserve_index=False))
+
+        except Exception as error:
+            logger.debug(error)
 
         return True
 

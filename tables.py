@@ -84,7 +84,9 @@ def upsert_documents(table_path: str, docs: list):
 
         logger.info("Upserting %d documents from list", len(docs))
 
+        tick = timeit.default_timer()
         store.insert_or_replace(doc_stream=docs)
+        logger.debug("doc insert took %fs", timeit.default_timer() - tick)
 
     except Exception as error:
         logger.warning(error)

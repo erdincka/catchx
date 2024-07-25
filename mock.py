@@ -16,16 +16,22 @@ fake = Faker(["en_GB"])
 
 
 def fake_customer():
-    profile = fake.simple_profile()
+    profile = fake.profile()
     # remove newline from address field
     profile['address'] = profile['address'].replace('\n', ' ')
-    return {
+    customer = {
         "_id": uuid.uuid4().hex,
         **profile,
         "account_number": fake.iban(),
         "county": fake.county(),
         "country_code": fake.current_country_code()
     }
+    # clean up
+    del customer["website"]
+    del customer["residence"]
+    customer["address"] = customer["address"].replace('\n', ' ').replace('\r', ' ')
+
+    return customer
 
 
 def fake_transaction(sender: str, receiver: str):
@@ -74,9 +80,11 @@ async def create_transactions(count: int = 100):
 
         if len(transactions) == 0: return # silently discard if transaction creation is failed
 
+        filepath = f"{MOUNT_PATH}/{get_cluster_name()}{BASEDIR}/{TABLE_TRANSACTIONS}.csv" if count < 1000 else f"{MOUNT_PATH}/{get_cluster_name()}{BASEDIR}/{TABLE_TRANSACTIONS}-bulk.csv"
+
         with open(
-            f"{MOUNT_PATH}/{get_cluster_name()}{BASEDIR}/{TABLE_TRANSACTIONS}.csv",
-            "w",
+            file=filepath,
+            mode="w",
             newline="",
         ) as csvfile:
             fieldnames = fake_transaction("X", "Y").keys()
@@ -89,17 +97,26 @@ async def create_transactions(count: int = 100):
         ui.notify(error, type='warning')
 
     logger.info("%d transactions created", count)
-    ui.notify(f"{count} transactions written to file {TABLE_TRANSACTIONS}.csv")
+    ui.notify(f"{count} transactions written to file {filepath}", type='positive')
 
 
 async def create_customers(count: int = 200):
     try:
         # customers
         customers = []
+        csvfile = f"{MOUNT_PATH}/{get_cluster_name()}{BASEDIR}/{TABLE_CUSTOMERS}.csv"
+
+        if os.path.isfile(csvfile):
+            logger.debug("Existing customers found, appending")
+            with open(csvfile, "r", newline='') as existingfile:
+                reader = csv.DictReader(existingfile)
+                customers += [row for row in reader]
+            logger.debug("%d customers imported", len(customers))
+
         for _ in range(count):
             customers.append(fake_customer())
 
-        with open(f"{MOUNT_PATH}/{get_cluster_name()}{BASEDIR}/{TABLE_CUSTOMERS}.csv", "w", newline='') as csvfile:
+        with open(csvfile, "w", newline='') as csvfile:
             fieldnames = fake_customer().keys()
             writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
             writer.writeheader()
@@ -166,17 +183,19 @@ def create_csv_files():
 
 
 async def peek_mocked_customers():
-    await run_command_with_dialog(f"tail {MOUNT_PATH}/{get_cluster_name()}{BASEDIR}/{TABLE_CUSTOMERS}.csv")
+    await run_command_with_dialog(f"head {MOUNT_PATH}/{get_cluster_name()}{BASEDIR}/{TABLE_CUSTOMERS}.csv")
+
 
 async def peek_mocked_transactions():
-    await run_command_with_dialog(f"tail {MOUNT_PATH}/{get_cluster_name()}{BASEDIR}/{TABLE_TRANSACTIONS}.csv")
+    await run_command_with_dialog(f"head {MOUNT_PATH}/{get_cluster_name()}{BASEDIR}/{TABLE_TRANSACTIONS}.json")
+
 
 async def sample_transactions():
     txlist = await get_new_transactions(10)
     if txlist is None:
         ui.notify("No transaction returned.", type='warning')
 
-    with ui.dialog().props("full-width full-height") as dialog, ui.card().classes(
+    with ui.dialog().props("full-width") as dialog, ui.card().classes(
         "relative"
     ):
         ui.button(icon="close", on_click=dialog.close).props(
@@ -202,24 +221,13 @@ async def publish_transactions(count: int = 10):
         return
 
     try:
-        # with open(f"{MOUNT_PATH}/{get_cluster_name()}{BASEDIR}/transactions.csv", "r", newline='') as csvfile:
-        #     csv_reader = csv.DictReader(csvfile)
-
         for transaction in await get_new_transactions(count):
-        #     for transaction in csv_reader:
-                # only publish randomly selected transactions, and only 10 of them by default
-                # if count == limit: break
-                # if random.randrange(10) < 3: # ~30% to be selected randomly
-                    if await run.io_bound(streams.produce, stream_path, TOPIC_TRANSACTIONS, json.dumps(transaction)):
-                        logger.info("Sent %s", transaction["_id"])
-                        # add delay
-                        # await asyncio.sleep(0.2)
-                    else:
-                        logger.warning("Failed to send transaction to %s", TOPIC_TRANSACTIONS)
-
-                #     count += 1
-
-                # else: logger.debug("Skipped transaction: %s", transaction["_id"])
+            if await run.io_bound(streams.produce, stream_path, TOPIC_TRANSACTIONS, json.dumps(transaction)):
+                logger.info("Sent %s", transaction["_id"])
+                # add delay
+                # await asyncio.sleep(0.2)
+            else:
+                logger.warning("Failed to send transaction to %s", TOPIC_TRANSACTIONS)
 
     except Exception as error:
         logger.warning("Cannot read transactions: %s", error)

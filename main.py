@@ -9,6 +9,7 @@ import theme
 
 # catch-all exceptions
 app.on_exception(gracefully_fail)
+app.on_disconnect(app_init)
 
 # serve images
 app.add_static_files("/images", local_directory="/app/images")

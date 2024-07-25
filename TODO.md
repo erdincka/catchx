@@ -9,6 +9,8 @@ A lot, but start with these first.
 
     Using NiFi, it is ok. Happybase auth not working.
 
+- pyspark in Notebook (UA) to access silver tables
+
 
 ## NICE TO HAVE
 
@@ -16,7 +18,7 @@ A lot, but start with these first.
 
     - add silver tables for data scientists/analysts
 
-- complete NiFi / Airflow for continious flow
+- complete ~~NiFi~~ / Airflow for continious flow
 
 - move gold table to delta -> connect to superset
 

@@ -4,7 +4,6 @@ import shutil
 from nicegui import run
 import country_converter as coco
 import pandas as pd
-import pycountry
 
 from common import *
 from mock import *
@@ -26,7 +25,7 @@ async def upsert_profile(transaction: dict):
         "score": await dummy_fraud_score()
     }
     
-    logger.debug("Profile update %s", profile)
+    logger.debug("Profile to update %s", profile)
     
     # skip unmatched records (txn records left from previous data sets, ie, new customer csv ingested)
     if profile['_id'] == None: return
@@ -75,15 +74,11 @@ async def refine_transactions():
         ui.notify(f"Input table not found: {tablename} on {tier} volume", type="warning")
         return
 
-    # df = iceberger.find_all(tier=tier, tablename=tablename)
     df = pd.DataFrame.from_dict(tables.get_documents(table_path=f"{BASEDIR}/{tier}/{tablename}", limit=None))
     ui.notify(f"Found {df.shape[0]} rows in {tablename}")
 
     # assign a random category to the transaction
     df['category'] = df.apply(lambda _: random.choice(TRANSACTION_CATEGORIES), axis=1)
-
-    # use _id to comply with OJAI primary key
-    # df.rename(columns={'id': '_id'}, inplace=True)
 
     try:
         logger.info("Loading %s documents into %s", df.shape[0], silver_transactions_table)
@@ -108,28 +103,25 @@ async def refine_customers():
     :return bool: Success or Failure
     """
 
-    # input table - iceberg
-    tier = VOLUME_BRONZE
-    tablename = TABLE_CUSTOMERS
-
-    # output table - maprdb binary
     # TODO: using DocumentDB here, change to BinaryDB
-    silver_customers_table = f"{BASEDIR}/{VOLUME_SILVER}/{tablename}"
+    silver_customers_table = f"{BASEDIR}/{VOLUME_SILVER}/{TABLE_CUSTOMERS}"
 
-    if not os.path.lexists(f"{MOUNT_PATH}/{get_cluster_name()}{BASEDIR}/{tier}/{tablename}"): # table not created yet
-        ui.notify(f"Input table not found: {tablename} on {tier}", type="warning")
+    if not os.path.lexists(f"{MOUNT_PATH}/{get_cluster_name()}{BASEDIR}/{VOLUME_BRONZE}/{TABLE_CUSTOMERS}"): # table not created yet
+        ui.notify(f"Input table not found: {TABLE_CUSTOMERS} on {VOLUME_BRONZE}", type="warning")
         return
 
     cc = coco.CountryConverter()
 
     logger.info("Reading from iceberg")
 
-    df = iceberger.find_all(tier=tier, tablename=tablename)
-    ui.notify(f"Found {df.shape[0]} rows in {tablename}")
+    app.storage.general["busy"] = True
+
+    df = iceberger.find_all(tier=VOLUME_BRONZE, tablename=TABLE_CUSTOMERS)
+    ui.notify(f"Found {df.shape[0]} rows in {TABLE_CUSTOMERS}")
     logger.info("Read %d rows", df.shape[0])
 
     df.drop_duplicates(subset="_id", keep="last", ignore_index=True, inplace=True)
-    logger.info("Removed duplicates, left with %d records", df.shape[0])
+    logger.info("Duplicates removed, left with %d records", df.shape[0])
 
     # add country column with short name (from ISO2 country code)
     df['country'] = cc.pandas_convert(df['country_code'], src="ISO2", to="name_short")
@@ -139,21 +131,32 @@ async def refine_customers():
     @lru_cache()
     def to_iso3166_2(c):
         try:
+            # tick = timeit.default_timer()
+            import pycountry
             subdiv = pycountry.subdivisions.search_fuzzy(str(c))
+            # logger.debug("subdivision search took: %f", timeit.default_timer() - tick)
             return subdiv[0].code if subdiv else ""
-        except Exception as error: # silently ignore non-found counties
+
+            # logger.debug(subdiv)
+            # if len(subdiv) > 0:
+            #     return subdiv
+            # else:
+            #     logger.debug("No subdiv for %s", c)
+            #     return ""
+        except Exception as error: # silently ignore non-found subdivisions
             logger.warning(error)
 
     logger.info("Searching county iso codes")
     df['iso3166_2'] = df["county"].map(to_iso3166_2)
-    print(to_iso3166_2.cache_info())
+    logger.debug(to_iso3166_2.cache_info())
     logger.info("County iso codes updated")
 
     # mask last n characters from the account_number
     # last_n_chars = 8
     # df["account_number"] = df["account_number"].astype(str).str[:-last_n_chars] + "*" * last_n_chars
-    # mask birthdate
+    # mask birthdate and location
     df["birthdate"] = "*" * 8
+    df["current_location"] = "*" * 4
 
     # # use _id to comply with OJAI primary key
     df.rename(columns={'id': '_id'}, inplace=True)
@@ -309,7 +312,7 @@ def data_aggregation():
     updated_customers = pd.merge(customers_df, profiles_df, on="_id", how="left").fillna({"score": 0})
 
     # Clean up tables from PII/individual data, and remove duplicates
-    updated_customers.drop(['name', 'birthdate', 'mail', 'username', 'address', 'account_number'], axis=1, inplace=True)
+    updated_customers.drop(['name', 'birthdate', 'current_location', 'mail', 'username', 'address', 'account_number', 'ssn'], axis=1, inplace=True)
     transactions_df.drop(["sender_account", "receiver_account"], axis=1, inplace=True)
 
     # Append customers and transactions in the gold tier rdbms
@@ -381,32 +384,47 @@ async def delete_volumes_and_streams():
     # delete app folder
     try:
         basedir = f"{MOUNT_PATH}/{get_cluster_name()}{BASEDIR}"
-        # remove iceberg tables and metadata catalog
-        if os.path.exists(f"{basedir}/iceberg.db"):
-            catalog = iceberger.get_catalog()
-            for tier in [VOLUME_BRONZE, VOLUME_SILVER, VOLUME_GOLD]:
-                if (tier,) in catalog.list_namespaces():
-                    logger.info("Found ns: %s", tier)
-                    for table in catalog.list_tables(tier):
-                        logger.info("Found table %s in ns: %s", table, tier)
-                        try:
-                            catalog.purge_table(table)
-                        except Exception as error:
-                            logger.warning(error)
-                try:
-                    # remove the namespace
-                    catalog.drop_namespace(tier)
-                except Exception as error:
-                    logger.warning(error)
+        # # remove iceberg tables and metadata catalog
+        # if os.path.exists(f"{basedir}/iceberg.db"):
+        #     catalog = iceberger.get_catalog()
+        #     for tier in [VOLUME_BRONZE, VOLUME_SILVER, VOLUME_GOLD]:
+        #         if (tier,) in catalog.list_namespaces():
+        #             logger.info("Found ns: %s", tier)
+        #             for table in catalog.list_tables(tier):
+        #                 logger.info("Found table %s in ns: %s", table, tier)
+        #                 try:
+        #                     catalog.purge_table(table)
+        #                 except Exception as error:
+        #                     logger.warning(error)
+        #         try:
+        #             # remove the namespace
+        #             catalog.drop_namespace(tier)
+        #         except Exception as error:
+        #             logger.warning(error)
 
-            # finally delete the catalog file
-            os.unlink(f"{basedir}/iceberg.db")
-
-        ui.notify("Iceberg tables purged", type="warning")
+        #     # finally delete the catalog file
+        #     os.unlink(f"{basedir}/iceberg.db")
+        # ui.notify("Iceberg tables purged", type="warning")
 
         if os.path.isdir(basedir):
             shutil.rmtree(basedir, ignore_errors=True)
             ui.notify(f"{basedir} removed from {get_cluster_name()}", type="warning")
+
+        # reset counters
+        for metric in [
+            "in_txn_pushed",
+            "in_txn_pulled",
+            "brnz_customers",
+            "brnz_transactions",
+            "slvr_profiles",
+            "slvr_transactions",
+            "slvr_customers",
+            "gold_transactions",
+            "gold_customers",
+            "gold_fraud",
+        ]:
+            app.storage.general[metric] = 0
+
 
     except Exception as error:
         logger.warning(error)

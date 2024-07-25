@@ -18,14 +18,14 @@ def app_init():
     for metric in [
                 "in_txn_pushed",
                 "in_txn_pulled",
-                "brnz_transactions",
                 "brnz_customers",
+                "brnz_transactions",
                 "slvr_profiles",
                 "slvr_transactions",
                 "slvr_customers",
                 "gold_transactions",
-                "gold_fraud",
                 "gold_customers",
+                "gold_fraud",
             ]:
         app.storage.general[metric] = 0
 
@@ -38,8 +38,8 @@ def app_init():
 
     # If user is not set, get from environment
     if "MAPR_USER" not in app.storage.general:
-        app.storage.general["MAPR_USER"] = os.environ.get("MAPR_USER", "")
-        app.storage.general["MAPR_PASS"] = os.environ.get("MAPR_PASS", "")
+        app.storage.general["MAPR_USER"] = os.environ.get("MAPR_USER", "mapr")
+        app.storage.general["MAPR_PASS"] = os.environ.get("MAPR_PASS", "mapr123")
 
 
 def demo_steps():

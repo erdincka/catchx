@@ -290,6 +290,7 @@ async def bronze_stats():
     series = []
 
     ttable = f"{BASEDIR}/{VOLUME_BRONZE}/{TABLE_TRANSACTIONS}"
+    binarytable = f"{BASEDIR}/{VOLUME_BRONZE}/b{TABLE_TRANSACTIONS}"
     ctable = f"{BASEDIR}/{VOLUME_BRONZE}/{TABLE_CUSTOMERS}"
 
     try:
@@ -299,6 +300,28 @@ async def bronze_stats():
             num_transactions = len(tables.get_documents(ttable, limit=None))
             series.append({ "transactions": num_transactions })
             app.storage.general["brnz_transactions"] = num_transactions
+        else:
+            app.storage.general["brnz_transactions"] = 0
+
+        # FIX: binary table counters are not usable, might need to query the table for total distinct records
+        # if os.path.lexists(f"{MOUNT_PATH}/{get_cluster_name()}{binarytable}"):
+        #     URL = f"https://{app.storage.general['cluster']}:8443/rest/table/info?path={binarytable}"
+        #     auth = (app.storage.general["MAPR_USER"], app.storage.general["MAPR_PASS"])
+        #     async with httpx.AsyncClient(verify=False) as client:
+        #         response = await client.get(URL, auth=auth, timeout=2.0)
+
+        #         if response is None or response.status_code != 200:
+        #             # possibly not connected or topic not populated yet, just ignore
+        #             logger.debug(f"Failed to get consumer stats for {binarytable}")
+
+        #         else:
+        #             metrics = response.json()
+        #             # logger.debug(f"metrics for {binarytable}: {metrics}")
+        #             if not metrics["status"] == "ERROR":
+        #                 # logger.debug(metrics)
+        #                 for m in metrics["data"]:
+        #                     app.storage.general["brnz_transactions"] += m["totalrows"]
+
         if os.path.isdir(f"{MOUNT_PATH}/{get_cluster_name()}{ctable}"): # isdir for iceberg tables
             num_customers = len(iceberger.find_all(VOLUME_BRONZE, TABLE_CUSTOMERS))
             series.append({ "customers": num_customers })
@@ -382,27 +405,22 @@ async def gold_stats():
         # return if table is missing
         engine = create_engine(mydb)
         with engine.connect() as conn:
-            # logger.debug("Engine connected")
-            # return if table is not created
-            # logger.debug([ t for t in conn.execute(text(f"SHOW TABLES LIKE '{TABLE_FRAUD}%';")) ])
-            if not sqlalchemy.inspect(engine).has_table(TABLE_FRAUD):
-                logger.warning("Gold table %s not found", TABLE_FRAUD)
-                return
-
             tick = timeit.default_timer()
 
-            num_fraud = conn.execute(text(f"SELECT COUNT('_id') FROM {TABLE_FRAUD}")).scalar()
-            # logger.debug("Found %d fraud activity", num_fraud)
-            series.append({ TABLE_FRAUD: num_fraud })
-            app.storage.general["gold_fraud"] = num_fraud
+            if sqlalchemy.inspect(engine).has_table(TABLE_TRANSACTIONS):
+                num_transactions = conn.execute(text(f"SELECT COUNT('_id') FROM {TABLE_TRANSACTIONS}")).scalar()
+                series.append({ TABLE_TRANSACTIONS: num_transactions })
+                app.storage.general["gold_transactions"] = num_transactions
 
-            num_transactions = conn.execute(text(f"SELECT COUNT('_id') FROM {TABLE_TRANSACTIONS}")).scalar()
-            series.append({ TABLE_TRANSACTIONS: num_transactions })
-            app.storage.general["gold_transactions"] = num_transactions
+            if sqlalchemy.inspect(engine).has_table(TABLE_CUSTOMERS):
+                num_customers = conn.execute(text(f"SELECT COUNT('_id') FROM {TABLE_CUSTOMERS}")).scalar()
+                series.append({ TABLE_CUSTOMERS: num_customers })
+                app.storage.general["gold_customers"] = num_customers
 
-            num_customers = conn.execute(text(f"SELECT COUNT('_id') FROM {TABLE_CUSTOMERS}")).scalar()
-            series.append({ TABLE_CUSTOMERS: num_customers })
-            app.storage.general["gold_customers"] = num_customers
+            if sqlalchemy.inspect(engine).has_table(TABLE_FRAUD):
+                num_fraud = conn.execute(text(f"SELECT COUNT('_id') FROM {TABLE_FRAUD}")).scalar()
+                series.append({ TABLE_FRAUD: num_fraud })
+                app.storage.general["gold_fraud"] = num_fraud
 
             logger.debug("Gold stat time: %f", timeit.default_timer() - tick)
 
@@ -594,20 +612,20 @@ def monitoring_card():
     # Realtime monitoring information
     with ui.card().classes(
         "flex-grow shrink absolute top-10 right-0 w-1/4 opacity-50 hover:opacity-100"
-    ):
+    ).bind_visibility_from(app.storage.general, 'demo_mode') as monitoring_card:
         ui.label("Realtime Visibility").classes("uppercase")
         with ui.grid(columns=2).classes("w-full"):
             for metric in [
                 "in_txn_pushed",
                 "in_txn_pulled",
-                "brnz_transactions",
                 "brnz_customers",
+                "brnz_transactions",
                 "slvr_profiles",
                 "slvr_transactions",
                 "slvr_customers",
                 "gold_transactions",
-                "gold_fraud",
                 "gold_customers",
+                "gold_fraud",
             ]:
                 with ui.row().classes("w-full place-content-between"):
                     ui.label(metric).classes("text-xs m-0 p-0")
@@ -617,6 +635,7 @@ def monitoring_card():
                         "size-xs self-end"
                     )
 
+    return monitoring_card
 
 ### NOT USED
 def metric_badges_on_ii():

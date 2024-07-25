@@ -241,57 +241,63 @@ async def create_tables():
     auth = (app.storage.general["MAPR_USER"], app.storage.general["MAPR_PASS"])
 
     app.storage.general['busy'] = True
-    try:
-        # Create table
-        async with httpx.AsyncClient(verify=False) as client:
-            response = await client.post(
-                f"https://{app.storage.general['cluster']}:8443/rest/table/create?path={BASEDIR}/{VOLUME_BRONZE}/b{TABLE_TRANSACTIONS}&tabletype=binary&defaultreadperm=p&defaultwriteperm=p&defaultappendperm=p&defaultunmaskedreadperm=p",
-                auth=auth
-            )
+    for tier in [VOLUME_BRONZE, VOLUME_SILVER]:
+        try:
+            # Create table
+            async with httpx.AsyncClient(verify=False) as client:
+                URL = f"https://{app.storage.general['cluster']}:8443/rest/table/create?path={BASEDIR}/{tier}/b{TABLE_TRANSACTIONS}&tabletype=binary&defaultreadperm=p&defaultwriteperm=p&defaultappendperm=p&defaultunmaskedreadperm=p"
+                response = await client.post(
+                    url=URL,
+                    auth=auth
+                )
 
-            # logger.debug(response.json())
+                # logger.debug(response.json())
 
-            if response is None or response.status_code != 200:
-                # possibly not an issue if table already exists
-                logger.warning(f"REST failed for create table: %s", TABLE_TRANSACTIONS)
-                logger.warning("Response: %s", response.text)
+                if response is None or response.status_code != 200:
+                    # possibly not an issue if table already exists
+                    logger.warning("REST failed for create table: %s in %s", TABLE_TRANSACTIONS, tier)
+                    logger.warning("Response: %s", response.text)
 
-            else:
-                res = response.json()
-                if res['status'] == "OK":
-                    ui.notify(f"Table \"{TABLE_TRANSACTIONS}\" created", type='positive')
-                elif res['status'] == "ERROR":
-                    ui.notify(f"Table: \"{TABLE_TRANSACTIONS}\": {res['errors'][0]['desc']}", type='negative')
+                else:
+                    res = response.json()
+                    if res['status'] == "OK":
+                        ui.notify(f"Table \"b{TABLE_TRANSACTIONS}\" created in {tier}", type='positive')
+                    elif res['status'] == "ERROR":
+                        ui.notify(f"Table: \"{TABLE_TRANSACTIONS}\" in {tier}: {res['errors'][0]['desc']}", type='negative')
 
-        # Create Column Family
-        async with httpx.AsyncClient(verify=False) as client:
-            response = await client.post(
-                f"https://{app.storage.general['cluster']}:8443/rest/table/cf/create?path={BASEDIR}/{VOLUME_BRONZE}/b{TABLE_TRANSACTIONS}&cfname=cf1",
-                auth=auth
-            )
+            # Create Column Family
+            async with httpx.AsyncClient(verify=False) as client:
+                URL = f"https://{app.storage.general['cluster']}:8443/rest/table/cf/create?path={BASEDIR}/{tier}/b{TABLE_TRANSACTIONS}&cfname=cf1"
+                response = await client.post(
+                    url=URL,
+                    auth=auth
+                )
 
-            logger.debug(response.json())
+                # logger.debug(response.json())
 
-            if response is None or response.status_code != 200:
-                # possibly not an issue if table already exists
-                logger.warning(f"REST failed for create table: %s", TABLE_TRANSACTIONS)
-                logger.warning("Response: %s", response.text)
+                if response is None or response.status_code != 200:
+                    # possibly not an issue if table already exists
+                    logger.warning("REST failed for create table: %s in %s", TABLE_TRANSACTIONS, tier)
+                    logger.warning("Response: %s", response.text)
 
-            else:
-                res = response.json()
-                if res['status'] == "OK":
-                    ui.notify(f"Column Family cf1 created", type='positive')
-                elif res['status'] == "ERROR":
-                    ui.notify(f"Column Family ERROR: {res['errors'][0]['desc']}", type='negative')
+                else:
+                    res = response.json()
+                    if res['status'] == "OK":
+                        ui.notify(f"Column Family created for table in {tier}", type='positive')
+                    elif res['status'] == "ERROR":
+                        ui.notify(f"Column Family failed for table in {tier}: {res['errors'][0]['desc']}", type='negative')
 
-    except Exception as error:
-        logger.warning("Failed to connect %s: %s", URL, type(error))
-        ui.notify(f"Failed to connect to REST: {error}", type='negative')
-        return
+        except Exception as error:
+            logger.warning("Failed to connect %s: %s", URL, error)
+            ui.notify(f"Failed to connect to REST: {type(error)}", type='negative')
+            return
 
-    finally:
-        app.storage.general['busy'] = False
+        finally:
+            app.storage.general['busy'] = False
 
+    # TODO: build MySQL DB tables
+    # Create RDBMS tables
+    # mydb = f"mysql+pymysql://{app.storage.general['MYSQL_USER']}:{app.storage.general['MYSQL_PASS']}@{app.storage.general['cluster']}/{DATA_PRODUCT}"
 
 
 async def create_streams():

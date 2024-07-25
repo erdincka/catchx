@@ -542,12 +542,12 @@ async def domain_ii():
         ) as domain_image:
         
             def update_overlay(switch):
-                print(switch)
                 domain_image.set_content(svg_overlay if switch else "")
+                app.storage.general['demo_mode'] = switch
 
-            ui.switch("Overlay", on_change=lambda x: update_overlay(x.value)).classes("absolute top-0 left-2")
+            ui.switch("Demo", on_change=lambda x: update_overlay(x.value)).classes("absolute top-0 left-2").bind_value(app.storage.general, 'demo_mode')
 
-            with ui.list().props("bordered dense").classes("w-80 absolute top-10 left-2"):
+            with ui.list().props("bordered dense").classes("w-96 absolute top-10 left-2").bind_visibility_from(app.storage.general, 'demo_mode'):
                 ui.item_label("Source data").props("header").classes("text-bold")
                 ui.separator()
                 with ui.row().classes("w-full no-wrap p-0"):
@@ -560,12 +560,11 @@ async def domain_ii():
 
                 with ui.row().classes("w-full no-wrap p-0"):
                     with ui.button_group().props("flat"):
-                        ui.button(icon="o_library_add", on_click=lambda: create_transactions(1000)).classes("mx-0 px-1").props("flat").tooltip("Generate 1000 txn for NiFi")
+                        ui.button(icon="o_library_add", on_click=lambda: create_transactions(1000)).classes("mx-0 px-1").props("flat").tooltip("Generate bulk transactions for NiFi")
                         ui.button(icon="o_integration_instructions", on_click=code_create_transactions).classes("mx-0 px-1").props("flat")
-                    with ui.item(on_click=peek_mocked_transactions).props("dense").classes("mx-0 gx-0"):
+                    with ui.item(on_click=sample_transactions).props("dense").classes("mx-0 gx-0"):
                         with ui.item_section():
-                            # ui.item_label(TABLE_TRANSACTIONS)
-                            ui.item_label(f"{MOUNT_PATH}/{get_cluster_name()}{BASEDIR}/{TABLE_TRANSACTIONS}.csv")
+                            ui.item_label(f"{MOUNT_PATH}/{get_cluster_name()}{BASEDIR}/{TABLE_TRANSACTIONS}.json")
 
             # Realtime monitoring information
             monitoring_card()
