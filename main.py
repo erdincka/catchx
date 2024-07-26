@@ -3,8 +3,35 @@ from nicegui import app, ui
 from monitoring import *
 from functions import *
 from page import *
-import gui
-import theme
+
+def app_init():
+
+    # Reset metrics
+    for metric in [
+                "in_txn_pushed",
+                "in_txn_pulled",
+                "brnz_customers",
+                "brnz_transactions",
+                "slvr_profiles",
+                "slvr_transactions",
+                "slvr_customers",
+                "gold_transactions",
+                "gold_customers",
+                "gold_fraud",
+            ]:
+        app.storage.general[metric] = 0
+
+    # and previous run state if it was hang
+    app.storage.general["busy"] = False
+
+    # reset the cluster info
+    if "clusters" not in app.storage.general:
+        app.storage.general["clusters"] = {}
+
+    # If user is not set, get from environment
+    if "MAPR_USER" not in app.storage.general:
+        app.storage.general["MAPR_USER"] = os.environ.get("MAPR_USER", "mapr")
+        app.storage.general["MAPR_PASS"] = os.environ.get("MAPR_PASS", "mapr123")
 
 
 # catch-all exceptions
@@ -19,30 +46,7 @@ configure_logging()
 
 logger = logging.getLogger("main")
 
-
-@ui.page("/")
-async def index_page():
-    # Initialize app parameters
-    app_init()
-
-    # Main
-    with theme.frame("Hub"):
-        # TODO: proper/better description below
-        # ui.markdown(
-        #     """
-        #     Create a globally distributed Data Mesh architecture using HPE Ezmeral Data Fabric.
-
-        #     Data Fabric provides a modern data platform on hybrid deployment scenarios and enables organisations with advanced capabilities,
-        #     such as the ability to implement data products across different organisations, projects, teams to own and share their Data Products.
-
-        #     With its multi-model, multi-protocol data handling capabilities, as well as it enterprise features and cloud-scale, organisations can
-        #     realise the true value from a living data system.
-        #     """
-        # )
-        await gui.mesh_ii()
-
-    # with ui.row().classes("w-full flex flex-nowrap relative"):
-    #     demo_steps()
+app_init()
 
 
 if __name__ in {"__main__", "__mp_main__"}:

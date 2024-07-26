@@ -1,5 +1,6 @@
 from functools import lru_cache
 import random
+import re
 import shutil
 from nicegui import run
 import country_converter as coco
@@ -114,7 +115,8 @@ async def refine_customers():
 
     logger.info("Reading from iceberg")
 
-    app.storage.general["busy"] = True
+    # app.storage.general["busy"] = True
+    ui.notify("Processing customers for enrichment", type='positive')
 
     df = iceberger.find_all(tier=VOLUME_BRONZE, tablename=TABLE_CUSTOMERS)
     ui.notify(f"Found {df.shape[0]} rows in {TABLE_CUSTOMERS}")
@@ -173,7 +175,9 @@ async def refine_customers():
         ui.notify(f"Failed to write into table: {error}", type='negative')
 
     finally:
-        app.storage.general["busy"] = False
+        # app.storage.general["busy"] = False
+        pass
+
 
 
 def iceberg_table_history(tier: str, tablename: str):
@@ -384,27 +388,27 @@ async def delete_volumes_and_streams():
     # delete app folder
     try:
         basedir = f"{MOUNT_PATH}/{get_cluster_name()}{BASEDIR}"
-        # # remove iceberg tables and metadata catalog
-        # if os.path.exists(f"{basedir}/iceberg.db"):
-        #     catalog = iceberger.get_catalog()
-        #     for tier in [VOLUME_BRONZE, VOLUME_SILVER, VOLUME_GOLD]:
-        #         if (tier,) in catalog.list_namespaces():
-        #             logger.info("Found ns: %s", tier)
-        #             for table in catalog.list_tables(tier):
-        #                 logger.info("Found table %s in ns: %s", table, tier)
-        #                 try:
-        #                     catalog.purge_table(table)
-        #                 except Exception as error:
-        #                     logger.warning(error)
-        #         try:
-        #             # remove the namespace
-        #             catalog.drop_namespace(tier)
-        #         except Exception as error:
-        #             logger.warning(error)
+        # remove iceberg tables and metadata catalog
+        if os.path.exists(f"{basedir}/iceberg.db"):
+            catalog = iceberger.get_catalog()
+            for tier in [VOLUME_BRONZE, VOLUME_SILVER, VOLUME_GOLD]:
+                if (tier,) in catalog.list_namespaces():
+                    logger.info("Found ns: %s", tier)
+                    for table in catalog.list_tables(tier):
+                        logger.info("Found table %s in ns: %s", table, tier)
+                        try:
+                            catalog.purge_table(table)
+                        except Exception as error:
+                            logger.warning(error)
+                try:
+                    # remove the namespace
+                    catalog.drop_namespace(tier)
+                except Exception as error:
+                    logger.warning(error)
 
-        #     # finally delete the catalog file
-        #     os.unlink(f"{basedir}/iceberg.db")
-        # ui.notify("Iceberg tables purged", type="warning")
+            # finally delete the catalog file
+            os.unlink(f"{basedir}/iceberg.db")
+        ui.notify("Iceberg tables purged", type="warning")
 
         if os.path.isdir(basedir):
             shutil.rmtree(basedir, ignore_errors=True)
@@ -445,3 +449,59 @@ async def delete_volumes_and_streams():
         ui.notify(f"Failed to remove db tables: {error}", type='negative')
 
     app.storage.general['busy'] = False
+
+
+def handle_image_info(e: events.MouseEventArguments):
+    # logger.debug(e)
+    # eventargs is a dict with: type, element_id, image_x, image_y keys.
+    element = e["element_id"]
+
+    # Regex to convert "CamelCase" to "Title Case"
+    title = " ".join(re.findall(r"[A-Z](?:[a-z]+|[A-Z]*(?=[A-Z]|$))", element))
+
+    if element == "Fraud":
+        label = "Open the Fraud Data Pipeline"
+    elif element == "NFS":
+        label = "Bring existing datalakes into the 'Mesh'."
+    elif element == "S3":
+        label = "Bring existing Object Stores into the 'Mesh'."
+    elif element == "IAM":
+        label = "Globally manage and integrate with IAM for auth/z"
+    elif element == "Edge":
+        label = "'Data Domains' without 'Data Products' can join to the Mesh too"
+    elif element == "Policies":
+        label = "Define and distribute governance policies from federation hub"
+    elif element == "Catalogue":
+        label = "Enable Data Product registration and publishing from federation hub"
+
+    # Data Domain functions
+    elif element == "PublishTransactions":
+        label = "Send transactions into the input stream"
+    elif element == "PublishTransactionsCode":
+        label = "Look at the code that publishes demo data for ingestion"
+    elif element == "CreateData":
+        label = "Generate mock data to use for ingestion - customers & transactions"
+    elif element == "CreateDataCode":
+        label = "Look at the code for creating the data for this demo"
+    elif element == "IngestTransactions":
+        label = "Process incoming transactions with stream consumer."
+    elif element == "IngestCustomersIceberg":
+        label = "Execute batch data ingestion."
+    elif element == "BronzeTransactions":
+        label = "Look at the transactions data from Bronze tier"
+    elif element == "RefineTransactions":
+        label = "Create refined transactions table in the silver tier"
+    elif element == "RefineCustomers":
+        label = "Create refined customers table in the silver tier"
+    else:
+        label = "Not defined yet"
+    ui.notify(
+        message=title,
+        caption=label,
+        type="info",
+        color="secondary",
+        progress=True,
+        multi_line=True,
+        timeout=2000,
+    )
+
