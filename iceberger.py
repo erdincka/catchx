@@ -53,7 +53,7 @@ def get_catalog():
         ui.notify(f"Iceberg catalog error: {error}", type='negative')
 
     finally:
-        logger.debug("Got new catalog for Iceberg")
+        logger.info("Got new catalog for Iceberg")
         return catalog
 
 
@@ -88,7 +88,7 @@ def write(tier: str, tablename: str, records: list) -> bool:
             )
 
         except:
-            logger.debug("Table exists, appending to: " + tablename)
+            logger.info("Table exists, appending to: " + tablename)
             table = catalog.load_table(f"{tier}.{tablename}")
 
         existing = table.scan().to_pandas()
@@ -102,7 +102,7 @@ def write(tier: str, tablename: str, records: list) -> bool:
             table.append(pa.Table.from_pandas(merged, preserve_index=False))
 
         except Exception as error:
-            logger.debug(error)
+            logger.warning(error)
 
         return True
 
@@ -137,11 +137,11 @@ def history(tier: str, tablename: str):
 
     if catalog is not None:
 
-        logger.debug("Loading table: %s.%s", tier, tablename)
+        logger.info("Loading table: %s.%s", tier, tablename)
 
         table = catalog.load_table(f'{tier}.{tablename}')
 
-        logger.debug("Got table: %s", table)
+        logger.info("Got table: %s", table)
 
         return [
                 {

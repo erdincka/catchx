@@ -80,7 +80,7 @@ async def create_transactions(count: int = 100):
 
         if len(transactions) == 0: return # silently discard if transaction creation is failed
 
-        filepath = f"{MOUNT_PATH}/{get_cluster_name()}{BASEDIR}/{TABLE_TRANSACTIONS}.csv" if count < 1000 else f"{MOUNT_PATH}/{get_cluster_name()}{BASEDIR}/{TABLE_TRANSACTIONS}-bulk.csv"
+        filepath = f"{MOUNT_PATH}/{get_cluster_name()}{BASEDIR}/{TABLE_TRANSACTIONS}.csv" if count < 100 else f"{MOUNT_PATH}/{get_cluster_name()}{BASEDIR}/{TABLE_TRANSACTIONS}-bulk.csv"
 
         with open(
             file=filepath,
@@ -107,11 +107,11 @@ async def create_customers(count: int = 200):
         csvfile = f"{MOUNT_PATH}/{get_cluster_name()}{BASEDIR}/{TABLE_CUSTOMERS}.csv"
 
         if os.path.isfile(csvfile):
-            logger.debug("Existing customers found, appending")
+            logger.info("Existing customers found, appending")
             with open(csvfile, "r", newline='') as existingfile:
                 reader = csv.DictReader(existingfile)
                 customers += [row for row in reader]
-            logger.debug("%d customers imported", len(customers))
+            logger.info("%d customers imported", len(customers))
 
         for _ in range(count):
             customers.append(fake_customer())

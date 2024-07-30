@@ -149,7 +149,7 @@ async def fraud_detection():
     for record in await run.io_bound(streams.consume, stream=input_stream, topic=input_topic, consumer_group="fraud"):
         txn = json.loads(record)
 
-        logger.debug("Checking transaction for fraud: %s", txn["_id"])
+        logger.info("Checking transaction for fraud: %s", txn["_id"])
 
         # Where the actual scoring mechanism should work
         calculated_fraud_score = await dummy_fraud_score()
@@ -171,6 +171,6 @@ async def fraud_detection():
 
         else:
             non_fraud_count += 1
-            logger.debug("Non fraudulant transaction %s", txn["_id"])
+            logger.info("Non fraudulant transaction %s", txn["_id"])
 
     ui.notify(f"Reported {fraud_count} fraud and {non_fraud_count} valid transactions", type='warning')

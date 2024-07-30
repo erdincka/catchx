@@ -52,7 +52,7 @@ app_init()
 if __name__ in {"__main__", "__mp_main__"}:
     ui.run(
         title=TITLE,
-        dark=False,
+        # dark=None,
         storage_secret=STORAGE_SECRET,
         reload=True,
         port=3000,

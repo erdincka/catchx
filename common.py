@@ -343,12 +343,15 @@ def show_mysql_tables():
         tables = conn.execute(text("SHOW TABLES"))
         peek_tables = {}
         for table in tables:
-            peek_tables[table[0]] = pd.read_sql(f"SELECT * FROM {table[0]} LIMIT 5", con=mydb)
+            # peek_tables[table[0]] = pd.read_sql(f"SELECT * FROM {table[0]} LIMIT 5", con=mydb)
+            peek_tables[table[0]] = pd.read_sql(f"SELECT * FROM {table[0]} LIMIT 10", con=mydb)
             logger.debug("%s: %s", table[0], peek_tables[table[0]])
 
         with ui.dialog().props("full-width") as mysql_tables, ui.card().classes("grow relative"):
             ui.button(icon="close", on_click=mysql_tables.close).props("flat round dense").classes("absolute right-2 top-2")
-            ui.label("Tables from MySQL DB")
+
+            with ui.row().classes("w-full mt-6"):
+                ui.label("Tables from MySQL DB")
             for table in peek_tables.keys():
                 ui.table.from_pandas(peek_tables[table], title=table).classes('w-full mt-6').props("dense")
 
@@ -363,7 +366,7 @@ async def enable_cdc(source_table_path: str, destination_stream_topic: str):
         ui.notify(f"Table not found: {source_table_path}", type="warning")
         return
 
-    logger.debug("Check for changelog on: %s", source_table_path)
+    logger.info("Check for changelog on: %s", source_table_path)
 
     URL = f"https://{app.storage.general['cluster']}:8443/rest/table/changelog/list?path={source_table_path}&changelog={destination_stream_topic}"
 
@@ -380,7 +383,7 @@ async def enable_cdc(source_table_path: str, destination_stream_topic: str):
                 if res["status"] == "ERROR":
                     logger.warning("CDC check failed with: %s", res["errors"])
 
-                logger.debug("CDC check: %s", res)
+                logger.info("CDC check: %s", res)
 
                 if res["total"] == 0:
                     # create CDC
@@ -437,7 +440,7 @@ def configure_logging():
     binding.MAX_PROPAGATION_TIME = 0.05
 
 
-def toggle_debug(arg: ValueChangeEventArguments):
+def toggle_log(arg: ValueChangeEventArguments):
     print(f"debug set to {arg.value}")
     if arg.value:
         logger.setLevel(logging.DEBUG)
@@ -468,3 +471,18 @@ async def open_dialog(content_function):
         else: content_function()
 
     dialog.open()
+
+
+class LogElementHandler(logging.Handler):
+    """A logging handler that emits messages to a log element."""
+
+    def __init__(self, element: ui.log, level: int = logging.DEBUG) -> None:
+        self.element = element
+        super().__init__(level)
+
+    def emit(self, record: logging.LogRecord) -> None:
+        try:
+            msg = self.format(record)
+            self.element.push(msg)
+        except Exception:
+            self.handleError(record)

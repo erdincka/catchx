@@ -9,7 +9,7 @@ def produce(stream: str, topic: str, message: str):
     p = Producer({"streams.producer.default.stream": stream})
 
     try:
-        logger.debug("sending message: %s", message)
+        logger.info("sending message: %s", message)
         p.produce(topic, message.encode("utf-8"))
 
     except Exception as error:
@@ -26,7 +26,7 @@ def produce(stream: str, topic: str, message: str):
 def consume(stream: str, topic: str, consumer_group: str):
     from confluent_kafka import Consumer, KafkaError
 
-    logger.debug("Stream: %s Topic: %s", stream, topic)
+    logger.info("Stream: %s Topic: %s", stream, topic)
 
     consumer = Consumer(
         {"group.id": consumer_group, "default.topic.config": {"auto.offset.reset": "earliest"}}

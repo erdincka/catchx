@@ -77,8 +77,32 @@ def code_nifi_stream():
         ui.button(icon="close", on_click=stream_codeview.close).props(
             "flat round dense"
         ).classes("absolute right-2 top-2")
-        with open("TransactionIngestion.xml", 'r') as f:
-            ui.code(f.read()).classes("w-full mt-6")
+        from jinja2 import Environment, FileSystemLoader
+        environment = Environment(loader=FileSystemLoader("templates/"))
+        template = environment.get_template("TransactionFlow.xml.j2")
+        content = template.render(
+            hive_db_connect_url = "jdbc:hive2://localhost:10000/default;auth=maprsasl;ssl=true",
+            database_connection_url = f"jdbc:mariadb://{app.storage.general.get('cluster', 'localhost')}:3306/{DATA_PRODUCT}",
+            database_driver_location = f"{MOUNT_PATH}/{DATA_PRODUCT}/user/root/mariadb-java-client-3.4.1.jar",
+            database_user = app.storage.general.get("MYSQL_USER", "mysql"),
+            database_password = app.storage.general.get("MYSQL_PASS", "mysql"),
+            hive3_table_name = TABLE_TRANSACTIONS,
+            hive3_external_table_location = f"{BASEDIR}/{VOLUME_SILVER}/hive{TABLE_TRANSACTIONS}",
+            app_dir = BASEDIR,
+            incoming_bulk_file = f"{TABLE_TRANSACTIONS}-bulk.csv",
+            app_logs_failed = f"{BASEDIR}/logs/failed",
+            app_logs = f"{BASEDIR}/logs",
+            dir_app_logs_failed = f"{MOUNT_PATH}/{DATA_PRODUCT}{BASEDIR}/logs/failed",
+            hive3_external_table_location_gold = f"{BASEDIR}/{VOLUME_GOLD}",
+            put_db_record_table_name = TABLE_TRANSACTIONS,
+            hbase_table_name_silver = f"{BASEDIR}/{VOLUME_SILVER}/b{TABLE_TRANSACTIONS}",
+            hbase_table_name_bronze = f"{BASEDIR}/{VOLUME_BRONZE}/b{TABLE_TRANSACTIONS}",
+            incoming_topic = f"{BASEDIR}/{STREAM_INCOMING}:{TOPIC_TRANSACTIONS}",
+            sasl_username = app.storage.general.get("MAPR_USER", "mapr"),
+            sasl_password = app.storage.general.get("MAPR_PASS", "mapr123"),
+            bronze_transactions_dir = f"{BASEDIR}/{VOLUME_BRONZE}/{TABLE_TRANSACTIONS}",
+        )
+        ui.code(content).classes("w-full mt-6")
         # ui.code(inspect.getsource(DAG_csv_to_iceberg.read_csv_task)).classes("w-full mt-6")
     stream_codeview.on("close", lambda d=stream_codeview: d.delete())
     return stream_codeview

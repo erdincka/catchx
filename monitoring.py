@@ -140,7 +140,7 @@ def mapr_monitoring():
 
         series = []
         if metric[0]["metric"] in ["mapr.streams.produce_msgs", "mapr.streams.listen_msgs", "mapr.db.table.write_rows", "mapr.db.table.read_rows"]:
-            logger.debug("Found metric %s", metric[0])
+            logger.info("Found metric %s", metric[0])
 
             series.append(
                 { metric[0]["metric"]: metric[0]["value"] }
@@ -157,7 +157,7 @@ async def incoming_topic_stats():
     topic = TOPIC_TRANSACTIONS
 
     if app.storage.general.get("cluster", None) is None:
-        logger.debug("Cluster not configured, skipping.")
+        logger.warning("Cluster not configured, skipping.")
         return
 
     try:
@@ -214,7 +214,7 @@ async def incoming_topic_stats():
                     }
                 else:
                     # possibly topic is not created yet
-                    logger.debug("Topic stat query error %s", metrics["errors"])
+                    logger.warning("Topic stat query error %s", metrics["errors"])
 
     except Exception as error:
         logger.warning("Topic stat request error %s", error)
@@ -227,7 +227,7 @@ async def txn_consumer_stats():
     topic = TOPIC_TRANSACTIONS
 
     if app.storage.general.get("cluster", None) is None:
-        logger.debug("Cluster not configured, skipping.")
+        logger.warning("Cluster not configured, skipping.")
         return
 
     try:
@@ -238,7 +238,7 @@ async def txn_consumer_stats():
 
             if response is None or response.status_code != 200:
                 # possibly not connected or topic not populated yet, just ignore
-                logger.debug(f"Failed to get consumer stats for {topic}")
+                logger.warning(f"Failed to get consumer stats for {topic}")
 
             else:
                 metrics = response.json()
@@ -273,18 +273,18 @@ async def txn_consumer_stats():
                     }
                 else:
                     # possibly topic is not created yet
-                    logger.debug("Consumer stat query error %s", metrics["errors"])
+                    logger.warning("Consumer stat query error %s", metrics["errors"])
 
     except Exception as error:
         # possibly not connected or topic not populated yet, just ignore it
-        logger.debug("Consumer stat request error %s", error)
+        logger.warning("Consumer stat request error %s", error)
         # delay for a while before retry
         await asyncio.sleep(30)
 
 
 async def bronze_stats():
     if app.storage.general.get("cluster", None) is None:
-        logger.debug("Cluster not configured, skipping.")
+        logger.warning("Cluster not configured, skipping.")
         return
 
     series = []
@@ -345,7 +345,7 @@ async def bronze_stats():
 
 async def silver_stats():
     if app.storage.general.get("cluster", None) is None:
-        logger.debug("Cluster not configured, skipping.")
+        logger.warning("Cluster not configured, skipping.")
         return
 
     series = []
@@ -394,7 +394,7 @@ async def silver_stats():
 
 async def gold_stats():
     if app.storage.general.get("cluster", None) is None:
-        logger.debug("Cluster not configured, skipping.")
+        logger.warning("Cluster not configured, skipping.")
         return
 
     series = []
@@ -449,7 +449,7 @@ async def monitoring_metrics():
     if incoming is not None:
         metrics = incoming["values"]
 
-        logger.debug("incoming: %s", metrics)
+        logger.info("incoming: %s", metrics)
 
         app.storage.general["in_txn_pushed"] = next(
             iter([m["publishedMsgs"] for m in metrics if "publishedMsgs" in m]), None
@@ -507,18 +507,17 @@ def switch_monitoring(value, timers):
     for timer in timers:
         if value: timer.activate()
         else: timer.deactivate()
-    
+
+
 async def monitoring_charts():
 
     # Monitoring charts
-    with ui.card().classes("flex-grow shrink sticky h-96"):
+    timers = []
 
-        timers = []
+    with ui.card().classes("w-full flex-grow h-64"):
 
         with ui.row().classes("w-full"):
             ui.label("Realtime Visibility").classes("uppercase")
-            ui.space()
-            ui.switch(on_change=lambda x, t=timers: switch_monitoring(x.value, t))
 
         with ui.row().classes("w-full place-content-stretch no-wrap"):
             # # monitor using /var/mapr/mapr.monitoring/metricstreams/0
@@ -554,6 +553,7 @@ async def monitoring_charts():
 
             timers.append(ui.timer(MON_REFRESH_INTERVAL5 + 2, lambda c=gold_chart: update_chart(c, gold_stats), active=False))
 
+    return timers
 
 async def update_metrics(chart: ui.chart):
 
@@ -608,6 +608,7 @@ async def update_metrics(chart: ui.chart):
 
     logger.info("Finished in: %ss", timeit.default_timer() - tick)
 
+
 def monitoring_card():
     # Realtime monitoring information
     with ui.card().classes(
@@ -637,85 +638,15 @@ def monitoring_card():
 
     return monitoring_card
 
-### NOT USED
-def metric_badges_on_ii():
-    """
-    Place badges with counters in real-time as they are updated by monitoring_metrics()
-    """
 
-    # raw counts
-    ui.badge("0", color="teal").bind_text_from(
-        app.storage.general,
-        "raw_transactions",
-        lambda x: x if x is not None else 0,
-    ).classes("absolute top-[250px] left-[100px]")
-    ui.badge("0", color="orange").bind_text_from(
-        app.storage.general,
-        "raw_customers",
-        lambda x: x if x is not None else 0,
-    ).classes("absolute top-[420px] left-[100px]")
-
-    # ingest counts
-    ui.badge("0", color="lightteal").bind_text_from(
-        app.storage.general,
-        "in_txn_pushed",
-        lambda x: x if x is not None else 0,
-    ).classes("absolute top-[250px] left-[280px]").tooltip("published transactions")
-    ui.badge("0", color="teal").bind_text_from(
-        app.storage.general,
-        "in_txn_pulled",
-        lambda x: x if x is not None else 0,
-    ).classes("absolute top-[280px] left-[280px]").tooltip("consumed transactions")
-    ui.badge("0", color="orange").bind_text_from(
-        app.storage.general,
-        "ingest_customers",
-        lambda x: x if x is not None else 0,
-    ).classes("absolute top-[460px] left-[280px]").tooltip("# of customers")
-
-    # bronze counts
-    ui.badge("0", color="teal").bind_text_from(
-        app.storage.general,
-        "brnz_transactions",
-        lambda x: x if x is not None else 0,
-    ).classes("absolute top-[280px] left-[450px]").tooltip("# of transactions")
-    ui.badge("0", color="orange").bind_text_from(
-        app.storage.general,
-        "brnz_customers",
-        lambda x: x if x is not None else 0,
-    ).classes("absolute top-[450px] left-[450px]").tooltip("# of customers")
-
-    # silver counts
-    ui.badge("0", color="darkturquoise").bind_text_from(
-        app.storage.general,
-        "slvr_profiles",
-        lambda x: x if x is not None else 0,
-    ).classes("absolute top-[140px] left-[680px]").tooltip("# of profiles")
-    ui.badge("0", color="teal").bind_text_from(
-        app.storage.general,
-        "slvr_transactions",
-        lambda x: x if x is not None else 0,
-    ).classes("absolute top-[280px] left-[680px]").tooltip("# of transactions")
-    ui.badge("0", color="orange").bind_text_from(
-        app.storage.general,
-        "slvr_customers",
-        lambda x: x if x is not None else 0,
-    ).classes("absolute top-[450px] left-[680px]").tooltip("# of customers")
-
-    # gold counts
-    ui.badge("0", color="red").bind_text_from(
-        app.storage.general,
-        "gold_fraud",
-        lambda x: x if x is not None else 0,
-    ).classes("absolute top-[420px] left-[870px]").tooltip("# of fraud")
-    ui.badge("0", color="teal").bind_text_from(
-        app.storage.general,
-        "gold_transactions",
-        lambda x: x if x is not None else 0,
-    ).classes("absolute top-[440px] left-[870px]").tooltip("# of transactions")
-    ui.badge("0", color="orange").bind_text_from(
-        app.storage.general,
-        "gold_customers",
-        lambda x: x if x is not None else 0,
-    ).classes("absolute top-[460px] left-[870px]").tooltip("# of customers")
-
-
+def logging_card():
+    # Realtime logging
+    with ui.card().classes(
+        "flex-grow shrink absolute top-64 right-0 w-1/4 opacity-50 hover:opacity-100"
+    ).bind_visibility_from(app.storage.general, 'demo_mode') as logging_card:
+        ui.label("App log").classes("uppercase")
+        log = ui.log().classes("h-40")
+        handler = LogElementHandler(log, logging.INFO)
+        rootLogger = logging.getLogger()
+        rootLogger.addHandler(handler)
+        ui.context.client.on_disconnect(lambda: rootLogger.removeHandler(handler))

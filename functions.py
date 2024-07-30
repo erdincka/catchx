@@ -26,7 +26,7 @@ async def upsert_profile(transaction: dict):
         "score": await dummy_fraud_score()
     }
     
-    logger.debug("Profile to update %s", profile)
+    logger.info("Profile to update %s", profile)
     
     # skip unmatched records (txn records left from previous data sets, ie, new customer csv ingested)
     if profile['_id'] == None: return
@@ -35,7 +35,7 @@ async def upsert_profile(transaction: dict):
     table_path = f"{BASEDIR}/{VOLUME_SILVER}/{TABLE_PROFILES}"
 
     if tables.upsert_document(table_path=table_path, json_dict=profile):
-        logger.debug("Updated profile: %s with score: %s", profile['_id'], profile['score'])
+        logger.info("Updated profile: %s with score: %s", profile['_id'], profile['score'])
 
 
 def get_customer_id(from_account: str):
@@ -45,7 +45,7 @@ def get_customer_id(from_account: str):
     found = iceberger.find_by_field(tier=VOLUME_BRONZE, tablename=TABLE_CUSTOMERS, field="account_number", value=from_account)
 
     if found is not None and len(found) > 0:
-        logger.debug(found)
+        logger.info(found.to_pydict())
         # get first column (id) from first row as string
         return found[0][0].as_py()
 
@@ -127,7 +127,7 @@ async def refine_customers():
 
     # add country column with short name (from ISO2 country code)
     df['country'] = cc.pandas_convert(df['country_code'], src="ISO2", to="name_short")
-    logger.debug("Added country name from country_code")
+    logger.info("Added country name from country_code")
 
     # find and add iso3166-2 subdivision code (used for country map)
     @lru_cache()
@@ -245,6 +245,8 @@ def peek_documents(tablepath: str):
         ui.button(icon="close", on_click=dialog.close).props("flat round dense").classes("absolute right-2 top-2")
 
         docs = tables.get_documents(table_path=tablepath, limit=FETCH_RECORD_NUM)
+        with ui.row():
+            ui.label(f"Fetched records: {len(docs)}")
         ui.table.from_pandas(pd.DataFrame.from_dict(docs)).classes('w-full mt-6').props("dense")
 
     dialog.on("close", lambda d=dialog: d.delete())
@@ -504,4 +506,36 @@ def handle_image_info(e: events.MouseEventArguments):
         multi_line=True,
         timeout=2000,
     )
+
+
+async def s3_upload():
+    transactions_file = (
+        f"{MOUNT_PATH}/{get_cluster_name()}{BASEDIR}/{TABLE_TRANSACTIONS}.csv"
+    )
+    if (
+        os.path.lexists(transactions_file)
+        and len(app.storage.general.get("S3_SECRET_KEY", "")) > 0
+    ):
+        ui.notify(
+            f"Copying {TABLE_TRANSACTIONS} to external S3 bucket", type="success"
+        )
+        await upload_to_s3(transactions_file)
+
+
+def nfs_upload():
+    # Copy customers if NFS is mounted and customers csv exist
+    customers_file = (
+        f"{MOUNT_PATH}/{get_cluster_name()}{BASEDIR}/{TABLE_CUSTOMERS}.csv"
+    )
+    if os.path.lexists(customers_file) and os.path.exists(
+        f"/mnt{EXTERNAL_NFS_PATH}"
+    ):
+        ui.notify(
+            f"Copying {TABLE_CUSTOMERS} to external NFS server", type="success"
+        )
+        logger.info(
+            shutil.copyfile(
+                customers_file, f"/mnt{EXTERNAL_NFS_PATH}/{TABLE_CUSTOMERS}"
+            )
+        )
 
