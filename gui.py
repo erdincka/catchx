@@ -78,7 +78,7 @@ def set_demo_mode(image: ui.interactive_image, switch: bool):
     app.storage.general['demo_mode'] = switch
 
 
-async def mesh_ii():
+def mesh_ii():
     """Draw an interactive image that shows the data mesh architecture"""
 
     with ui.interactive_image(

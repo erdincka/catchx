@@ -17,6 +17,7 @@ from codeviewers import *
 def header(title: str):
     with ui.header(elevated=True).classes("items-center justify-between uppercase py-1 px-4") as header:
         ui.button(icon="home", on_click=lambda: ui.navigate.to(mesh_page)).props("flat color=light")
+        ui.switch().props("color=light").bind_value(app.storage.general, 'gui')
 
         ui.label(title)
 
