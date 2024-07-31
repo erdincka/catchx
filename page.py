@@ -123,7 +123,8 @@ async def mesh_page():
 
     header("Mesh")
 
-    await gui.mesh_ii()
+    gui.mesh_ii().bind_visibility_from(app.storage.general, "gui")
+    demo_steps().bind_visibility_from(app.storage.general, "gui", backward=lambda x: not x)
 
     footer()
 
@@ -143,7 +144,7 @@ async def domain_page():
 
 
 def demo_steps():
-    with ui.list().props("bordered").classes("w-2/3"):
+    with ui.list().props("bordered").classes("w-2/3") as demo_list:
 
         with ui.expansion("Generation", caption="Prepare and publish mocked data into the pipeline", group="flow", value=True):
             with ui.dialog().props("full-width") as generate_dialog, ui.card().classes("grow relative"):
@@ -237,6 +238,7 @@ def demo_steps():
                 ui.button("Run", on_click=fraud_detection)
                 ui.button("Code", on_click=fraud_detection_dialog.open, color="info").props("outline")
 
+    return demo_list
 
 def cluster_configuration_dialog():
     with ui.dialog().props("position=right full-height") as dialog, ui.card().classes("relative bordered"):

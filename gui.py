@@ -119,6 +119,7 @@ async def mesh_ii():
             "Upload Transactions"
         )
 
+    return mesh_image
 
 async def domain_ii():
 
