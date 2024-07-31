@@ -155,11 +155,6 @@ def demo_steps():
     with ui.list().props("bordered").classes("w-3/4") as demo_list:
 
         with ui.expansion("Generation", caption="Prepare and publish mocked data into the pipeline", group="flow", value=True):
-            # with ui.dialog().props("full-width") as generate_dialog, ui.card().classes("grow relative"):
-            #     ui.button(icon="close", on_click=generate_dialog.close).props("flat round dense").classes("absolute right-2 top-2")
-            #     ui.code(inspect.getsource(create_csv_files)).classes("w-full mt-6")
-            #     ui.code(inspect.getsource(fake_customer)).classes("w-full")
-            #     ui.code(inspect.getsource(fake_transaction)).classes("w-full")
 
             with ui.row().classes("w-full place-items-center"):
                 ui.label("Create Input files: ").classes("w-40")

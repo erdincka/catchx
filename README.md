@@ -13,7 +13,7 @@ python3 main.py
 ```
 
 
-# Fraud Detection use case demo with Ezmeral Data Fabric
+## Fraud Detection use case demo with Ezmeral Data Fabric
 
 Uses Data Fabric to process incoming transactions (faked) via streams, and then storing relevant information into JSON Tables (a simple ETL step). Final step is to simulate a fraud detection ML model inferencing on incoming messages.
 
@@ -91,7 +91,7 @@ exit
 ```
 
 
-### Nifi, Airflow and Spark
+## Nifi, Airflow and Spark (optional)
 
 Setup Airflow and Spark packages if you plan to use Airflow
 
@@ -105,7 +105,7 @@ Setup Airflow and Spark packages if you plan to use Airflow
 
 `export SPARK_HOME=/opt/mapr/spark/spark-3.3.3`
 
-#### Run these as mapr user
+### Run these as mapr user
 `ssh-keygen -t rsa -P '' -f ~/.ssh/id_rsa`
 `ssh-copy-id <worker_host>`
 
@@ -127,14 +127,14 @@ maprcli node services -name airflow-webserver  -action restart -nodes `hostname 
 --- or airflow configures mapr/mapr as default user/password ---
 
 
-### Setting up NFSv4
+## Setting up NFSv4 (optional)
 
 Change sectype to sys if not using Kerberos
 
 https://docs.ezmeral.hpe.com/datafabric/77/get_started/known_issues.html?#concept_kg5_cxs_zwb__section_w2t_ntm_n1c
 
 
-#### External NFS Server
+### External NFS Server
 
 Not using Kerberos and ID Mapping
 
@@ -163,7 +163,7 @@ And test it:
 
 
 <!-- No longer used, pyspark is not used -->
-## Container configuration for Spark
+## Container configuration for Spark (Not used)
 
 In `/opt/mapr/conf/ssl-server.xml`
 
@@ -178,4 +178,3 @@ In `/opt/mapr/conf/ssl-server.xml`
 `scp mapr@10.2.50.35:/opt/mapr/conf/maprkeycreds.* /opt/mapr/conf/`
 `scp mapr@10.2.50.35:/opt/mapr/conf/maprtrustcreds.* /opt/mapr/conf/`
 `scp mapr@10.2.50.35:/opt/mapr/conf/maprhsm.conf /opt/mapr/conf/`
-
