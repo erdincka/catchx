@@ -80,7 +80,7 @@ async def create_transactions(count: int = 100):
 
         if len(transactions) == 0: return # silently discard if transaction creation is failed
 
-        filepath = f"{MOUNT_PATH}/{get_cluster_name()}{BASEDIR}/{TABLE_TRANSACTIONS}.csv" if count < 100 else f"{MOUNT_PATH}/{get_cluster_name()}{BASEDIR}/{TABLE_TRANSACTIONS}-bulk.csv"
+        filepath = f"{MOUNT_PATH}/{get_cluster_name()}{BASEDIR}/{TABLE_TRANSACTIONS}.csv" if count < 101 else f"{MOUNT_PATH}/{get_cluster_name()}{BASEDIR}/{TABLE_TRANSACTIONS}-bulk.csv"
 
         with open(
             file=filepath,
@@ -128,7 +128,7 @@ async def create_customers(count: int = 200):
         return False
 
     logger.info("%d customers created", count)
-    ui.notify(f"{count} customers created")
+    ui.notify(f"{count} customers created", type='positive')
 
 # NOT USED
 def create_csv_files():
@@ -187,9 +187,10 @@ async def peek_mocked_customers():
 
 
 async def peek_mocked_transactions():
-    await run_command_with_dialog(f"head {MOUNT_PATH}/{get_cluster_name()}{BASEDIR}/{TABLE_TRANSACTIONS}.json")
+    await run_command_with_dialog(f"head {MOUNT_PATH}/{get_cluster_name()}{BASEDIR}/{TABLE_TRANSACTIONS}.csv")
 
 
+# NOT USED
 async def sample_transactions():
     txlist = await get_new_transactions(10)
     if txlist is None:
@@ -208,7 +209,7 @@ async def sample_transactions():
 
 async def publish_transactions(count: int = 10):
     """
-    Publish transactions from csv file into the topic
+    Generate and publish transactions into the topic
     """
 
     stream_path = f"{BASEDIR}/{STREAM_INCOMING}"

@@ -23,7 +23,13 @@ def get_echart():
                     "type": "shadow",
                 },
             },
-            "title": {"left": 10, "text": ""},
+            "title": {
+                "left": 4, 
+                "text": "", 
+                "textStyle": { 
+                    "fontSize": 12 
+                } 
+            },
             # "legend": {"right": "center"},
             "xAxis": {
                 "type": "category",
@@ -515,10 +521,10 @@ async def monitoring_charts():
     # Monitoring charts
     timers = []
 
-    with ui.card().classes("w-full flex-grow h-64"):
+    with ui.card().classes("w-full flex-grow shrink no-wrap bottom-0"):
 
         with ui.row().classes("w-full"):
-            ui.label("Realtime Visibility").classes("uppercase")
+            ui.label("Realtime Charts").classes("uppercase")
 
         with ui.row().classes("w-full place-content-stretch no-wrap"):
             # # monitor using /var/mapr/mapr.monitoring/metricstreams/0
@@ -530,18 +536,23 @@ async def monitoring_charts():
             # https://10.1.1.31:3000/d/pUfMqVUIz/demo-monitoring?orgId=1
 
             consumer_chart = get_echart()
+            consumer_chart.options["title"]["text"] = "Consumers"
             consumer_chart.run_chart_method(':showLoading', r'{text: "Waiting..."}')
 
             incoming_chart = get_echart().classes("")
+            incoming_chart.options["title"]["text"] = "Incoming"
             incoming_chart.run_chart_method(":showLoading", r'{text: "Waiting..."}')
 
             bronze_chart = get_echart().classes("")
+            bronze_chart.options["title"]["text"] = "Bronze tier"
             bronze_chart.run_chart_method(":showLoading", r'{text: "Waiting..."}')
 
             silver_chart = get_echart().classes("")
+            silver_chart.options["title"]["text"] = "Silver tier"
             silver_chart.run_chart_method(":showLoading", r'{text: "Waiting..."}')
 
             gold_chart = get_echart().classes("")
+            gold_chart.options["title"]["text"] = "Gold tier"
             gold_chart.run_chart_method(":showLoading", r'{text: "Waiting..."}')
 
             timers.append(ui.timer(MON_REFRESH_INTERVAL5 + 3, lambda c=consumer_chart: update_chart(c, txn_consumer_stats), active=False))
@@ -613,8 +624,8 @@ async def update_metrics(chart: ui.chart):
 def monitoring_card():
     # Realtime monitoring information
     with ui.card().classes(
-        "flex-grow shrink absolute top-10 right-0 w-1/4 opacity-50 hover:opacity-100"
-    ).bind_visibility_from(app.storage.general, 'demo_mode') as monitoring_card:
+        "flex-grow shrink absolute top-10 right-0 w-1/4 h-fit opacity-50 hover:opacity-100"
+    ).bind_visibility_from(app.storage.general, 'demo_mode').props("flat") as monitoring_card:
         ui.label("Realtime Visibility").classes("uppercase")
         with ui.grid(columns=2).classes("w-full"):
             for metric in [

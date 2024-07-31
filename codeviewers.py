@@ -37,7 +37,7 @@ def code_create_transactions():
         ui.button(icon="close", on_click=generate_codeview.close).props(
             "flat round dense"
         ).classes("absolute right-2 top-2")
-        ui.code(inspect.getsource(get_new_transactions)).classes("w-full mt-6")
+        ui.code(inspect.getsource(create_transactions)).classes("w-full mt-6")
         ui.code(inspect.getsource(fake_transaction)).classes("w-full")
     generate_codeview.on("close", lambda d=generate_codeview: d.delete())
     return generate_codeview
@@ -229,7 +229,8 @@ async def handle_image_action(e: events.MouseEventArguments):
 
     # Data Domain functions
     elif element == "CreateTransactions":
-        await get_new_transactions()
+        # await get_new_transactions()
+        await create_transactions()
 
     elif element == "CreateTransactionsCode":
         code_create_transactions().open()

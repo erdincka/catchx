@@ -121,7 +121,7 @@ def mesh_ii():
 
     return mesh_image
 
-async def domain_ii():
+def domain_ii():
 
     with ui.interactive_image(
         DATA_DOMAIN["diagram"]
@@ -154,16 +154,11 @@ async def domain_ii():
                 with ui.button_group().props("flat"):
                     ui.button(icon="o_library_add", on_click=lambda: create_transactions(100)).classes("mx-0 px-1").props("flat").tooltip("Generate bulk transactions for NiFi")
                     ui.button(icon="o_integration_instructions", on_click=code_create_transactions).classes("mx-0 px-1").props("flat")
-                with ui.item(on_click=sample_transactions).props("dense").classes("mx-0 gx-0"):
+                with ui.item(on_click=peek_mocked_transactions).props("dense").classes("mx-0 gx-0"):
                     with ui.item_section():
-                        ui.item_label(f"{MOUNT_PATH}/{get_cluster_name()}{BASEDIR}/{TABLE_TRANSACTIONS}.json")
+                        ui.item_label(f"{MOUNT_PATH}/{get_cluster_name()}{BASEDIR}/{TABLE_TRANSACTIONS}.csv")
 
-        # Realtime monitoring information
-        monitoring_card()
-        monitoring_timers = await monitoring_charts()
-        # metric_badges_on_ii()
-        ui.switch("Monitor", on_change=lambda x, t=monitoring_timers: switch_monitoring(x.value, t)).classes("absolute top-2 right-2").bind_visibility_from(app.storage.general, "demo_mode")
-        logging_card()
+    return domain_image
 
 
 # NOT USED

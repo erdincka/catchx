@@ -17,7 +17,9 @@ from codeviewers import *
 def header(title: str):
     with ui.header(elevated=True).classes("items-center justify-between uppercase py-1 px-4") as header:
         ui.button(icon="home", on_click=lambda: ui.navigate.to(mesh_page)).props("flat color=light")
-        ui.switch().props("color=light").bind_value(app.storage.general, 'gui')
+
+        if title == "Mesh":
+            ui.switch().props("color=light").bind_value(app.storage.general, 'gui').tooltip("Presentation Mode")
 
         ui.label(title)
 
@@ -124,13 +126,12 @@ async def mesh_page():
 
     header("Mesh")
 
-    gui.mesh_ii().bind_visibility_from(app.storage.general, "gui")
-    demo_steps().bind_visibility_from(app.storage.general, "gui", backward=lambda x: not x)
+    gui.mesh_ii().bind_visibility_from(app.storage.general, "gui").classes("h-lvh w-fit")
+    demo_steps().bind_visibility_from(app.storage.general, "gui", backward=lambda x: not x).classes("h-lvh")
+
+    ui.space()
 
     footer()
-
-    # with ui.row().classes("w-full flex flex-nowrap relative"):
-    #     demo_steps()
 
 
 @ui.page(f"/{DATA_PRODUCT}", title="Fraud Data Domain")
@@ -139,29 +140,37 @@ async def domain_page():
 
     header(DATA_PRODUCT)
 
-    await gui.domain_ii()
+    gui.domain_ii()
+    # Realtime monitoring information
+    monitoring_card()
+    monitoring_timers = await monitoring_charts()
+    ui.switch("Monitor", on_change=lambda x, t=monitoring_timers: switch_monitoring(x.value, t)).classes("absolute top-2 right-2").bind_visibility_from(app.storage.general, "demo_mode")
+    # metric_badges_on_ii()
+    logging_card()
     
     footer()
 
 
 def demo_steps():
-    with ui.list().props("bordered").classes("w-2/3") as demo_list:
+    with ui.list().props("bordered").classes("w-3/4") as demo_list:
 
         with ui.expansion("Generation", caption="Prepare and publish mocked data into the pipeline", group="flow", value=True):
-            with ui.dialog().props("full-width") as generate_dialog, ui.card().classes("grow relative"):
-                ui.button(icon="close", on_click=generate_dialog.close).props("flat round dense").classes("absolute right-2 top-2")
-                ui.code(inspect.getsource(create_csv_files)).classes("w-full mt-6")
-                ui.code(inspect.getsource(fake_customer)).classes("w-full")
-                ui.code(inspect.getsource(fake_transaction)).classes("w-full")
+            # with ui.dialog().props("full-width") as generate_dialog, ui.card().classes("grow relative"):
+            #     ui.button(icon="close", on_click=generate_dialog.close).props("flat round dense").classes("absolute right-2 top-2")
+            #     ui.code(inspect.getsource(create_csv_files)).classes("w-full mt-6")
+            #     ui.code(inspect.getsource(fake_customer)).classes("w-full")
+            #     ui.code(inspect.getsource(fake_transaction)).classes("w-full")
 
             with ui.row().classes("w-full place-items-center"):
-                ui.label("Create CSVs: ").classes("w-40")
-                ui.button("Create", on_click=create_csv_files)
+                ui.label("Create Input files: ").classes("w-40")
+                ui.button("Customers", on_click=create_customers)
+                ui.button("Transactions", on_click=create_transactions)
                 ui.button("Peek Customer Feed", on_click=peek_mocked_customers).props("outline")
-                ui.button("Peek Transaction Feed", on_click=sample_transactions).props("outline")
-                ui.button("Into S3", color='warning', on_click=lambda: upload_to_s3(f"{MOUNT_PATH}/{get_cluster_name()}{BASEDIR}/{TABLE_TRANSACTIONS}.json")).props('outline').bind_visibility_from(app.storage.general, "S3_SECRET_KEY")
-                ui.button("Show Bucket", color='warning', on_click=not_implemented).props('outline').bind_visibility_from(app.storage.general, "S3_SECRET_KEY")
-                ui.button("Code", on_click=generate_dialog.open, color="info").props("outline")
+                ui.button("Peek Transaction Feed", on_click=peek_mocked_transactions).props("outline")
+                ui.button("Into S3", color='notify', on_click=lambda: upload_to_s3(f"{MOUNT_PATH}/{get_cluster_name()}{BASEDIR}/{TABLE_TRANSACTIONS}.csv")).props('outline').bind_visibility_from(app.storage.general, "S3_SECRET_KEY")
+                ui.button("Show Bucket", color='notify', on_click=lambda: ui.navigate.to(f"http://{app.storage.general.get('S3_SERVER', 'localhost:9000')}", new_tab=True)).props('outline').bind_visibility_from(app.storage.general, "S3_SECRET_KEY")
+                ui.button("Customer Code", on_click=code_create_customers, color="info").props("outline")
+                ui.button("Transaction Code", on_click=code_create_transactions, color="info").props("outline")
 
             with ui.dialog().props("full-width") as publish_dialog, ui.card().classes("grow relative"):
                 ui.button(icon="close", on_click=publish_dialog.close).props("flat round dense").classes("absolute right-2 top-2")
@@ -197,7 +206,7 @@ def demo_steps():
                 ui.label("Stream ingestion: ").classes("w-40")
                 ui.button("Transactions", on_click=ingest_transactions).bind_enabled_from(app.storage.general, "busy", backward=lambda x: not x)
                 ui.button("Peek", on_click=lambda: peek_documents(tablepath=f"{BASEDIR}/{VOLUME_BRONZE}/{TABLE_TRANSACTIONS}")).props("outline")
-                ui.button("Using Airflow", color='warning', on_click=not_implemented).props("outline").bind_enabled_from(app.storage.general, "busy", backward=lambda x: not x)
+                ui.button("Using Airflow", color='notify', on_click=code_airflow_batch).props("outline").bind_enabled_from(app.storage.general, "busy", backward=lambda x: not x)
                 ui.button("Code", on_click=stream_dialog.open, color="info").props("outline")
 
         with ui.expansion("Enrich & Clean (Silver)", caption="Integrate with data catalogue and clean/enrich data into silver tier", group="flow"):
@@ -378,7 +387,7 @@ def config_load():
     with ui.dialog() as config_load, ui.card().classes("grow"):
         ui.upload(label="Config JSON", auto_upload=True, on_upload=lambda e: save_config(e.content.read().decode("utf-8"), config_load)).classes(
             "max-w-full"
-        )
+        ).props("accept='application/json' hide-upload-btn")
 
     return config_load
 
@@ -389,6 +398,7 @@ def save_config(val: str, dialog):
             app.storage.general[key] = value
         dialog.close()
         ui.notify("Settings loaded", type="positive")
+        ui.notify("Refresh the page!!", type="error")
     except (TypeError, json.decoder.JSONDecodeError, ValueError) as error:
         ui.notify("Not a valid json", type="negative")
         logger.warning(error)

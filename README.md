@@ -3,6 +3,8 @@
 
 `docker run -d -t --name catchx -p 3000:3000 --cap-add SYS_ADMIN erdincka/catchx`
 
+It should clone the app and start it right away, you can monitor the logs `docker logs -f catchx`, or get into the container and kill/restart the app if you want.
+
 `docker exec -it catchx bash`
 
 ```shell
@@ -17,7 +19,7 @@ Uses Data Fabric to process incoming transactions (faked) via streams, and then 
 
 This application expects certain runtime environment (container) with required libraries and OS environment variables configured. This is done in the app image available on [GitHub](https://github.com/erdincka/catchx-image).
 
-Before running the demo, ensure that you have Ezmeral Data Fabric connectivity is established and a user ticket is generated for the user defined in `MAPR_USER` environment variable.
+Before running the demo, you have to configure the app to access the cluster that you will run the demo.
 
 App uses `/app/*` volumes on the connected cluster, so do not run this app on a cluster which already has this path/volume configured.
 
@@ -28,10 +30,6 @@ You can run all steps as many times as you like, especially "produce" and "proce
 Once completed, you can delete the stream and the volume to get rid of all app-created artifacts on the Data Fabric cluster.
 
 You can also delete the stream, and then re-start from Step 2, so you can have clear metrics/monitoring on the generated charts.
-
-NOTE:
-
-You can open Log window by selecting the hamburger menu on the footer, and select to see "Debug" messages using the switch at the top-right corner.
 
 
 # REQUIREMENTS
@@ -53,6 +51,7 @@ Install hive and hive metastore
 
 ### Download MariaDB packages:
 
+<!-- Not sure why Hive uses 2.5.4 version and NiFi below uses 3.4.1 version -->
 `wget https://downloads.mariadb.com/Connectors/java/connector-java-2.5.4/mariadb-java-client-2.5.4.jar`
 `wget https://downloads.mariadb.com/Connectors/java/connector-java-2.5.4/mariadb-java-client-2.5.4-sources.jar`
 `wget https://downloads.mariadb.com/Connectors/java/connector-java-2.5.4/mariadb-java-client-2.5.4-javadoc.jar`
@@ -94,7 +93,7 @@ exit
 
 ### Nifi, Airflow and Spark
 
-Setup Airflow and Spark packages
+Setup Airflow and Spark packages if you plan to use Airflow
 
 `dnf install mapr-spark mapr-spark-master mapr-spark-historyserver mapr-spark-thriftserver`
 
@@ -163,7 +162,7 @@ And test it:
 `mount -t nfs4 -o proto=tcp,nolock,sec=sys 10.2.50.18:/ /mnt/`
 
 
-
+<!-- No longer used, pyspark is not used -->
 ## Container configuration for Spark
 
 In `/opt/mapr/conf/ssl-server.xml`
