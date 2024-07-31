@@ -510,7 +510,7 @@ def handle_image_info(e: events.MouseEventArguments):
 
 async def s3_upload():
     transactions_file = (
-        f"{MOUNT_PATH}/{get_cluster_name()}{BASEDIR}/{TABLE_TRANSACTIONS}.csv"
+        f"{MOUNT_PATH}/{get_cluster_name()}{BASEDIR}/{TABLE_TRANSACTIONS}.json"
     )
     if (
         os.path.lexists(transactions_file)

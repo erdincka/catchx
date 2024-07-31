@@ -158,8 +158,8 @@ def demo_steps():
                 ui.label("Create CSVs: ").classes("w-40")
                 ui.button("Create", on_click=create_csv_files)
                 ui.button("Peek Customer Feed", on_click=peek_mocked_customers).props("outline")
-                ui.button("Peek Transaction Feed", on_click=peek_mocked_transactions).props("outline")
-                ui.button("Into S3", color='warning', on_click=not_implemented).props('outline').bind_visibility_from(app.storage.general, "S3_SECRET_KEY")
+                ui.button("Peek Transaction Feed", on_click=sample_transactions).props("outline")
+                ui.button("Into S3", color='warning', on_click=lambda: upload_to_s3(f"{MOUNT_PATH}/{get_cluster_name()}{BASEDIR}/{TABLE_TRANSACTIONS}.json")).props('outline').bind_visibility_from(app.storage.general, "S3_SECRET_KEY")
                 ui.button("Show Bucket", color='warning', on_click=not_implemented).props('outline').bind_visibility_from(app.storage.general, "S3_SECRET_KEY")
                 ui.button("Code", on_click=generate_dialog.open, color="info").props("outline")
 
