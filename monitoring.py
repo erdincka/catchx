@@ -405,6 +405,7 @@ async def gold_stats():
         # return if table is missing
         engine = create_engine(mydb)
         with engine.connect() as conn:
+            # logger.debug("mysql connected")
             tick = timeit.default_timer()
 
             if sqlalchemy.inspect(engine).has_table(TABLE_TRANSACTIONS):

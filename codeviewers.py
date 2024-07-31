@@ -63,7 +63,7 @@ def code_airflow_batch():
         ui.button(icon="close", on_click=batch_codeview.close).props(
             "flat round dense"
         ).classes("absolute right-2 top-2")
-        with open("DAG_csv_to_iceberg.py", 'r') as f:
+        with open("DAGs/csv_to_iceberg_DAG.py", 'r') as f:
             ui.code(f.read()).classes("w-full mt-6")
         # ui.code(inspect.getsource(DAG_csv_to_iceberg.read_csv_task)).classes("w-full mt-6")
     batch_codeview.on("close", lambda d=batch_codeview: d.delete())
