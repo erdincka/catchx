@@ -162,8 +162,12 @@ And test it:
 `mount -t nfs4 -o proto=tcp,nolock,sec=sys 10.2.50.18:/ /mnt/`
 
 
-<!-- No longer used, pyspark is not used -->
+## Set up Airflow for Open Metadata
+
+
+
 ## Container configuration for Spark (Not used)
+<!-- No longer used, pyspark is not used -->
 
 In `/opt/mapr/conf/ssl-server.xml`
 

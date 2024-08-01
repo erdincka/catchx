@@ -16,12 +16,15 @@ from codeviewers import *
 
 def header(title: str):
     with ui.header(elevated=True).classes("items-center justify-between uppercase py-1 px-4") as header:
-        ui.button(icon="home", on_click=lambda: ui.navigate.to(mesh_page)).props("flat color=light")
-
-        if title == "Mesh":
-            ui.switch().props("color=light").bind_value(app.storage.general, 'gui').tooltip("Presentation Mode")
+        ui.button(icon="home", on_click=lambda: ui.navigate.to(index_page)).props("flat color=light")
 
         ui.label(title)
+
+        ui.icon(None, size='lg').bind_name_from(app.storage.general, "demo_mode", backward=lambda x: "s_preview" if x else "s_preview_off").tooltip("Presentation Mode")
+
+        ui.switch("Go Live").bind_value(app.storage.general, 'demo_mode')
+
+        ui.switch("Monitor", on_change=lambda x: toggle_monitoring(x.value))
 
         ui.space()
 
@@ -37,20 +40,26 @@ def header(title: str):
                 ),
             ).classes(
                 "text-white hover:text-blue-600"
-            ):
+            ).bind_visibility_from(app.storage.general, "cluster", backward=lambda x: len(x) > 0):
                 ui.icon("open_in_new")
+
+            ui.label("Not configured!").classes("text-bold red").bind_visibility_from(app.storage.general, "cluster", backward=lambda x: len(x) == 0)
 
             ui.button(icon="settings", on_click=cluster_configuration_dialog).props(
                 "flat color=light"
             )
 
-            ui.icon("check_circle", size="2em", color="green").bind_visibility_from(
-                app.storage.general, "busy", lambda x: not x
-            ).tooltip("Ready")
+            ui.icon("error", size="2em", color="red").bind_visibility_from(
+                app.storage.general, "cluster", lambda x: len(x) == 0
+            ).tooltip("Requires configuration!")
 
-            ui.spinner("ios", size="2em", color="red").bind_visibility_from(
-                app.storage.general, "busy"
-            ).tooltip("Busy")
+            with ui.element("div").bind_visibility_from(app.storage.general, "cluster", backward=lambda x: len(x) != 0):
+                ui.icon("check_circle", size="2em", color="green").bind_visibility_from(
+                    app.storage.general, "busy", lambda x: not x
+                ).tooltip("Ready")
+                ui.spinner("ios", size="2em", color="red").bind_visibility_from(
+                    app.storage.general, "busy"
+                ).tooltip("Busy")
 
     return header
 
@@ -120,17 +129,37 @@ def footer():
     return footer
 
 
-@ui.page("/", title="Data Mesh Architecture")
-async def mesh_page():    
-    """Draw an interactive image that shows data mesh architecture with various components"""
+@ui.page("/", title="Data Fabric Demo")
+async def index_page():
+    
+    header("Data Fabric Demo")
 
-    header("Mesh")
+    demo_steps().classes("h-lvh")
 
-    gui.mesh_ii().bind_visibility_from(app.storage.general, "gui").classes("h-lvh w-fit")
-    demo_steps().bind_visibility_from(app.storage.general, "gui", backward=lambda x: not x).classes("h-lvh")
+    monitoring_card().classes(
+        "flex-grow shrink absolute top-10 right-0 w-1/4 h-fit opacity-50 hover:opacity-100"
+    )
 
-    ui.space()
+    logging_card().classes(
+        "flex-grow shrink absolute bottom-0 left-0 w-full opacity-50 hover:opacity-100"
+        # "flex-grow shrink absolute top-64 right-0 w-1/4 opacity-50 hover:opacity-100"
+    )
+    
+    # charts = monitoring_charts()
+    # timer = ui.timer(MON_REFRESH_INTERVAL3, lambda c=chart: update_chart(c, txn_consumer_stats), active=False)
+    # charts = monitoring_charts()
+    # timers = monitoring_timers(charts)
 
+    footer()
+
+
+@ui.page("/mesh", title="Data Mesh Architecture")
+async def mesh_page():
+
+    header("Data Fabric")
+
+    gui.mesh_ii().classes("h-lvh w-fit")
+    
     footer()
 
 
@@ -143,8 +172,6 @@ async def domain_page():
     gui.domain_ii()
     # Realtime monitoring information
     monitoring_card()
-    monitoring_timers = await monitoring_charts()
-    ui.switch("Monitor", on_change=lambda x, t=monitoring_timers: switch_monitoring(x.value, t)).classes("absolute top-2 right-2").bind_visibility_from(app.storage.general, "demo_mode")
     # metric_badges_on_ii()
     logging_card()
     
@@ -152,30 +179,40 @@ async def domain_page():
 
 
 def demo_steps():
-    with ui.list().props("bordered").classes("w-3/4") as demo_list:
+    with ui.list().classes("w-full") as demo_list:
 
-        with ui.expansion("Generation", caption="Prepare and publish mocked data into the pipeline", group="flow", value=True):
+        with ui.expansion("Demo Overview", caption="Providing an end-to-end pipeline for data ingestion, processsing, preperation and presentation", group="flow", value=False):
+            ui.markdown(DOCUMENTATION["Overview"])
+            ui.image(DATA_DOMAIN["diagram"]).props("fit=scale-down")
 
+        with ui.expansion("Data Generation", caption="Prepare and publish mocked data into the pipeline", group="flow", value=True):
+
+            ui.markdown(DOCUMENTATION["Source Data Generation"])
+            
             with ui.row().classes("w-full place-items-center"):
-                ui.label("Create Input files: ").classes("w-40")
+                ui.label("Create files: ").classes("w-40")
                 ui.button("Customers", on_click=create_customers)
                 ui.button("Transactions", on_click=create_transactions)
-                ui.button("Peek Customer Feed", on_click=peek_mocked_customers).props("outline")
-                ui.button("Peek Transaction Feed", on_click=peek_mocked_transactions).props("outline")
-                ui.button("Into S3", color='notify', on_click=lambda: upload_to_s3(f"{MOUNT_PATH}/{get_cluster_name()}{BASEDIR}/{TABLE_TRANSACTIONS}.csv")).props('outline').bind_visibility_from(app.storage.general, "S3_SECRET_KEY")
-                ui.button("Show Bucket", color='notify', on_click=lambda: ui.navigate.to(f"http://{app.storage.general.get('S3_SERVER', 'localhost:9000')}", new_tab=True)).props('outline').bind_visibility_from(app.storage.general, "S3_SECRET_KEY")
-                ui.button("Customer Code", on_click=code_create_customers, color="info").props("outline")
-                ui.button("Transaction Code", on_click=code_create_transactions, color="info").props("outline")
-
-            with ui.dialog().props("full-width") as publish_dialog, ui.card().classes("grow relative"):
-                ui.button(icon="close", on_click=publish_dialog.close).props("flat round dense").classes("absolute right-2 top-2")
-                ui.code(inspect.getsource(publish_transactions)).classes("w-full mt-6")
-                ui.code(inspect.getsource(streams.produce)).classes("w-full")
 
             with ui.row().classes("w-full place-items-center"):
-                ui.label("Publish to Kafka stream: ").classes("w-40")
-                ui.button("Publish", on_click=publish_transactions).bind_enabled_from(app.storage.general, "busy", backward=lambda x: not x)
-                ui.button("Code", on_click=publish_dialog.open, color="info").props("outline")
+                ui.label("Peek files: ").classes("w-40")
+                ui.button("Customers", on_click=peek_mocked_customers).props("outline")
+                ui.button("Transactions", on_click=peek_mocked_transactions).props("outline")
+
+            # with ui.row().classes("w-full place-items-center").bind_visibility_from(app.storage.general, "S3_SECRET_KEY"):
+            #     ui.label("Create Input files: ").classes("w-40")
+            #     ui.button("Into S3", color='notify', on_click=lambda: upload_to_s3(f"{MOUNT_PATH}/{get_cluster_name()}{BASEDIR}/{TABLE_TRANSACTIONS}.csv")).props('outline')
+            #     ui.button("Show Bucket", color='notify', on_click=lambda: ui.navigate.to(f"http://{app.storage.general.get('S3_SERVER', 'localhost:9000')}", new_tab=True)).props('outline')
+
+            with ui.row().classes("w-full place-items-center"):
+                ui.label("Publish: ").classes("w-40")
+                ui.button("To Kafka", on_click=publish_transactions).bind_enabled_from(app.storage.general, "busy", backward=lambda x: not x)
+
+            with ui.row().classes("w-full place-items-center"):
+                ui.label("View Code: ").classes("w-40")
+                ui.button("Customers", on_click=code_create_customers, color="info").props("outline")
+                ui.button("Transaction", on_click=code_create_transactions, color="info").props("outline")
+                ui.button("Publish", on_click=code_publish_transactions, color="info").props("outline")
 
         with ui.expansion("Ingestion & ETL Processing (Bronze)", caption="Realtime processing on incoming data", group="flow"):
             with ui.dialog().props("full-width") as batch_dialog, ui.card().classes("grow relative"):

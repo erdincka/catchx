@@ -3,7 +3,6 @@ import datetime
 import logging
 import os
 import tarfile
-import timeit
 import inspect
 
 import httpx
@@ -80,6 +79,31 @@ HPE_COLORS = {
     "darkred": "#A2423D",
     "darkorange": "#9B6310",
     "darkyellow": "#8D741C",
+}
+
+DOCUMENTATION = {
+    "Overview": """
+        For this demo, we will be using an end to end data pipeline for a financial transaction workflow. 
+
+        We are handling data ingestion from streaming and batch data sources, processing it through its lifecycle using a 'madallion architecture'.
+
+        In a madallion architecture, we are using the bronze tier as the landing page where all the raw data is stored as soon as it arrives.
+        
+        Then we will apply our ETL processes to clean, enrich and filter data, so the next tier, silver tier, has the organisation's curated data
+        with all the details and information ready to process.
+
+        The final tier, gold tier, gives us a consolidated data lake that is used for reporting, trend analysis etc, but doesn't include any individual transaction or customer detail.
+
+        Finally, we expose the data in our gold tier to reporting engines through standard connection/API endpoints to be consumed and shared.
+
+    """,
+
+    "Source Data Generation": """
+        Let's start with generating some random data for our customers and their transactions. 
+        
+        We will create csv files that will act as our data sources that will be ingested as customers (batch) and transactions (stream).
+
+    """
 }
 
 logger = logging.getLogger("common")

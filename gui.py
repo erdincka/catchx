@@ -73,9 +73,9 @@ svg_overlay = f"""
 #"""
 
 
-def set_demo_mode(image: ui.interactive_image, switch: bool):
-    image.set_content(svg_overlay if switch else "")
-    app.storage.general['demo_mode'] = switch
+# def set_demo_mode(image: ui.interactive_image, switch: bool):
+#     image.set_content(svg_overlay if switch else "")
+#     app.storage.general['demo_mode'] = switch
 
 
 def mesh_ii():
@@ -133,11 +133,11 @@ def domain_ii():
         "relative"
     ).props(
         "fit=scale-down"
-    ) as domain_image:
+    ).bind_content_from(app.storage.general, "overlay") as domain_image:
 
         domain_image.client.content.classes('p-2') # remove the default gap
 
-        ui.switch("Go Live", on_change=lambda x, i=domain_image: set_demo_mode(i, x.value)).classes("absolute top-0 left-2").bind_value(app.storage.general, 'demo_mode')
+        # ui.switch("Go Live", on_change=lambda x, i=domain_image: set_demo_mode(i, x.value)).classes("absolute top-0 left-2").bind_value(app.storage.general, 'demo_mode')
 
         with ui.list().props("bordered dense").classes("w-96 absolute top-10 left-2").bind_visibility_from(app.storage.general, 'demo_mode'):
             ui.item_label("Source data").props("header").classes("text-bold")

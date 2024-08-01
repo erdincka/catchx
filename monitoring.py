@@ -1,6 +1,8 @@
 import datetime
 import json
 import socket
+import timeit
+from typing import List
 import httpx
 from nicegui import ui, app
 import sqlalchemy
@@ -13,8 +15,8 @@ import tables
 logger = logging.getLogger("monitoring")
 
 
-def get_echart():
-    return ui.echart(
+def new_echart(title: str):
+    chart = ui.echart(
         {
             "tooltip": {
                 "trigger": "axis",
@@ -25,7 +27,7 @@ def get_echart():
             },
             "title": {
                 "left": 4, 
-                "text": "", 
+                "text": title, 
                 "textStyle": { 
                     "fontSize": 12 
                 } 
@@ -57,6 +59,10 @@ def get_echart():
             "series": [],
         },
     )
+
+    chart.run_chart_method(':showLoading', r'{text: "Waiting..."}')
+
+    return chart
 
 
 # async def chart_listener(chart: ui.echart, metric_generator, *args):
@@ -510,19 +516,37 @@ async def monitoring_metrics():
         )
 
 
-def switch_monitoring(value, timers):
+def toggle_monitoring(value: bool, timers: List[ui.timer]):
     for timer in timers:
         if value: timer.activate()
         else: timer.deactivate()
 
 
-async def monitoring_charts():
+def monitoring_timers(charts: dict):
+    
+    """Set timers to refresh each chart"""
 
-    # Monitoring charts
     timers = []
 
-    with ui.card().classes("w-full flex-grow shrink no-wrap bottom-0"):
+    timers.append(ui.timer(MON_REFRESH_INTERVAL3, lambda c=charts["consumer"]: update_chart(c, txn_consumer_stats), active=False))
 
+    timers.append(ui.timer(MON_REFRESH_INTERVAL3 + 1, lambda c=charts["incoming"]: update_chart(c, incoming_topic_stats), active=False))
+
+    timers.append(ui.timer(MON_REFRESH_INTERVAL3 + 2, lambda c=charts["bronze"]: update_chart(c, bronze_stats), active=False))
+
+    timers.append(ui.timer(MON_REFRESH_INTERVAL3 + 3, lambda c=charts["silver"]: update_chart(c, silver_stats), active=False))
+
+    timers.append(ui.timer(MON_REFRESH_INTERVAL3 + 4, lambda c=charts["gold"]: update_chart(c, gold_stats), active=False))
+
+    return timers
+
+
+def monitoring_charts():
+    """Return charts for realtime monitoring"""
+
+    charts = {}
+
+    with ui.card().classes("w-full flex-grow shrink no-wrap bottom-0"):
         with ui.row().classes("w-full"):
             ui.label("Realtime Charts").classes("uppercase")
 
@@ -535,37 +559,18 @@ async def monitoring_charts():
             # TODO: embed grafana dashboard
             # https://10.1.1.31:3000/d/pUfMqVUIz/demo-monitoring?orgId=1
 
-            consumer_chart = get_echart()
-            consumer_chart.options["title"]["text"] = "Consumers"
-            consumer_chart.run_chart_method(':showLoading', r'{text: "Waiting..."}')
+            charts["consumer"] = new_echart(title="Consumers")
 
-            incoming_chart = get_echart().classes("")
-            incoming_chart.options["title"]["text"] = "Incoming"
-            incoming_chart.run_chart_method(":showLoading", r'{text: "Waiting..."}')
+            charts["incoming"] = new_echart(title="Incoming")
 
-            bronze_chart = get_echart().classes("")
-            bronze_chart.options["title"]["text"] = "Bronze tier"
-            bronze_chart.run_chart_method(":showLoading", r'{text: "Waiting..."}')
+            charts["bronze"] = new_echart(title="Bronze tier")
 
-            silver_chart = get_echart().classes("")
-            silver_chart.options["title"]["text"] = "Silver tier"
-            silver_chart.run_chart_method(":showLoading", r'{text: "Waiting..."}')
+            charts["silver"] = new_echart(title="Silver tier")
 
-            gold_chart = get_echart().classes("")
-            gold_chart.options["title"]["text"] = "Gold tier"
-            gold_chart.run_chart_method(":showLoading", r'{text: "Waiting..."}')
+            charts["gold"] = new_echart(title="Gold tier")
 
-            timers.append(ui.timer(MON_REFRESH_INTERVAL5 + 3, lambda c=consumer_chart: update_chart(c, txn_consumer_stats), active=False))
+    return charts
 
-            timers.append(ui.timer(MON_REFRESH_INTERVAL3, lambda c=incoming_chart: update_chart(c, incoming_topic_stats), active=False))
-
-            timers.append(ui.timer(MON_REFRESH_INTERVAL5, lambda c=bronze_chart: update_chart(c, bronze_stats), active=False))
-
-            timers.append(ui.timer(MON_REFRESH_INTERVAL5 + 1, lambda c=silver_chart: update_chart(c, silver_stats), active=False))
-
-            timers.append(ui.timer(MON_REFRESH_INTERVAL5 + 2, lambda c=gold_chart: update_chart(c, gold_stats), active=False))
-
-    return timers
 
 async def update_metrics(chart: ui.chart):
 
@@ -623,9 +628,7 @@ async def update_metrics(chart: ui.chart):
 
 def monitoring_card():
     # Realtime monitoring information
-    with ui.card().classes(
-        "flex-grow shrink absolute top-10 right-0 w-1/4 h-fit opacity-50 hover:opacity-100"
-    ).bind_visibility_from(app.storage.general, 'demo_mode').props("flat") as monitoring_card:
+    with ui.card().bind_visibility_from(app.storage.general, 'demo_mode').props("flat") as monitoring_card:
         ui.label("Realtime Visibility").classes("uppercase")
         with ui.grid(columns=2).classes("w-full"):
             for metric in [
@@ -653,12 +656,12 @@ def monitoring_card():
 
 def logging_card():
     # Realtime logging
-    with ui.card().classes(
-        "flex-grow shrink absolute top-64 right-0 w-1/4 opacity-50 hover:opacity-100"
-    ).bind_visibility_from(app.storage.general, 'demo_mode') as logging_card:
+    with ui.card().bind_visibility_from(app.storage.general, 'demo_mode').props("flat") as logging_card:
         ui.label("App log").classes("uppercase")
         log = ui.log().classes("h-40")
         handler = LogElementHandler(log, logging.INFO)
         rootLogger = logging.getLogger()
         rootLogger.addHandler(handler)
         ui.context.client.on_disconnect(lambda: rootLogger.removeHandler(handler))
+
+    return logging_card
