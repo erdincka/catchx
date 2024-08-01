@@ -159,7 +159,7 @@ mount --bind /srv /export/server/
 
 And test it:
 
-`mount -t nfs4 -o proto=tcp,nolock,sec=sys 10.2.50.18:/ /mnt/`
+`mount -t nfs4 -o proto=tcp,nolock,sec=sys 10.1.1.18:/ /mnt/`
 
 
 ## Set up Airflow for Open Metadata
@@ -179,6 +179,6 @@ In `/opt/mapr/conf/ssl-server.xml`
 </property>
 ```
 
-`scp mapr@10.2.50.35:/opt/mapr/conf/maprkeycreds.* /opt/mapr/conf/`
-`scp mapr@10.2.50.35:/opt/mapr/conf/maprtrustcreds.* /opt/mapr/conf/`
-`scp mapr@10.2.50.35:/opt/mapr/conf/maprhsm.conf /opt/mapr/conf/`
+`scp mapr@10.1.1.35:/opt/mapr/conf/maprkeycreds.* /opt/mapr/conf/`
+`scp mapr@10.1.1.35:/opt/mapr/conf/maprtrustcreds.* /opt/mapr/conf/`
+`scp mapr@10.1.1.35:/opt/mapr/conf/maprhsm.conf /opt/mapr/conf/`
