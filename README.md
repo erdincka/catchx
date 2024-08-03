@@ -39,7 +39,7 @@ Setup Data Fabric cluster with Spark, create a user with volume, table and strea
 
 Setup MariaDB (possibly used for Hive too), on Data Fabric cluster, and create/allow a user with remote connection, DB creation and permissions.
 
-## Install MariaDB
+## Install MariaDB (if not already installed)
 
 Follow the doc.
 
@@ -60,6 +60,9 @@ Copy files to /opt/mapr/hive/hive-3.1.3/lib/
 
 Install MariaDB connector for NiFi
 `wget https://dlm.mariadb.com/3852266/Connectors/java/connector-java-3.4.1/mariadb-java-client-3.4.1.jar -O /mapr/fraud/user/root/mariadb-java-client-3.4.1.jar`
+
+
+### Initialize hive database
 
 Reconfigure cluster:
 
