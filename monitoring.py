@@ -518,30 +518,27 @@ async def monitoring_metrics():
 
 
 def toggle_monitoring(value: bool):
-    global MONITORING_CHARTS
-    if MONITORING_CHARTS is None: MONITORING_CHARTS = monitoring_charts()
-
-    for timer in monitoring_timers(MONITORING_CHARTS):
+    for timer in monitoring_timers():
         if value: timer.activate()
         else: 
             timer.deactivate()
 
 
-def monitoring_timers(charts: dict):
+def monitoring_timers():
     
     """Set timers to refresh each chart"""
 
     timers = []
 
-    timers.append(ui.timer(MON_REFRESH_INTERVAL3, lambda c=charts["consumer"]: update_chart(c, txn_consumer_stats), active=False))
+    timers.append(ui.timer(MON_REFRESH_INTERVAL3, txn_consumer_stats, active=False))
 
-    timers.append(ui.timer(MON_REFRESH_INTERVAL3 + 1, lambda c=charts["incoming"]: update_chart(c, incoming_topic_stats), active=False))
+    timers.append(ui.timer(MON_REFRESH_INTERVAL3 + 1, incoming_topic_stats, active=False))
 
-    timers.append(ui.timer(MON_REFRESH_INTERVAL3 + 2, lambda c=charts["bronze"]: update_chart(c, bronze_stats), active=False))
+    timers.append(ui.timer(MON_REFRESH_INTERVAL3 + 2, bronze_stats, active=False))
 
-    timers.append(ui.timer(MON_REFRESH_INTERVAL3 + 3, lambda c=charts["silver"]: update_chart(c, silver_stats), active=False))
+    timers.append(ui.timer(MON_REFRESH_INTERVAL3 + 3, silver_stats, active=False))
 
-    timers.append(ui.timer(MON_REFRESH_INTERVAL3 + 4, lambda c=charts["gold"]: update_chart(c, gold_stats), active=False))
+    timers.append(ui.timer(MON_REFRESH_INTERVAL3 + 4, gold_stats, active=False))
 
     return timers
 
@@ -565,14 +562,19 @@ def monitoring_charts():
             # https://10.1.1.31:3000/d/pUfMqVUIz/demo-monitoring?orgId=1
 
             charts["consumer"] = new_echart(title="Consumers")
+            ui.timer(MON_REFRESH_INTERVAL3, lambda c=charts["consumer"]: update_chart(c, txn_consumer_stats), active=False)
 
             charts["incoming"] = new_echart(title="Incoming")
+            ui.timer(MON_REFRESH_INTERVAL3 + 1, lambda c=charts["incoming"]: update_chart(c, incoming_topic_stats), active=False)
 
             charts["bronze"] = new_echart(title="Bronze tier")
+            ui.timer(MON_REFRESH_INTERVAL3 + 2, lambda c=charts["bronze"]: update_chart(c, bronze_stats), active=False)
 
             charts["silver"] = new_echart(title="Silver tier")
+            ui.timer(MON_REFRESH_INTERVAL3 + 3, lambda c=charts["silver"]: update_chart(c, silver_stats), active=False)
 
             charts["gold"] = new_echart(title="Gold tier")
+            ui.timer(MON_REFRESH_INTERVAL3 + 4, lambda c=charts["gold"]: update_chart(c, gold_stats), active=False)
 
     return charts
 
