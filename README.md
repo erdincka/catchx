@@ -68,7 +68,8 @@ Reconfigure cluster:
 
 `/opt/mapr/server/configure.sh -R`
 
-Follow the doc to set up database:
+Follow the doc to set up database: https://docs.ezmeral.hpe.com/datafabric-customer-managed/78/Hive/Config-MariaDBForHiveMetastore.html
+
 
 Edit `/opt/mapr/hive/hive-3.1.3/conf/hive-site.xml`
 
@@ -117,7 +118,7 @@ As root:
 `$SPARK_HOME/sbin/start-workers.sh`
 
 
-`/opt/mapr/nifi/nifi-1.19.1/bin/nifi.sh set-single-user-credentials admin Admin123.Admin123.`
+`/opt/mapr/nifi/nifi-1.19.1/bin/nifi.sh set-single-user-credentials admin myAdminP@ssword`
 
 
 `airflow users  create --role Admin --username admin --email admin --firstname admin --lastname admin --password admin`
@@ -165,10 +166,6 @@ And test it:
 `mount -t nfs4 -o proto=tcp,nolock,sec=sys 10.1.1.18:/ /mnt/`
 
 
-## Set up Airflow for Open Metadata
-
-
-
 ## Container configuration for Spark (Not used)
 <!-- No longer used, pyspark is not used -->
 
@@ -185,3 +182,43 @@ In `/opt/mapr/conf/ssl-server.xml`
 `scp mapr@10.1.1.35:/opt/mapr/conf/maprkeycreds.* /opt/mapr/conf/`
 `scp mapr@10.1.1.35:/opt/mapr/conf/maprtrustcreds.* /opt/mapr/conf/`
 `scp mapr@10.1.1.35:/opt/mapr/conf/maprhsm.conf /opt/mapr/conf/`
+
+
+# Running Demo
+
+## Initial configuration
+
+Click the settings cog icon at top right of the page. You need to provide config.tar taken from the Data Fabric client libraries. Follow steps 2 to 6 on this page: https://docs.ezmeral.hpe.com/datafabric/78/clients/installing_client_libraries.html (jwt_tokens.tar.gz will not be used for this demo).
+
+- Using the "Upload Client Files" in the settings drawer, select config.tar file and upload it. Then reload the page and re-open the settings drawer.
+
+- Select the cluster from "Select Data Domain" section.
+
+- (Optional) Provide S3 and NFS server endpoints. Tip: Empty input fields with show correct format as placeholder.
+
+- Provide user credentials from Data Fabric with the rights to create/delete volumes, streams, tables...
+
+- Provide S3 credentials taken from Object Store Access Keys page: https://docs.ezmeral.hpe.com/datafabric/78/administration/generating_s3_access_key.html
+
+- Provide Mysql/MariaDB credentials that you created earlier for dashboard tables.
+
+- Run tasks in "Configure and login" section sequentially. Please pay attention to the outputs for each command and fix errors before proceeding. If you don't see list of folders when you click "List Cluster /" button, something is not working. Fix before going further.
+
+- (Optional) If you created the dashboard, enter its link (taken from Superset -> Dashboards -> Your Dashboard -> get permanent link from the dashboard's action button).
+
+- (Optional) If you installed/configured Metadata Catalogue, provide its link in "Catalogue" text box.
+
+- Create entities in that sequence. Note and fix if there are any errors.
+
+If the data/tables have gone too large or you would like to start from clear state, you can use "Delete All!" to delete the created tables, volumes and streams, and re-create them all again using "Create the Entities" section.
+
+# Demo Flow
+
+Read and follow the steps. Process should be followed from top to bottom, and left to right. 
+
+- Filled buttons are required actions. 
+
+- Outlined buttons are optional actions.
+
+- Light outlined buttons are informational.
+
