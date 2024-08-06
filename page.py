@@ -20,7 +20,7 @@ def header(title: str):
 
         ui.label(title)
 
-        ui.icon(None, size='lg').bind_name_from(app.storage.general, "demo_mode", backward=lambda x: "s_preview" if x else "s_preview_off").tooltip("Presentation Mode")
+        # ui.icon(None, size='lg').bind_name_from(app.storage.general, "demo_mode", backward=lambda x: "s_preview" if x else "s_preview_off").tooltip("Presentation Mode")
 
         ui.switch("Go Live").bind_value(app.storage.general, 'demo_mode')
 
@@ -36,24 +36,24 @@ def header(title: str):
                 app.storage.general,
                 "cluster",
                 backward=lambda x: (
-                    app.storage.general["clusters"].get(x, "localhost") if x else "None"
+                    app.storage.general.get("clusters", {}).get(x, "localhost") if x else "None"
                 ),
             ).classes(
                 "text-white hover:text-blue-600"
-            ).bind_visibility_from(app.storage.general, "cluster", backward=lambda x: len(x) > 0):
+            ).bind_visibility_from(app.storage.general, "cluster", backward=lambda x: x and len(x) > 0):
                 ui.icon("open_in_new")
 
-            ui.label("Not configured!").classes("text-bold red").bind_visibility_from(app.storage.general, "cluster", backward=lambda x: len(x) == 0)
+            ui.label("Not configured!").classes("text-bold red").bind_visibility_from(app.storage.general, "cluster", backward=lambda x: not x or len(x) == 0)
 
             ui.button(icon="settings", on_click=cluster_configuration_dialog).props(
                 "flat color=light"
             )
 
             ui.icon("error", size="2em", color="red").bind_visibility_from(
-                app.storage.general, "cluster", lambda x: len(x) == 0
+                app.storage.general, "cluster", lambda x: not x or len(x) == 0
             ).tooltip("Requires configuration!")
 
-            with ui.element("div").bind_visibility_from(app.storage.general, "cluster", backward=lambda x: len(x) != 0):
+            with ui.element("div").bind_visibility_from(app.storage.general, "cluster", backward=lambda x: x and len(x) != 0):
                 ui.icon("check_circle", size="2em", color="green").bind_visibility_from(
                     app.storage.general, "busy", lambda x: not x
                 ).tooltip("Ready")
@@ -377,6 +377,9 @@ def cluster_configuration_dialog():
             ui.label("Dashboard").classes("text-lg w-full")
             ui.label("Link to external dashboard page").classes("text-sm text-italic")
             ui.input("Dashboard URL").bind_value(app.storage.general, "DASHBOARD_URL").classes("w-full")
+            ui.label("Catalogue").classes("text-lg w-full")
+            ui.label("Link to external catalogue page").classes("text-sm text-italic")
+            ui.input("Catalogue URL").bind_value(app.storage.general, "CATALOGUE_URL").classes("w-full")
 
         ui.separator()
         with ui.card_section():

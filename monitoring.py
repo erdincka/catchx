@@ -14,6 +14,7 @@ import tables
 
 logger = logging.getLogger("monitoring")
 
+MONITORING_CHARTS = None
 
 def new_echart(title: str):
     chart = ui.echart(
@@ -516,10 +517,14 @@ async def monitoring_metrics():
         )
 
 
-def toggle_monitoring(value: bool, timers: List[ui.timer]):
-    for timer in timers:
+def toggle_monitoring(value: bool):
+    global MONITORING_CHARTS
+    if MONITORING_CHARTS is None: MONITORING_CHARTS = monitoring_charts()
+
+    for timer in monitoring_timers(MONITORING_CHARTS):
         if value: timer.activate()
-        else: timer.deactivate()
+        else: 
+            timer.deactivate()
 
 
 def monitoring_timers(charts: dict):

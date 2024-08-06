@@ -202,7 +202,7 @@ async def handle_image_action(e: events.MouseEventArguments):
         await run_command_with_dialog(f"df -h /mnt; ls -lA /mnt; ls -lA /mnt{EXTERNAL_NFS_PATH}")
 
     elif element == "S3":
-        ui.navigate.to(f"http://{app.storage.general.get('S3_SERVER', 'localhost:9000')}", new_tab=True)
+        ui.navigate.to(app.storage.general.get('S3_SERVER', 'http://localhost:9000'), new_tab=True)
         ui.notify("Bring existing object stores into the Global Namespace.", type="info")
 
     elif element == "IAM":
@@ -221,6 +221,7 @@ async def handle_image_action(e: events.MouseEventArguments):
             "Integrate with an external catalogue manager to classify, document and serve various data sources.",
             type="info",
         )
+        ui.navigate.to(app.storage.general.get('CATALOGUE_URL', ''), new_tab=True)
     elif element == "Edge":
         ui.notify(
             "Enable non-data products to become a part of the global namespace, enabling them to access data across the enterprise.",
