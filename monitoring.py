@@ -2,7 +2,6 @@ import datetime
 import json
 import socket
 import timeit
-from typing import List
 import httpx
 from nicegui import ui, app
 import sqlalchemy
@@ -15,6 +14,7 @@ import tables
 logger = logging.getLogger("monitoring")
 
 MONITORING_CHARTS = None
+MONITORING_TIMERS = []
 
 def new_echart(title: str):
     chart = ui.echart(
@@ -528,19 +528,22 @@ def monitoring_timers():
     
     """Set timers to refresh each chart"""
 
-    timers = []
+    global MONITORING_TIMERS
 
-    timers.append(ui.timer(MON_REFRESH_INTERVAL3, txn_consumer_stats, active=False))
+    # Singleton
+    if len(MONITORING_TIMERS) == 0:
 
-    timers.append(ui.timer(MON_REFRESH_INTERVAL3 + 1, incoming_topic_stats, active=False))
+        MONITORING_TIMERS.append(ui.timer(MON_REFRESH_INTERVAL3, txn_consumer_stats, active=False))
 
-    timers.append(ui.timer(MON_REFRESH_INTERVAL3 + 2, bronze_stats, active=False))
+        MONITORING_TIMERS.append(ui.timer(MON_REFRESH_INTERVAL3 + 1, incoming_topic_stats, active=False))
 
-    timers.append(ui.timer(MON_REFRESH_INTERVAL3 + 3, silver_stats, active=False))
+        MONITORING_TIMERS.append(ui.timer(MON_REFRESH_INTERVAL3 + 2, bronze_stats, active=False))
 
-    timers.append(ui.timer(MON_REFRESH_INTERVAL3 + 4, gold_stats, active=False))
+        MONITORING_TIMERS.append(ui.timer(MON_REFRESH_INTERVAL3 + 3, silver_stats, active=False))
 
-    return timers
+        MONITORING_TIMERS.append(ui.timer(MON_REFRESH_INTERVAL3 + 4, gold_stats, active=False))
+
+    return MONITORING_TIMERS
 
 
 def monitoring_charts():

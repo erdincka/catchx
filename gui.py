@@ -99,6 +99,8 @@ def mesh_ii():
         # ).on("svg:pointerover", lambda e: handle_image_info(e.args)
     ).classes(
         "relative m-0 p-0"
+    ).props(
+        "fit=scale-down"
     ) as mesh_image:
 
         mesh_image.client.content.classes('p-2') # reduce default gap
@@ -130,10 +132,11 @@ def domain_ii():
         lambda e: handle_image_action(e.args),
         # ).on("svg:pointerover", lambda e: handle_image_info(e.args)
     ).classes(
-        "relative"
+        "relative m-0 p-0"
     ).props(
         "fit=scale-down"
     ).bind_content_from(app.storage.general, "overlay") as domain_image:
+        # TEMPORARY - need to fix binding
         domain_image.set_content(svg_overlay)
 
         domain_image.client.content.classes('p-2') # remove the default gap

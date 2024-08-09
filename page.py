@@ -24,7 +24,7 @@ def header(title: str):
 
         ui.switch("Go Live").bind_value(app.storage.general, 'demo_mode')
 
-        ui.switch("Monitor", on_change=lambda x: toggle_monitoring(x.value))
+        ui.switch("Monitor", on_change=lambda x: toggle_monitoring(x.value)).bind_visibility_from(app.storage.general, 'demo_mode')
 
         ui.space()
 
@@ -170,10 +170,17 @@ async def domain_page():
     header(DATA_PRODUCT)
 
     gui.domain_ii()
+
     # Realtime monitoring information
-    monitoring_card()
+    monitoring_card().classes(
+        "flex-grow shrink absolute top-10 right-0 w-1/4 h-fit opacity-50 hover:opacity-100"
+    )
+
+    logging_card().classes(
+        "flex-grow shrink absolute bottom-0 left-0 w-full opacity-50 hover:opacity-100"
+        # "flex-grow shrink absolute top-64 right-0 w-1/4 opacity-50 hover:opacity-100"
+    )
     # metric_badges_on_ii()
-    logging_card()
     
     footer()
 
