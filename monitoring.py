@@ -312,9 +312,9 @@ async def bronze_stats():
         if os.path.lexists(f"{MOUNT_PATH}/{get_cluster_name()}{ttable}"):
             num_transactions = len(tables.get_documents(ttable, limit=None))
             series.append({ "transactions": num_transactions })
-            app.storage.general["brnz_transactions"] = num_transactions
+            app.storage.general["brnx_txns"] = num_transactions
         else:
-            app.storage.general["brnz_transactions"] = 0
+            app.storage.general["brnx_txns"] = 0
 
         # FIX: binary table counters are not usable, might need to query the table for total distinct records
         # if os.path.lexists(f"{MOUNT_PATH}/{get_cluster_name()}{binarytable}"):
@@ -333,7 +333,7 @@ async def bronze_stats():
         #             if not metrics["status"] == "ERROR":
         #                 # logger.debug(metrics)
         #                 for m in metrics["data"]:
-        #                     app.storage.general["brnz_transactions"] += m["totalrows"]
+        #                     app.storage.general["brnx_txns"] += m["totalrows"]
 
         if os.path.isdir(f"{MOUNT_PATH}/{get_cluster_name()}{ctable}"): # isdir for iceberg tables
             num_customers = len(iceberger.find_all(VOLUME_BRONZE, TABLE_CUSTOMERS))
@@ -384,7 +384,7 @@ async def silver_stats():
         if os.path.lexists(f"{MOUNT_PATH}/{get_cluster_name()}{ttable}"):
             num_transactions = len(tables.get_documents(ttable, limit=None))
             series.append({ "transactions": num_transactions })
-            app.storage.general["slvr_transactions"] = num_transactions
+            app.storage.general["slvr_txns"] = num_transactions
         if os.path.lexists(f"{MOUNT_PATH}/{get_cluster_name()}{ctable}"):
             num_customers = len(tables.get_documents(ctable, limit=None))
             series.append({ "customers": num_customers })
@@ -424,7 +424,7 @@ async def gold_stats():
             if sqlalchemy.inspect(engine).has_table(TABLE_TRANSACTIONS):
                 num_transactions = conn.execute(text(f"SELECT COUNT('_id') FROM {TABLE_TRANSACTIONS}")).scalar()
                 series.append({ TABLE_TRANSACTIONS: num_transactions })
-                app.storage.general["gold_transactions"] = num_transactions
+                app.storage.general["gold_txns"] = num_transactions
 
             if sqlalchemy.inspect(engine).has_table(TABLE_CUSTOMERS):
                 num_customers = conn.execute(text(f"SELECT COUNT('_id') FROM {TABLE_CUSTOMERS}")).scalar()
@@ -478,7 +478,7 @@ async def monitoring_metrics():
 
     if bronze is not None:
         metrics = bronze["values"]
-        app.storage.general["brnz_transactions"] = next(
+        app.storage.general["brnx_txns"] = next(
             iter([m["transactions"] for m in metrics if "transactions" in m]), None
         )
         app.storage.general["brnz_customers"] = next(
@@ -493,7 +493,7 @@ async def monitoring_metrics():
         app.storage.general["slvr_profiles"] = next(
             iter([m["profiles"] for m in metrics if "profiles" in m]), None
         )
-        app.storage.general["slvr_transactions"] = next(
+        app.storage.general["slvr_txns"] = next(
             iter([m["transactions"] for m in metrics if "transactions" in m]), None
         )
         app.storage.general["slvr_customers"] = next(
@@ -508,7 +508,7 @@ async def monitoring_metrics():
         app.storage.general["gold_fraud"] = next(
             iter([m[TABLE_FRAUD] for m in metrics if TABLE_FRAUD in m]), None
         )
-        app.storage.general["gold_transactions"] = next(
+        app.storage.general["gold_txns"] = next(
             iter([m[TABLE_TRANSACTIONS] for m in metrics if TABLE_TRANSACTIONS in m]),
             None,
         )
@@ -642,11 +642,11 @@ def monitoring_card():
                 "in_txn_pushed",
                 "in_txn_pulled",
                 "brnz_customers",
-                "brnz_transactions",
+                "brnx_txns",
                 "slvr_profiles",
-                "slvr_transactions",
+                "slvr_txns",
                 "slvr_customers",
-                "gold_transactions",
+                "gold_txns",
                 "gold_customers",
                 "gold_fraud",
             ]:

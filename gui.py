@@ -134,6 +134,7 @@ def domain_ii():
     ).props(
         "fit=scale-down"
     ).bind_content_from(app.storage.general, "overlay") as domain_image:
+        domain_image.set_content(svg_overlay)
 
         domain_image.client.content.classes('p-2') # remove the default gap
 
@@ -223,7 +224,7 @@ def metric_badges_on_ii():
     # bronze counts
     ui.badge("0", color="teal").bind_text_from(
         app.storage.general,
-        "brnz_transactions",
+        "brnx_txns",
         lambda x: x if x is not None else 0,
     ).classes("absolute top-[280px] left-[450px]").tooltip("# of transactions")
     ui.badge("0", color="orange").bind_text_from(
@@ -240,7 +241,7 @@ def metric_badges_on_ii():
     ).classes("absolute top-[140px] left-[680px]").tooltip("# of profiles")
     ui.badge("0", color="teal").bind_text_from(
         app.storage.general,
-        "slvr_transactions",
+        "slvr_txns",
         lambda x: x if x is not None else 0,
     ).classes("absolute top-[280px] left-[680px]").tooltip("# of transactions")
     ui.badge("0", color="orange").bind_text_from(
@@ -257,7 +258,7 @@ def metric_badges_on_ii():
     ).classes("absolute top-[420px] left-[870px]").tooltip("# of fraud")
     ui.badge("0", color="teal").bind_text_from(
         app.storage.general,
-        "gold_transactions",
+        "gold_txns",
         lambda x: x if x is not None else 0,
     ).classes("absolute top-[440px] left-[870px]").tooltip("# of transactions")
     ui.badge("0", color="orange").bind_text_from(

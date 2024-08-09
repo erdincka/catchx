@@ -4,6 +4,7 @@ from mapr.ojai.storage.ConnectionFactory import ConnectionFactory
 from nicegui import app
 
 from common import *
+import timeit
 
 logger = logging.getLogger("tables")
 

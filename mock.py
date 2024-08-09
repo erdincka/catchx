@@ -223,7 +223,7 @@ async def publish_transactions(count: int = 10):
 
     try:
         for transaction in await get_new_transactions(count):
-            if await run.io_bound(streams.produce, f"{MOUNT_PATH}/{get_cluster_name()}{stream_path}", TOPIC_TRANSACTIONS, json.dumps(transaction)):
+            if await run.io_bound(streams.produce, stream_path, TOPIC_TRANSACTIONS, json.dumps(transaction)):
                 logger.info("Sent %s", transaction["_id"])
                 # add delay
                 # await asyncio.sleep(0.2)

@@ -1,6 +1,9 @@
 
 # Data Fabric demo app
 
+
+Standalone app can be run using following Docker command:
+
 `docker run -d -t --name catchx -p 3000:3000 --cap-add SYS_ADMIN erdincka/catchx`
 
 It should clone the app and start it right away, you can monitor the logs `docker logs -f catchx`, or get into the container and kill/restart the app if you want.
@@ -12,36 +15,42 @@ cd app
 python3 main.py
 ```
 
+You can also install the app itself on Ezmeral Unified Analytics platform as a third-party using [provided helm chart](./helm-package/catchx-0.0.3.tgz) and you can use [provided image](./helm-package/fraud-detection-app.jpg) as its icon.
 
-## Fraud Detection use case demo with Ezmeral Data Fabric
+Just follow the instructions from [Ezmeral documentation](https://docs.ezmeral.hpe.com/unified-analytics/15/ManageClusters/importing-applications.html).
 
-Uses Data Fabric to process incoming transactions (faked) via streams, and then storing relevant information into JSON Tables (a simple ETL step). Final step is to simulate a fraud detection ML model inferencing on incoming messages.
 
-This application expects certain runtime environment (container) with required libraries and OS environment variables configured. This is done in the app image available on [GitHub](https://github.com/erdincka/catchx-image).
+## Fraud Detection pipeline demo with Ezmeral Data Fabric
 
-Before running the demo, you have to configure the app to access the cluster that you will run the demo.
+This is not an accurate representation of a real fraud detection process, but rather an end-to-end demonstration of how a pipeline can be built using some of Ezmeral Data Fabric capabilities for a real-life scenario. We aim to highlight the flexibility and openness of Ezmeral Data Fabric as a converged data platform for various data types and choices of open-source ecosystem tools/frameworks. 
+
+The tools and frameworks used in the demo is selected with simplicity of their implementation in mind, but they are not meant to limit user's choice when it comes to real life implementation. Users are free to choose included or third-party tools, as Data Fabric supports various industry-standard protocols to read, process and store data.
+
+The app shows the ingestion of transaction data (json) via Event Streams and batch customer data (csv files) into the fabric, and then sotring and processing them through their lifecycle inside the Fabric, using technologies such as NoSQL Document DBs or Iceberg tables. Then at the final stage we both simulate a fraud detection ML model inferencing on incoming messages as well as providing consolidated information as a Data Product that can be shared within the organisation either for Business Intelligence & Analytics or for other consumption methods through JSON/OJAI APIs.
+
+Before running the demo, you have to configure the app to access the cluster that you will run the steps.
 
 App uses `/app/*` volumes on the connected cluster, so do not run this app on a cluster which already has this path/volume configured.
 
 Follow the steps to walk through the demo.
 
-You can run all steps as many times as you like, especially "produce" and "process" steps should be run multiple times.
+You can run all steps as many times as you like, especially "produce" and "process" steps can be run multiple times.
 
 Once completed, you can delete the stream and the volume to get rid of all app-created artifacts on the Data Fabric cluster.
 
-You can also delete the stream, and then re-start from Step 2, so you can have clear metrics/monitoring on the generated charts.
+You can also delete the stream, and then re-start from Step 2, so you can have clear metrics/monitoring on the monitoring charts.
 
 
 # REQUIREMENTS
 
-Setup Data Fabric cluster with Spark, create a user with volume, table and stream creation rights, as well as with audit monitoring (for monitoring charts). Or for demo environments, simply use `mapr` user.
+Setup Data Fabric cluster following the instructions below, and optionally create a user with volume, table and stream creation rights. For isolated/standalone demo environments, you can simply use the cluster admin `mapr` user.
 
-
-Setup MariaDB (possibly used for Hive too), on Data Fabric cluster, and create/allow a user with remote connection, DB creation and permissions.
 
 ## Install MariaDB (if not already installed)
 
-Follow the doc.
+Follow the documentation for MariaDB for your platform (Rocky, RHEL, Ubuntu etc).
+
+The following commands assume that you are running your Data Fabric on RHEL-based Linux environment (Rocky, Centos, RHEL etc). Refer to your OS package manager for other options (ie, Ubuntu).
 
 ## Install Hive metastore
 
@@ -62,7 +71,7 @@ Install MariaDB connector for NiFi
 `wget https://dlm.mariadb.com/3852266/Connectors/java/connector-java-3.4.1/mariadb-java-client-3.4.1.jar -O /mapr/fraud/user/root/mariadb-java-client-3.4.1.jar`
 
 
-### Initialize hive database
+### Initialize Hive database
 
 Reconfigure cluster:
 

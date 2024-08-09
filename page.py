@@ -267,7 +267,7 @@ def demo_steps():
 
             with ui.row().classes("w-full place-items-center"):
                 ui.label("Data aggregation: ").classes("w-40")
-                ui.button("Summarize", on_click=create_golden).bind_enabled_from(app.storage.general, "busy", backward=lambda x: not x).bind_visibility_from(app.storage.general, 'MYSQL_PASS', backward=lambda x: x is not None and len(x) > 0)
+                ui.button("Aggregate to Gold Tier", on_click=create_golden).bind_enabled_from(app.storage.general, "busy", backward=lambda x: not x).bind_visibility_from(app.storage.general, 'MYSQL_PASS', backward=lambda x: x is not None and len(x) > 0)
                 ui.button("Code", on_click=aggregate_dialog.open, color="info").props("outline")
 
         with ui.expansion("Check transactions for Fraud", caption="Process every transaction and check for fraud", group="flow"):

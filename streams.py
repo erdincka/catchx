@@ -6,6 +6,7 @@ logger = logging.getLogger("streams")
 def produce(stream: str, topic: str, message: str):
     from confluent_kafka import Producer
 
+    logger.debug("Stream path: %s", stream)
     p = Producer({"streams.producer.default.stream": stream})
 
     try:

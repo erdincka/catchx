@@ -3,6 +3,7 @@
 f=$(grep $CLUSTER_NAME /opt/mapr/conf/mapr-clusters.conf)
 nf=$(grep -v $CLUSTER_NAME /opt/mapr/conf/mapr-clusters.conf)
 echo -e "$f\n$nf" > /opt/mapr/conf/mapr-clusters.conf
+echo "Selected cluster: ${CLUSTER_NAME}"
 /opt/mapr/server/configure.sh -c -secure -N $CLUSTER_NAME -C $CLUSTER_IP
 
 ### Update ssl conf
