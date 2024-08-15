@@ -34,33 +34,33 @@ rest_of_svg = f'fill-opacity={opacity} stroke="none" stroke-linecap="round" stro
 # <rect id="GetScoreCode" x="4080" y="905" rx="20" ry="0" width="80" height="430" fill={code_color} {rest_of_svg} />
 
 svg_overlay = f"""
-    <rect id="PublishTransactions" x="580" y="1685" rx="40" ry="40" width="330" height="100" fill={action_color} {rest_of_svg} />
-    <rect id="PublishTransactionsCode" x="200" y="1560" rx="60" ry="60" width="350" height="350" fill={code_color} {rest_of_svg} />
-    <rect id="NifiStreams" x="1430" y="1695" rx="20" ry="20" width="300" height="80" fill={secondary_action_color} {rest_of_svg} />
-    <rect id="NifiStreamsCode" x="983" y="1585" rx="20" ry="20" width="432" height="266" fill={code_color} {rest_of_svg} />
-    <rect id="IngestTransactions" x="1340" y="1900" rx="20" ry="20" width="380" height="90" fill={action_color} {rest_of_svg} />
-    <rect id="IngestTransactionsCode" x="1070" y="1860" rx="20" ry="20" width="260" height="180" fill={code_color} {rest_of_svg} />
-    <rect id="IngestCustomersIceberg" x="1350" y="2890" rx="20" ry="20" width="290" height="90" fill={action_color} {rest_of_svg} />
-    <rect id="IngestCustomersIcebergCode" x="1070" y="2830" rx="20" ry="20" width="260" height="180" fill={code_color} {rest_of_svg} />
-    <rect id="AirflowBatch" x="1430" y="2645" rx="20" ry="20" width="220" height="80" fill={secondary_action_color} {rest_of_svg} />
-    <rect id="AirflowBatchCode" x="970" y="2553" rx="20" ry="20" width="431" height="260" fill={code_color} {rest_of_svg} />
-    <rect id="BronzeTransactions" x="2070" y="1450" rx="20" ry="20" width="350" height="430" fill={info_color} {rest_of_svg} />
-    <rect id="BronzeCustomers" x="2060" y="2460" rx="20" ry="20" width="350" height="410" fill={info_color} {rest_of_svg} />
-    <rect id="SilverCustomers" x="3330" y="2470" rx="20" ry="20" width="350" height="410" fill={info_color} {rest_of_svg} />
-    <rect id="SilverTransactions" x="3340" y="1550" rx="20" ry="20" width="320" height="380" fill={info_color} {rest_of_svg} />
-    <rect id="SilverProfiles" x="3360" y="770" rx="20" ry="20" width="300" height="360" fill={info_color} {rest_of_svg} />
-    <rect id="GoldCustomers" x="4530" y="2400" rx="20" ry="20" width="350" height="410" fill={info_color} {rest_of_svg} />
-    <rect id="ProfileBuilderCode" x="2590" y="770" rx="20" ry="20" width="240" height="200" fill={code_color} {rest_of_svg} />
-    <rect id="RefineTransactions" x="2840" y="1690" rx="20" ry="20" width="420" height="80" fill={action_color} {rest_of_svg} />
-    <rect id="RefineTransactionsCode" x="2590" y="1630" rx="20" ry="20" width="240" height="200" fill={code_color} {rest_of_svg} />
-    <rect id="RefineCustomers" x="2840" y="2630" rx="20" ry="20" width="420" height="80" fill={action_color} {rest_of_svg} />
-    <rect id="RefineCustomersCode" x="2590" y="2570" rx="20" ry="20" width="240" height="200" fill={code_color} {rest_of_svg} />
-    <rect id="ConsolidateCode" x="4000" y="2180" rx="20" ry="20" width="240" height="600" fill={code_color} {rest_of_svg} />
-    <rect id="Consolidate" x="4250" y="2630" rx="20" ry="20" width="250" height="80" fill={action_color} {rest_of_svg} />
-    <rect id="Consolidate" x="4250" y="2435" rx="20" ry="20" width="250" height="80" fill={action_color} {rest_of_svg} transform="rotate(35 4375 2490)" />
-    <rect id="CheckFraudCode" x="3970" y="1330" rx="20" ry="20" width="300" height="260" fill={code_color} {rest_of_svg} />
-    <rect id="CheckFraud" x="4300" y="1425" rx="20" ry="20" width="400" height="80" fill={action_color} {rest_of_svg} />
-    <rect id="ReportView" x="5805" y="2505" rx="20" ry="20" width="390" height="265" fill={info_color} {rest_of_svg} />
+    <rect id="PublishTransactions" x="580" y="1585" rx="40" ry="40" width="330" height="100" fill={action_color} {rest_of_svg} />
+    <rect id="PublishTransactionsCode" x="200" y="1460" rx="60" ry="60" width="350" height="350" fill={code_color} {rest_of_svg} />
+    <rect id="NifiStreams" x="1430" y="1595" rx="20" ry="20" width="300" height="80" fill={secondary_action_color} {rest_of_svg} />
+    <rect id="NifiStreamsCode" x="983" y="1485" rx="20" ry="20" width="432" height="266" fill={code_color} {rest_of_svg} />
+    <rect id="IngestTransactions" x="1340" y="1800" rx="20" ry="20" width="380" height="90" fill={action_color} {rest_of_svg} />
+    <rect id="IngestTransactionsCode" x="1070" y="1760" rx="20" ry="20" width="260" height="180" fill={code_color} {rest_of_svg} />
+    <rect id="IngestCustomersIceberg" x="1350" y="2810" rx="20" ry="20" width="290" height="90" fill={action_color} {rest_of_svg} />
+    <rect id="IngestCustomersIcebergCode" x="1070" y="2750" rx="20" ry="20" width="260" height="180" fill={code_color} {rest_of_svg} />
+    <rect id="AirflowBatch" x="1430" y="2545" rx="20" ry="20" width="220" height="80" fill={secondary_action_color} {rest_of_svg} />
+    <rect id="AirflowBatchCode" x="970" y="2453" rx="20" ry="20" width="431" height="260" fill={code_color} {rest_of_svg} />
+    <rect id="BronzeTransactions" x="2070" y="1350" rx="20" ry="20" width="350" height="430" fill={info_color} {rest_of_svg} />
+    <rect id="BronzeCustomers" x="2060" y="2360" rx="20" ry="20" width="350" height="410" fill={info_color} {rest_of_svg} />
+    <rect id="SilverCustomers" x="3330" y="2370" rx="20" ry="20" width="350" height="410" fill={info_color} {rest_of_svg} />
+    <rect id="SilverTransactions" x="3340" y="1450" rx="20" ry="20" width="320" height="380" fill={info_color} {rest_of_svg} />
+    <rect id="SilverProfiles" x="3360" y="670" rx="20" ry="20" width="300" height="360" fill={info_color} {rest_of_svg} />
+    <rect id="GoldCustomers" x="4530" y="2300" rx="20" ry="20" width="350" height="410" fill={info_color} {rest_of_svg} />
+    <rect id="ProfileBuilderCode" x="2590" y="670" rx="20" ry="20" width="240" height="200" fill={code_color} {rest_of_svg} />
+    <rect id="RefineTransactions" x="2840" y="1590" rx="20" ry="20" width="420" height="80" fill={action_color} {rest_of_svg} />
+    <rect id="RefineTransactionsCode" x="2590" y="1530" rx="20" ry="20" width="240" height="200" fill={code_color} {rest_of_svg} />
+    <rect id="RefineCustomers" x="2840" y="2530" rx="20" ry="20" width="420" height="80" fill={action_color} {rest_of_svg} />
+    <rect id="RefineCustomersCode" x="2590" y="2470" rx="20" ry="20" width="240" height="200" fill={code_color} {rest_of_svg} />
+    <rect id="ConsolidateCode" x="4000" y="2080" rx="20" ry="20" width="240" height="600" fill={code_color} {rest_of_svg} />
+    <rect id="Consolidate" x="4250" y="2530" rx="20" ry="20" width="250" height="80" fill={action_color} {rest_of_svg} />
+    <rect id="Consolidate" x="4250" y="2335" rx="20" ry="20" width="250" height="80" fill={action_color} {rest_of_svg} transform="rotate(35 4375 2390)" />
+    <rect id="CheckFraudCode" x="3970" y="1230" rx="20" ry="20" width="300" height="260" fill={code_color} {rest_of_svg} />
+    <rect id="CheckFraud" x="4300" y="1325" rx="20" ry="20" width="400" height="80" fill={action_color} {rest_of_svg} />
+    <rect id="ReportView" x="5805" y="2405" rx="20" ry="20" width="390" height="265" fill={info_color} {rest_of_svg} />
     <g>
         <rect id="legend" x="6500" y="3250" rx="20" ry="20" width="400" height="100" fill={action_color} pointer-events="none" cursor="default" {rest_of_svg} />
         <text x="6590" y="3320" font-family="Verdana" font-size="50" fill="blue">Run task</text>
@@ -69,6 +69,7 @@ svg_overlay = f"""
         <rect id="legend" x="6500" y="3600" rx="20" ry="20" width="400" height="100" fill={code_color} pointer-events="none" cursor="default" {rest_of_svg} />
         <text x="6570" y="3670" font-family="Verdana" font-size="50" fill="blue">Show code</text>
     </g>
+    <rect id="Catalogue" x="5820" y="1250" rx="30" ry="30" width="550" height="220" fill={info_color} {rest_of_svg} />
 
 #"""
 
