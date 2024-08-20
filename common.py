@@ -60,6 +60,7 @@ TRANSACTION_CATEGORIES = [
     "Income",
     "Home",
     "Transfers",
+    "Dining",
     "Other"
 ]
 
