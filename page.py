@@ -32,13 +32,7 @@ def header(title: str):
             with ui.link(
                 target=f"https://{app.storage.general.get('MAPR_USER', '')}:{app.storage.general.get('MAPR_PASS', '')}@{app.storage.general.get('cluster', 'localhost')}:8443/app/mcs/",
                 new_tab=True
-            ).bind_text_from(
-                app.storage.general,
-                "cluster",
-                backward=lambda x: (
-                    app.storage.general.get("clusters", {}).get(x, "localhost") if x else "None"
-                ),
-            ).classes(
+            ).bind_text_from(app.storage.general, "cluster").classes(
                 "text-white hover:text-blue-600"
             ).bind_visibility_from(app.storage.general, "cluster", backward=lambda x: x and len(x) > 0):
                 ui.icon("open_in_new")
