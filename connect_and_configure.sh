@@ -4,12 +4,14 @@ set -euo pipefail
 
 [ -f /root/.ssh/id_rsa ] || ssh-keygen -t rsa -b 2048 -f /root/.ssh/id_rsa -q -N ""
 
-ssh-keygen -f "/root/.ssh/known_hosts" -R ${CLUSTER_IP}
-sshpass -p "${MAPR_PASS}" ssh-copy-id "${MAPR_USER}@${CLUSTER_IP}"
+ssh-keygen -f "/root/.ssh/known_hosts" -R ${CLUSTER_IP} || true # ignore errors/not-found
+sshpass -p "${MAPR_PASS}" ssh-copy-id -o StrictHostKeyChecking=no "${MAPR_USER}@${CLUSTER_IP}"
 
 scp -o StrictHostKeyChecking=no $MAPR_USER@$CLUSTER_IP:/opt/mapr/conf/ssl_truststore /opt/mapr/conf/
 
 /opt/mapr/server/configure.sh -c -secure -N demo -C $CLUSTER_IP
+
+echo "Finished configuring MapR"
 
 ### Update ssl conf
 creds_configured=$(grep -s "hadoop.security.credential.provider.path" /opt/mapr/conf/ssl-server.xml)
