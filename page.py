@@ -30,15 +30,16 @@ def header(title: str):
 
         with ui.row().classes("place-items-center"):
             with ui.link(
+                text="MCS",
                 target=f"https://{app.storage.general.get('MAPR_USER', '')}:{app.storage.general.get('MAPR_PASS', '')}@{app.storage.general.get('cluster', 'localhost')}:8443/app/mcs/",
                 new_tab=True
-            ).bind_text_from(app.storage.general, "cluster").classes(
+            ).classes(
                 "text-white hover:text-blue-600"
             ).bind_visibility_from(app.storage.general, "cluster", backward=lambda x: x and len(x) > 0):
                 ui.icon("open_in_new")
 
             # ui.label("Not configured!").classes("text-bold red").bind_visibility_from(app.storage.general, "cluster", backward=lambda x: not x or len(x) == 0)
-            ui.button(icon="link_off", on_click=cluster_connect).props("flat color=light")
+            ui.button(icon="link", on_click=cluster_connect).props("flat color=light")
 
             ui.button(icon="settings", on_click=demo_configuration_dialog).props(
                 "flat color=light"
@@ -400,7 +401,7 @@ def demo_configuration_dialog():
                 os.environ["MAPR_USER"] = app.storage.general.get("MAPR_USER", "")
                 os.environ["MAPR_PASS"] = app.storage.general.get("MAPR_PASS", "")
                 with ui.row().classes("w-full place-items-center mt-4"):
-                        ui.button("Reconfigure", on_click=lambda: run_command_with_dialog("bash ./reconfigure.sh"))
+                        # ui.button("Reconfigure", on_click=lambda: run_command_with_dialog("bash ./reconfigure.sh"))
                         ui.button("maprlogin", on_click=lambda: run_command_with_dialog(f"echo {app.storage.general['MAPR_PASS']} | maprlogin password -user {app.storage.general['MAPR_USER']}"))
                 with ui.row().classes("w-full place-items-center mt-4"):
                     ui.button(f"remount {MOUNT_PATH}", on_click=lambda: run_command_with_dialog(f"[ -d {MOUNT_PATH} ] && umount -l {MOUNT_PATH}; [ -d {MOUNT_PATH} ] || mkdir -p {MOUNT_PATH}; mount -t nfs -o nolock,soft {app.storage.general['cluster']}:/mapr {MOUNT_PATH}"))

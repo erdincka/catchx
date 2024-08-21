@@ -213,10 +213,11 @@ async def run_command(command: str):
 
 
 def get_cluster_name():
-    clustername = app.storage.general.get('clusters', {}).get(app.storage.general.get('cluster', ''), '')
-    if clustername != "":
-        return clustername
-    else: return "maprdemo.mapr.io"
+    return "demo"
+    # clustername = app.storage.general.get('clusters', {}).get(app.storage.general.get('cluster', ''), '')
+    # if clustername != "":
+    #     return clustername
+    # else: return "maprdemo.mapr.io"
 
 
 async def create_volumes():
