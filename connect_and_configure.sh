@@ -2,15 +2,38 @@
 
 set -euo pipefail
 
-# echo ${CLUSTER_IP}
-# echo ${MAPR_USER}
-# echo ${MAPR_PASS}
-
 [ -f /root/.ssh/id_rsa ] || ssh-keygen -t rsa -b 2048 -f /root/.ssh/id_rsa -q -N ""
 
 # This might be useful for later commands
 ssh-keygen -f "/root/.ssh/known_hosts" -R ${CLUSTER_IP}
 sshpass -p "${MAPR_PASS}" ssh-copy-id "${MAPR_USER}@${CLUSTER_IP}"
 
-# TODO: no need to copy this, just configure with "configure.sh -c -N demo ..."
-# scp $MAPR_USER@$CLUSTER_IP:/opt/mapr/conf/mapr-clusters.conf /opt/mapr/conf/
+scp -o StrictHostKeyChecking=no $MAPR_USER@$CLUSTER_IP:/opt/mapr/conf/mapr-clusters.conf /opt/mapr/conf/
+
+/opt/mapr/server/configure.sh -c -secure -N demo -C $CLUSTER_IP
+
+### Update ssl conf
+creds_configured=$(grep -s "hadoop.security.credential.provider.path" /opt/mapr/conf/ssl-server.xml)
+if [ $? == 1 ]; then
+  echo "Adding property to /opt/mapr/conf/ssl-server.xml"
+  xml_file=$(grep -v "</configuration>" /opt/mapr/conf/ssl-server.xml)
+
+  read -r -d '' ADDSECTION <<- EOM
+<property>
+  <name>hadoop.security.credential.provider.path</name>
+  <value>localjceks://file/opt/mapr/conf/maprkeycreds.jceks,localjceks://file/opt/mapr/conf/maprtrustcreds.jceks</value>
+  <description>File-based key and trust store credential provider.</description>
+</property>
+</configuration>
+EOM
+  echo "${xml_file}" "${ADDSECTION}" > /opt/mapr/conf/ssl-server.xml
+
+else
+  echo "Skip /opt/mapr/conf/ssl-server.xml"
+fi
+
+scp $MAPR_USER@$CLUSTER_IP:/opt/mapr/conf/maprkeycreds.* /opt/mapr/conf/
+scp $MAPR_USER@$CLUSTER_IP:/opt/mapr/conf/maprtrustcreds.* /opt/mapr/conf/
+scp $MAPR_USER@$CLUSTER_IP:/opt/mapr/conf/maprhsm.conf /opt/mapr/conf/
+
+echo "Cluster configuration is complete"

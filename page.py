@@ -44,7 +44,7 @@ def header(title: str):
                 ui.icon("open_in_new")
 
             # ui.label("Not configured!").classes("text-bold red").bind_visibility_from(app.storage.general, "cluster", backward=lambda x: not x or len(x) == 0)
-            ui.button(icon="link", on_click=cluster_connect).props("flat color=light")
+            ui.button(icon="link_off", on_click=cluster_connect).props("flat color=light")
 
             ui.button(icon="settings", on_click=demo_configuration_dialog).props(
                 "flat color=light"
