@@ -30,7 +30,7 @@ def header(title: str):
 
         with ui.row().classes("place-items-center"):
             with ui.link(
-                target=f"https://{app.storage.general.get('MAPR_USER', 'mapr')}:{app.storage.general.get('MAPR_PASS', 'mapr123')}@{app.storage.general.get('cluster', 'localhost')}:8443/app/mcs/",
+                target=f"https://{app.storage.general.get('MAPR_USER', 'mapr')}:{app.storage.general.get('MAPR_PASS', 'mapr')}@{app.storage.general.get('cluster', 'localhost')}:8443/app/mcs/",
                 new_tab=True
             ).bind_text_from(
                 app.storage.general,
@@ -43,9 +43,10 @@ def header(title: str):
             ).bind_visibility_from(app.storage.general, "cluster", backward=lambda x: x and len(x) > 0):
                 ui.icon("open_in_new")
 
-            ui.label("Not configured!").classes("text-bold red").bind_visibility_from(app.storage.general, "cluster", backward=lambda x: not x or len(x) == 0)
+            # ui.label("Not configured!").classes("text-bold red").bind_visibility_from(app.storage.general, "cluster", backward=lambda x: not x or len(x) == 0)
+            ui.button(icon="link", on_click=cluster_connect).props("flat color=light")
 
-            ui.button(icon="settings", on_click=cluster_configuration_dialog).props(
+            ui.button(icon="settings", on_click=demo_configuration_dialog).props(
                 "flat color=light"
             )
 
@@ -131,7 +132,7 @@ def footer():
 
 @ui.page("/", title="Data Fabric Demo")
 async def index_page():
-    
+
     header("Data Fabric Demo")
 
     demo_steps().classes("h-lvh")
@@ -144,7 +145,7 @@ async def index_page():
         "flex-grow shrink absolute bottom-0 left-0 w-full opacity-50 hover:opacity-100"
         # "flex-grow shrink absolute top-64 right-0 w-1/4 opacity-50 hover:opacity-100"
     )
-    
+
     # charts = monitoring_charts()
     # timer = ui.timer(MON_REFRESH_INTERVAL3, lambda c=chart: update_chart(c, txn_consumer_stats), active=False)
     # charts = monitoring_charts()
@@ -159,7 +160,7 @@ async def mesh_page():
     header("Data Fabric")
 
     gui.mesh_ii().classes("h-lvh w-fit")
-    
+
     footer()
 
 
@@ -181,7 +182,7 @@ async def domain_page():
         # "flex-grow shrink absolute top-64 right-0 w-1/4 opacity-50 hover:opacity-100"
     )
     # metric_badges_on_ii()
-    
+
     footer()
 
 
@@ -195,7 +196,7 @@ def demo_steps():
         with ui.expansion("Data Generation", caption="Prepare and publish mocked data into the pipeline", group="flow", value=True):
 
             ui.markdown(DOCUMENTATION["Source Data Generation"])
-            
+
             with ui.row().classes("w-full place-items-center"):
                 ui.label("Create files: ").classes("w-40")
                 ui.button("Customers", on_click=create_customers)
@@ -289,7 +290,34 @@ def demo_steps():
 
     return demo_list
 
-def cluster_configuration_dialog():
+
+async def cluster_connect():
+    with ui.dialog() as cluster_connect_dialog, ui.card():
+        ui.input("IP Address").bind_value(app.storage.general, "cluster")
+        ui.input("Username").bind_value(app.storage.general, "MAPR_USER")
+        ui.input("Password", password=True, password_toggle_button=True).bind_value(app.storage.general, "MAPR_PASS")
+
+        with ui.row().classes("w-full"):
+            ui.button("Connect", on_click=lambda: cluster_connect_dialog.submit(True))
+            ui.space()
+            ui.button("Cancel", on_click=lambda: cluster_connect_dialog.submit(False))
+
+    if await cluster_connect_dialog:
+        logger.info("Connecting to node %s...", app.storage.general['cluster'])
+        try:
+            # set environment
+            os.environ["CLUSTER_IP"] = app.storage.general['cluster']
+            os.environ["MAPR_USER"] = app.storage.general["MAPR_USER"]
+            os.environ["MAPR_PASS"] = app.storage.general["MAPR_PASS"]
+            await run_command_with_dialog("bash /app/connect_and_configure.sh")
+            ui.notify("Continue with demo configurations", type='positive')
+
+        except Exception as error:
+            logger.error("Failed to connect to cluster.")
+            logger.warning(error)
+
+
+def demo_configuration_dialog():
     with ui.dialog().props("position=right full-height") as dialog, ui.card().classes("relative bordered"):
         # with close button
         ui.button(icon="close", on_click=dialog.close).props("flat round dense").classes("absolute right-2 top-2")
@@ -299,19 +327,24 @@ def cluster_configuration_dialog():
             ui.button(icon="download", on_click=config_show().open)
             ui.button(icon="upload", on_click=config_load().open)
 
-        with ui.card_section().classes("w-full mt-6"):
-            ui.label("Upload Client Files").classes("text-lg w-full")
-            ui.label("config.tar and/or jwt_tokens.tar.gz").classes("text-sm text-italic")
-            ui.upload(label="Upload", on_upload=upload_client_files, multiple=True, auto_upload=True, max_files=2).props("accept='application/x-tar,application/x-gzip' hide-upload-btn").classes("w-full")
+        # provide cluster conf (mapr-clusters.conf)
+        # with ui.card_section().classes("w-full mt-6"):
+        #     ui.label("Upload Client Files").classes("text-lg w-full")
+        #     ui.label("config.tar and/or jwt_tokens.tar.gz").classes("text-sm text-italic")
+        #     ui.upload(label="Upload", on_upload=upload_client_files, multiple=True, auto_upload=True, max_files=2).props("accept='application/x-tar,application/x-gzip' hide-upload-btn").classes("w-full")
 
-        ui.separator()
-        with ui.card_section():
-            with ui.row().classes("w-full place-items-center mt-4"):
-                ui.label("Select Data Domain").classes("text-lg")
-                ui.button(icon="refresh", on_click=update_clusters).props("flat round")
-            ui.toggle(app.storage.general.get("clusters", [])).bind_value(app.storage.general, "cluster")
+        # ui.separator()
 
-        ui.separator()
+        # Change cluster to work on
+        # with ui.card_section():
+        #     with ui.row().classes("w-full place-items-center mt-4"):
+        #         ui.label("Select Data Domain").classes("text-lg")
+        #         ui.button(icon="refresh", on_click=update_clusters).props("flat round")
+        #     ui.toggle(app.storage.general.get("clusters", [])).bind_value(app.storage.general, "cluster")
+
+        # ui.separator()
+
+        # Configure External Data Lakes
         with ui.card_section():
             ui.label("External Data Lakes").classes("text-lg w-full")
             with ui.row().classes("w-full place-items-center"):
@@ -326,13 +359,13 @@ def cluster_configuration_dialog():
 
         ui.separator()
         with ui.card_section():
-            ui.label("User Credentials").classes("text-lg w-full")
-            ui.label("required for REST API and monitoring").classes("text-sm text-italic")
-            with ui.row().classes("w-full place-items-center"):
-                ui.input("Username").bind_value(app.storage.general, "MAPR_USER")
-                ui.input("Password", password=True, password_toggle_button=True).bind_value(app.storage.general, "MAPR_PASS")
+            # ui.label("User Credentials").classes("text-lg w-full")
+            # ui.label("User to create volumes and operate all demo steps").classes("text-sm text-italic")
+            # with ui.row().classes("w-full place-items-center"):
+            #     ui.input("Username").bind_value(app.storage.general, "MAPR_USER")
+            #     ui.input("Password", password=True, password_toggle_button=True).bind_value(app.storage.general, "MAPR_PASS")
 
-            ui.space()
+            # ui.space()
 
             ui.label("S3 Credentials").classes("text-lg w-full mt-4")
             ui.label("for iceberg and spark").classes("text-sm text-italic")
@@ -427,14 +460,14 @@ def config_show():
 
 def config_load():
     with ui.dialog() as config_load, ui.card().classes("grow"):
-        ui.upload(label="Config JSON", auto_upload=True, on_upload=lambda e: save_config(e.content.read().decode("utf-8"), config_load)).classes(
+        ui.upload(label="Config JSON", auto_upload=True, on_upload=lambda e: config_save(e.content.read().decode("utf-8"), config_load)).classes(
             "max-w-full"
         ).props("accept='application/json' hide-upload-btn")
 
     return config_load
 
 
-def save_config(val: str, dialog):
+def config_save(val: str, dialog):
     try:
         for key, value in json.loads(val.replace("\n", "")).items():
             app.storage.general[key] = value
@@ -456,4 +489,3 @@ def download(content: str = None):
 
     headers = {"Content-Disposition": "attachment; filename=config.json"}
     return StreamingResponse(string_io, media_type="text/plain", headers=headers)
-

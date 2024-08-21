@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+set -euo pipefail
+
 f=$(grep $CLUSTER_NAME /opt/mapr/conf/mapr-clusters.conf)
 nf=$(grep -v $CLUSTER_NAME /opt/mapr/conf/mapr-clusters.conf)
 echo -e "$f\n$nf" > /opt/mapr/conf/mapr-clusters.conf
