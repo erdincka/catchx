@@ -30,7 +30,7 @@ def header(title: str):
 
         with ui.row().classes("place-items-center"):
             with ui.link(
-                target=f"https://{app.storage.general.get('MAPR_USER', 'mapr')}:{app.storage.general.get('MAPR_PASS', 'mapr')}@{app.storage.general.get('cluster', 'localhost')}:8443/app/mcs/",
+                target=f"https://{app.storage.general.get('MAPR_USER', '')}:{app.storage.general.get('MAPR_PASS', '')}@{app.storage.general.get('cluster', 'localhost')}:8443/app/mcs/",
                 new_tab=True
             ).bind_text_from(
                 app.storage.general,
@@ -54,7 +54,7 @@ def header(title: str):
                 app.storage.general, "cluster", lambda x: not x or len(x) == 0
             ).tooltip("Requires configuration!")
 
-            with ui.element("div").bind_visibility_from(app.storage.general, "cluster", backward=lambda x: x and len(x) != 0):
+            with ui.element("div").bind_visibility_from(app.storage.general, "demo_mode"):
                 ui.icon("check_circle", size="2em", color="green").bind_visibility_from(
                     app.storage.general, "busy", lambda x: not x
                 ).tooltip("Ready")
@@ -309,7 +309,7 @@ async def cluster_connect():
             os.environ["CLUSTER_IP"] = app.storage.general['cluster']
             os.environ["MAPR_USER"] = app.storage.general["MAPR_USER"]
             os.environ["MAPR_PASS"] = app.storage.general["MAPR_PASS"]
-            await run_command_with_dialog("bash /app/connect_and_configure.sh")
+            await run_command_with_dialog("bash ./connect_and_configure.sh")
             ui.notify("Continue with demo configurations", type='positive')
 
         except Exception as error:
@@ -403,10 +403,10 @@ def demo_configuration_dialog():
                 cluster = app.storage.general.get("cluster", "127.0.0.1")
                 os.environ["CLUSTER_NAME"] = get_cluster_name()
                 os.environ["CLUSTER_IP"] = cluster if cluster is not None else "127.0.0.1"
-                os.environ["MAPR_USER"] = app.storage.general.get("MAPR_USER", "mapr")
-                os.environ["MAPR_PASS"] = app.storage.general.get("MAPR_PASS", "mapr123")
+                os.environ["MAPR_USER"] = app.storage.general.get("MAPR_USER", "")
+                os.environ["MAPR_PASS"] = app.storage.general.get("MAPR_PASS", "")
                 with ui.row().classes("w-full place-items-center mt-4"):
-                        ui.button("Reconfigure", on_click=lambda: run_command_with_dialog("bash /app/reconfigure.sh"))
+                        ui.button("Reconfigure", on_click=lambda: run_command_with_dialog("bash ./reconfigure.sh"))
                         ui.button("maprlogin", on_click=lambda: run_command_with_dialog(f"echo {app.storage.general['MAPR_PASS']} | maprlogin password -user {app.storage.general['MAPR_USER']}"))
                 with ui.row().classes("w-full place-items-center mt-4"):
                     ui.button(f"remount {MOUNT_PATH}", on_click=lambda: run_command_with_dialog(f"[ -d {MOUNT_PATH} ] && umount -l {MOUNT_PATH}; [ -d {MOUNT_PATH} ] || mkdir -p {MOUNT_PATH}; mount -t nfs -o nolock,soft {app.storage.general['cluster']}:/mapr {MOUNT_PATH}"))

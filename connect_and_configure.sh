@@ -4,11 +4,10 @@ set -euo pipefail
 
 [ -f /root/.ssh/id_rsa ] || ssh-keygen -t rsa -b 2048 -f /root/.ssh/id_rsa -q -N ""
 
-# This might be useful for later commands
 ssh-keygen -f "/root/.ssh/known_hosts" -R ${CLUSTER_IP}
 sshpass -p "${MAPR_PASS}" ssh-copy-id "${MAPR_USER}@${CLUSTER_IP}"
 
-scp -o StrictHostKeyChecking=no $MAPR_USER@$CLUSTER_IP:/opt/mapr/conf/mapr-clusters.conf /opt/mapr/conf/
+scp -o StrictHostKeyChecking=no $MAPR_USER@$CLUSTER_IP:/opt/mapr/conf/ssl_truststore /opt/mapr/conf/
 
 /opt/mapr/server/configure.sh -c -secure -N demo -C $CLUSTER_IP
 

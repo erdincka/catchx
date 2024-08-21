@@ -98,8 +98,8 @@ def code_nifi_stream():
             hbase_table_name_silver = f"{BASEDIR}/{VOLUME_SILVER}/b{TABLE_TRANSACTIONS}",
             hbase_table_name_bronze = f"{BASEDIR}/{VOLUME_BRONZE}/b{TABLE_TRANSACTIONS}",
             incoming_topic = f"{BASEDIR}/{STREAM_INCOMING}:{TOPIC_TRANSACTIONS}",
-            sasl_username = app.storage.general.get("MAPR_USER", "mapr"),
-            sasl_password = app.storage.general.get("MAPR_PASS", "mapr123"),
+            sasl_username = app.storage.general.get("MAPR_USER", ""),
+            sasl_password = app.storage.general.get("MAPR_PASS", ""),
             bronze_transactions_dir = f"{BASEDIR}/{VOLUME_BRONZE}/{TABLE_TRANSACTIONS}",
         )
         ui.code(content).classes("w-full mt-6")
@@ -335,4 +335,3 @@ async def handle_image_action(e: events.MouseEventArguments):
         ui.notify(f"{element} not configured yet")
 
     app.storage.general["busy"] = False
-

@@ -30,8 +30,8 @@ def app_init():
 
     # If user is not set, get from environment
     if "MAPR_USER" not in app.storage.general:
-        app.storage.general["MAPR_USER"] = os.environ.get("MAPR_USER", "mapr")
-        app.storage.general["MAPR_PASS"] = os.environ.get("MAPR_PASS", "mapr123")
+        app.storage.general["MAPR_USER"] = os.environ.get("MAPR_USER", "")
+        app.storage.general["MAPR_PASS"] = os.environ.get("MAPR_PASS", "")
 
 
 # catch-all exceptions
@@ -39,7 +39,7 @@ app.on_exception(gracefully_fail)
 app.on_disconnect(app_init)
 
 # serve images
-app.add_static_files("/images", local_directory="/app/images")
+app.add_static_files("/images", local_directory="./images")
 
 # configure the logging
 configure_logging()
