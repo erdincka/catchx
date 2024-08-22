@@ -9,8 +9,8 @@
 		"dockerfile": "../Dockerfile"
 	},
 
-	"capAdd": ["SYS_ADMIN"], // required for nfs mount
-
+	// "capAdd": ["SYS_ADMIN"], // required for nfs mount
+	"runArgs": ["--privileged"],
 	"workspaceMount": "source=catchx-workspace,target=/workspace,type=volume",
 	"workspaceFolder": "/workspace"
 
