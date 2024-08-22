@@ -13,6 +13,8 @@ import streams
 import tables
 from codeviewers import *
 
+logger = logging.getLogger("page")
+
 
 def header(title: str):
     with ui.header(elevated=True).classes("items-center justify-between uppercase py-1 px-4") as header:
@@ -29,17 +31,16 @@ def header(title: str):
         ui.space()
 
         with ui.row().classes("place-items-center"):
-            with ui.link(
-                text="MCS",
+            ui.link(
                 target=f"https://{app.storage.general.get('MAPR_USER', '')}:{app.storage.general.get('MAPR_PASS', '')}@{app.storage.general.get('cluster', 'localhost')}:8443/app/mcs/",
                 new_tab=True
             ).classes(
                 "text-white hover:text-blue-600"
-            ).bind_visibility_from(app.storage.general, "cluster", backward=lambda x: x and len(x) > 0):
-                ui.icon("open_in_new")
+            ).bind_text_from(app.storage.general.get("clustername", "NOT CONNECTED")
+            ).bind_visibility_from(app.storage.general, "cluster", backward=lambda x: x and len(x) > 0)
 
             # ui.label("Not configured!").classes("text-bold red").bind_visibility_from(app.storage.general, "cluster", backward=lambda x: not x or len(x) == 0)
-            ui.button(icon="link", on_click=cluster_connect).props("flat color=light")
+            ui.button(icon="link" if "clustername" in app.storage.general.keys() else "link_off", on_click=cluster_connect).props("flat color=light")
 
             ui.button(icon="settings", on_click=demo_configuration_dialog).props(
                 "flat color=light"
