@@ -213,7 +213,7 @@ async def run_command(command: str):
 
 
 def get_cluster_name():
-    return "demo"
+    return app.storage.general["clusterinfo"]["name"] or "Not Connected"
     # clustername = app.storage.general.get('clusters', {}).get(app.storage.general.get('cluster', ''), '')
     # if clustername != "":
     #     return clustername

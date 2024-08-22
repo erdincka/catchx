@@ -288,7 +288,7 @@ def demo_steps():
 
 async def cluster_connect():
     with ui.dialog() as cluster_connect_dialog, ui.card():
-        ui.input("IP Address").bind_value(app.storage.general, "cluster")
+        ui.input("Hostname / IP Address").bind_value(app.storage.general, "MAPR_HOST")
         ui.input("Username").bind_value(app.storage.general, "MAPR_USER")
         ui.input("Password", password=True, password_toggle_button=True).bind_value(app.storage.general, "MAPR_PASS")
 
@@ -300,8 +300,23 @@ async def cluster_connect():
     if await cluster_connect_dialog:
         logger.info("Connecting to node %s...", app.storage.general['cluster'])
         try:
+            # get cluster information
+            auth = (app.storage.general["MAPR_USER"], app.storage.general["MAPR_PASS"])
+            URL = f"https://{app.storage.general['MAPR_HOST']}:8443/rest/dashboard/info"
+            async with httpx.AsyncClient(verify=False) as client:
+                response = await client.post(URL, auth=auth)
+
+                if response is None or response.status_code != 200:
+                    logger.warning("Response: %s", response.text)
+
+                else:
+                    res = response.json()
+                    app.storage.general["cluster"] = res["data"]["cluster"]["ip"]
+                    app.storage.general["clusterinfo"] = res["data"]
+
             # set environment
             os.environ["CLUSTER_IP"] = app.storage.general['cluster']
+            os.environ["CLUSTER_NAME"] = get_cluster_name()
             os.environ["MAPR_USER"] = app.storage.general["MAPR_USER"]
             os.environ["MAPR_PASS"] = app.storage.general["MAPR_PASS"]
             await run_command_with_dialog("bash ./connect_and_configure.sh")
@@ -375,8 +390,8 @@ def demo_configuration_dialog():
                 ```
                 CREATE DATABASE {DATA_PRODUCT};
                 USE {DATA_PRODUCT};
-                CREATE USER 'catchx'@'%' IDENTIFIED BY 'catchx';
-                GRANT ALL ON {DATA_PRODUCT}.* TO 'catchx'@'%' WITH GRANT OPTION;
+                CREATE USER 'your_user'@'%' IDENTIFIED BY 'your_password';
+                GRANT ALL ON {DATA_PRODUCT}.* TO 'your_user'@'%' WITH GRANT OPTION;
                 FLUSH PRIVILEGES;
                 ```
                 """
@@ -390,22 +405,23 @@ def demo_configuration_dialog():
                 ui.input("Username").bind_value(app.storage.general, "MYSQL_USER")
                 ui.input("Password", password=True, password_toggle_button=True).bind_value(app.storage.general, "MYSQL_PASS")
 
-        ui.separator()
-        with ui.card_section():
-            ui.label("Configure and Login").classes("text-lg w-full")
-            ui.label("login if not using JWT").classes("text-sm text-italic")
-            if "MAPR_USER" in app.storage.general.keys() and "cluster" in app.storage.general.keys():
-                cluster = app.storage.general.get("cluster", "127.0.0.1")
-                os.environ["CLUSTER_NAME"] = get_cluster_name()
-                os.environ["CLUSTER_IP"] = cluster if cluster is not None else "127.0.0.1"
-                os.environ["MAPR_USER"] = app.storage.general.get("MAPR_USER", "")
-                os.environ["MAPR_PASS"] = app.storage.general.get("MAPR_PASS", "")
-                with ui.row().classes("w-full place-items-center mt-4"):
-                        # ui.button("Reconfigure", on_click=lambda: run_command_with_dialog("bash ./reconfigure.sh"))
-                        ui.button("maprlogin", on_click=lambda: run_command_with_dialog(f"echo {app.storage.general['MAPR_PASS']} | maprlogin password -user {app.storage.general['MAPR_USER']}"))
-                with ui.row().classes("w-full place-items-center mt-4"):
-                    ui.button(f"remount {MOUNT_PATH}", on_click=lambda: run_command_with_dialog(f"[ -d {MOUNT_PATH} ] && umount -l {MOUNT_PATH}; [ -d {MOUNT_PATH} ] || mkdir -p {MOUNT_PATH}; mount -t nfs -o nolock,soft {app.storage.general['cluster']}:/mapr {MOUNT_PATH}"))
-                    ui.button("List Cluster /", on_click=lambda: run_command_with_dialog(f"ls -la {MOUNT_PATH}/{get_cluster_name()}")).props('outline')
+        # ui.separator()
+        # Cluster configuration
+        # with ui.card_section():
+        #     ui.label("Configure and Login").classes("text-lg w-full")
+        #     ui.label("login if not using JWT").classes("text-sm text-italic")
+        #     if "MAPR_USER" in app.storage.general.keys() and "cluster" in app.storage.general.keys():
+        #         cluster = app.storage.general.get("cluster", "127.0.0.1")
+        #         os.environ["CLUSTER_NAME"] = get_cluster_name()
+        #         os.environ["CLUSTER_IP"] = cluster if cluster is not None else "127.0.0.1"
+        #         os.environ["MAPR_USER"] = app.storage.general.get("MAPR_USER", "")
+        #         os.environ["MAPR_PASS"] = app.storage.general.get("MAPR_PASS", "")
+        #         with ui.row().classes("w-full place-items-center mt-4"):
+        #                 # ui.button("Reconfigure", on_click=lambda: run_command_with_dialog("bash ./reconfigure.sh"))
+        #                 ui.button("maprlogin", on_click=lambda: run_command_with_dialog(f"echo {app.storage.general['MAPR_PASS']} | maprlogin password -user {app.storage.general['MAPR_USER']}"))
+        #         with ui.row().classes("w-full place-items-center mt-4"):
+        #             ui.button(f"remount {MOUNT_PATH}", on_click=lambda: run_command_with_dialog(f"[ -d {MOUNT_PATH} ] && umount -l {MOUNT_PATH}; [ -d {MOUNT_PATH} ] || mkdir -p {MOUNT_PATH}; mount -t nfs -o nolock,soft {app.storage.general['cluster']}:/mapr {MOUNT_PATH}"))
+        #             ui.button("List Cluster /", on_click=lambda: run_command_with_dialog(f"ls -la {MOUNT_PATH}/{get_cluster_name()}")).props('outline')
 
         ui.separator()
         with ui.card_section():
