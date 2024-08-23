@@ -91,7 +91,7 @@ async def create_transactions(count: int = 100):
             writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
             writer.writeheader()
             writer.writerows(transactions)
-            app.storage.general["raw_transactions"] = len(transactions)
+            app.storage.user["raw_transactions"] = len(transactions)
 
     except Exception as error:
         ui.notify(error, type='warning')
@@ -121,7 +121,7 @@ async def create_customers(count: int = 200):
             writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
             writer.writeheader()
             writer.writerows(customers)
-            app.storage.general["raw_customers"] = len(customers)
+            app.storage.user["raw_customers"] = len(customers)
 
     except Exception as error:
         logger.warning(error)
@@ -142,8 +142,8 @@ def create_csv_files():
     # return if files already exist
     if os.path.isfile(f"{MOUNT_PATH}/{get_cluster_name()}{BASEDIR}/{TABLE_CUSTOMERS}.csv") and os.path.isfile(f"{MOUNT_PATH}/{get_cluster_name()}{BASEDIR}/{TABLE_TRANSACTIONS}.csv"):
         ui.notify("Files exist, skipping...")
-        app.storage.general["raw_transactions"] = number_of_transactions
-        app.storage.general["raw_customers"] = number_of_customers
+        app.storage.user["raw_transactions"] = number_of_transactions
+        app.storage.user["raw_customers"] = number_of_customers
         return
 
     try:
@@ -157,7 +157,7 @@ def create_csv_files():
             writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
             writer.writeheader()
             writer.writerows(customers)
-            app.storage.general["raw_customers"] = len(customers)
+            app.storage.user["raw_customers"] = len(customers)
 
         # transactions
         transactions = []
@@ -172,7 +172,7 @@ def create_csv_files():
             writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
             writer.writeheader()
             writer.writerows(transactions)
-            app.storage.general["raw_transactions"] = len(transactions)
+            app.storage.user["raw_transactions"] = len(transactions)
 
         ui.notify(f"Created files with {len(customers)} customers and {len(transactions)} transactions", type='positive')
         return True
@@ -259,9 +259,9 @@ async def upload_to_s3(file: str):
 
     try:
         client = Minio(
-            endpoint=app.storage.general.get('S3_SERVER',"localhost"),
-            access_key=app.storage.general["S3_ACCESS_KEY"],
-            secret_key=app.storage.general["S3_SECRET_KEY"],
+            endpoint=app.storage.user.get('S3_SERVER',"localhost"),
+            access_key=app.storage.user["S3_ACCESS_KEY"],
+            secret_key=app.storage.user["S3_SECRET_KEY"],
             secure=False,
         )
 

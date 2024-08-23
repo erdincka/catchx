@@ -44,7 +44,7 @@ spark.sparkContext.setLogLevel("INFO")
 
 # def ingest(input_file: str):
 #     try:
-#         spark = SparkSession.builder.master(f"spark://{app.storage.general.get('cluster', 'localhost')}:7077").appName("ETL").getOrCreate()
+#         spark = SparkSession.builder.master(f"spark://{app.storage.user.get('cluster', 'localhost')}:7077").appName("ETL").getOrCreate()
 #         spark.sparkContext.setLogLevel("ALL")
 #         print(f"Spark context: {spark}")
 #         # java_import(spark._sc._jvm, "org.apache.spark.sql.api.python.*")
@@ -60,7 +60,7 @@ spark.sparkContext.setLogLevel("INFO")
 #     source_path = 's3a://truecorp-landingzone-rangsit/'
 #     dest_path = 's3a://truecorp-raw-rangsit/FN00002/'
 
-#     spark = SparkSession.builder.master(f"spark://{app.storage.general.get('cluster', 'localhost')}:7077").appName("ETL").getOrCreate()
+#     spark = SparkSession.builder.master(f"spark://{app.storage.user.get('cluster', 'localhost')}:7077").appName("ETL").getOrCreate()
 #     # Read CSV file into DataFrame
 
 #     file_path='file:///mounts/shared-volume/shared/jars/cdr_f_mon_dtn.csv'

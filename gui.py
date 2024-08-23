@@ -76,7 +76,7 @@ svg_overlay = f"""
 
 # def set_demo_mode(image: ui.interactive_image, switch: bool):
 #     image.set_content(svg_overlay if switch else "")
-#     app.storage.general['demo_mode'] = switch
+#     app.storage.user['demo_mode'] = switch
 
 
 def mesh_ii():
@@ -105,11 +105,11 @@ def mesh_ii():
     ) as mesh_image:
 
         mesh_image.client.content.classes('p-2') # reduce default gap
-        
+
         ui.button(icon="upload", on_click=nfs_upload).classes(
             "absolute top-10 left-5"
         ).props("flat").bind_visibility_from(
-            app.storage.general, "NFS_SERVER", backward=lambda x: len(x) > 0
+            app.storage.user, "NFS_SERVER", backward=lambda x: len(x) > 0
         ).tooltip(
             "Upload Customers"
         )
@@ -117,7 +117,7 @@ def mesh_ii():
         ui.button(icon="upload", on_click=s3_upload).classes(
             "absolute top-10 right-3"
         ).props("flat").bind_visibility_from(
-            app.storage.general, "S3_SERVER", backward=lambda x: len(x) > 0
+            app.storage.user, "S3_SERVER", backward=lambda x: len(x) > 0
         ).tooltip(
             "Upload Transactions"
         )
@@ -136,15 +136,15 @@ def domain_ii():
         "relative m-0 p-0"
     ).props(
         "fit=scale-down"
-    ).bind_content_from(app.storage.general, "overlay") as domain_image:
+    ).bind_content_from(app.storage.user, "overlay") as domain_image:
         # TEMPORARY - need to fix binding
         domain_image.set_content(svg_overlay)
 
         domain_image.client.content.classes('p-2') # remove the default gap
 
-        # ui.switch("Go Live", on_change=lambda x, i=domain_image: set_demo_mode(i, x.value)).classes("absolute top-0 left-2").bind_value(app.storage.general, 'demo_mode')
+        # ui.switch("Go Live", on_change=lambda x, i=domain_image: set_demo_mode(i, x.value)).classes("absolute top-0 left-2").bind_value(app.storage.user, 'demo_mode')
 
-        with ui.list().props("bordered dense").classes("w-96 absolute top-10 left-2").bind_visibility_from(app.storage.general, 'demo_mode'):
+        with ui.list().props("bordered dense").classes("w-96 absolute top-10 left-2").bind_visibility_from(app.storage.user, 'demo_mode'):
             ui.item_label("Source data").props("header").classes("text-bold")
             ui.separator()
             with ui.row().classes("w-full no-wrap p-0"):
@@ -174,14 +174,14 @@ def add_elements_to_svg(x: int, y: int, color: str, metric: str):
     :param x int: pixels from left
     :param y int: pixels from top
     :param color str: color of the badge
-    :param metric str: badge count to read from app.storage.general
+    :param metric str: badge count to read from app.storage.user
 
     """
     return f"""
         <foreignObject x="{x}" y="{y}">
             {
                 ui.badge("0", color=color).bind_text_from(
-                    app.storage.general,
+                    app.storage.user,
                     metric,
                     lambda x: x if x is not None else 0,
                 )
@@ -198,76 +198,75 @@ def metric_badges_on_ii():
 
     # raw counts
     ui.badge("0", color="teal").bind_text_from(
-        app.storage.general,
+        app.storage.user,
         "raw_transactions",
         lambda x: x if x is not None else 0,
     ).classes("absolute top-[250px] left-[100px]")
     ui.badge("0", color="orange").bind_text_from(
-        app.storage.general,
+        app.storage.user,
         "raw_customers",
         lambda x: x if x is not None else 0,
     ).classes("absolute top-[420px] left-[100px]")
 
     # ingest counts
     ui.badge("0", color="lightteal").bind_text_from(
-        app.storage.general,
+        app.storage.user,
         "in_txn_pushed",
         lambda x: x if x is not None else 0,
     ).classes("absolute top-[250px] left-[280px]").tooltip("published transactions")
     ui.badge("0", color="teal").bind_text_from(
-        app.storage.general,
+        app.storage.user,
         "in_txn_pulled",
         lambda x: x if x is not None else 0,
     ).classes("absolute top-[280px] left-[280px]").tooltip("consumed transactions")
     ui.badge("0", color="orange").bind_text_from(
-        app.storage.general,
+        app.storage.user,
         "ingest_customers",
         lambda x: x if x is not None else 0,
     ).classes("absolute top-[460px] left-[280px]").tooltip("# of customers")
 
     # bronze counts
     ui.badge("0", color="teal").bind_text_from(
-        app.storage.general,
+        app.storage.user,
         "brnx_txns",
         lambda x: x if x is not None else 0,
     ).classes("absolute top-[280px] left-[450px]").tooltip("# of transactions")
     ui.badge("0", color="orange").bind_text_from(
-        app.storage.general,
+        app.storage.user,
         "brnz_customers",
         lambda x: x if x is not None else 0,
     ).classes("absolute top-[450px] left-[450px]").tooltip("# of customers")
 
     # silver counts
     ui.badge("0", color="darkturquoise").bind_text_from(
-        app.storage.general,
+        app.storage.user,
         "slvr_profiles",
         lambda x: x if x is not None else 0,
     ).classes("absolute top-[140px] left-[680px]").tooltip("# of profiles")
     ui.badge("0", color="teal").bind_text_from(
-        app.storage.general,
+        app.storage.user,
         "slvr_txns",
         lambda x: x if x is not None else 0,
     ).classes("absolute top-[280px] left-[680px]").tooltip("# of transactions")
     ui.badge("0", color="orange").bind_text_from(
-        app.storage.general,
+        app.storage.user,
         "slvr_customers",
         lambda x: x if x is not None else 0,
     ).classes("absolute top-[450px] left-[680px]").tooltip("# of customers")
 
     # gold counts
     ui.badge("0", color="red").bind_text_from(
-        app.storage.general,
+        app.storage.user,
         "gold_fraud",
         lambda x: x if x is not None else 0,
     ).classes("absolute top-[420px] left-[870px]").tooltip("# of fraud")
     ui.badge("0", color="teal").bind_text_from(
-        app.storage.general,
+        app.storage.user,
         "gold_txns",
         lambda x: x if x is not None else 0,
     ).classes("absolute top-[440px] left-[870px]").tooltip("# of transactions")
     ui.badge("0", color="orange").bind_text_from(
-        app.storage.general,
+        app.storage.user,
         "gold_customers",
         lambda x: x if x is not None else 0,
     ).classes("absolute top-[460px] left-[870px]").tooltip("# of customers")
-

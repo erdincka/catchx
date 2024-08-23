@@ -23,7 +23,7 @@ async def ingest_transactions():
     #     ui.notify(f"Stream not found {input_stream_path}", type="warning")
     #     return
 
-    app.storage.general['busy'] = True
+    app.storage.user['busy'] = True
 
     # Output table
     output_table_path = f"{BASEDIR}/{VOLUME_BRONZE}/{TABLE_TRANSACTIONS}"
@@ -52,7 +52,7 @@ async def ingest_transactions():
         # else:
         #     ui.notify(f"Failed to save table: {TABLE_TRANSACTIONS} in {VOLUME_BRONZE}", type='negative')
     # release when done
-    app.storage.general['busy'] = False
+    app.storage.user['busy'] = False
 
 
 # SSE-TODO: read from stream, upsert profiles table, and write raw data into iceberg table
@@ -109,7 +109,7 @@ async def ingest_customers_iceberg():
             new_customers = [cust for cust in csv_reader]
             if iceberger.write(tier=tier, tablename=tablename, records=new_customers):
                 ui.notify(f"Saved {tablename} into {tier} with Iceberg", type='positive')
-                app.storage.general["ingest_customers"] = len(new_customers)
+                app.storage.user["ingest_customers"] = len(new_customers)
                 return True
             else:
                 ui.notify("Failed to write into Iceberg table")
@@ -121,7 +121,7 @@ async def ingest_customers_iceberg():
         return False
 
     finally:
-        app.storage.general['busy'] = False
+        app.storage.user['busy'] = False
 
 
 async def fraud_detection():
@@ -141,7 +141,7 @@ async def fraud_detection():
         return
 
     # Gold table to update if fraud found
-    mydb = f"mysql+pymysql://{app.storage.general['MYSQL_USER']}:{app.storage.general['MYSQL_PASS']}@{app.storage.general['cluster']}/{DATA_PRODUCT}"
+    mydb = f"mysql+pymysql://{app.storage.user['MYSQL_USER']}:{app.storage.user['MYSQL_PASS']}@{app.storage.user['cluster']}/{DATA_PRODUCT}"
 
     fraud_count = 0
     non_fraud_count = 0

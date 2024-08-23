@@ -107,6 +107,25 @@ DOCUMENTATION = {
     """
 }
 
+
+cluster_configuration_steps = [
+    {
+        "name": "Get cluster details",
+        "command": "/bin/bash cluster_configure_and_attach.sh",
+        "status": "hourglass_bottom",
+    },
+    {
+        "name": "Create customer data",
+        "command": "python3 create-customer.py",
+        "status": "pending",
+    },
+    {
+        "name": "Create transaction data",
+        "command": "python3 create-transaction.py",
+        "status": "highlight_off",
+    }
+]
+
 logger = logging.getLogger("common")
 
 
@@ -159,16 +178,16 @@ def update_clusters():
     try:
         with open("/opt/mapr/conf/mapr-clusters.conf", "r") as conf:
             # reset the clusters
-            app.storage.general["clusters"] = {}
+            app.storage.user["clusters"] = {}
             for line in conf.readlines():
                 t = line.split(' ')
                 # dict { 'value1': 'name1' } formatted cluster list, compatible to ui.select options
                 cls = { t[2].split(":")[0] : t[0] }
-                app.storage.general["clusters"].update(cls)
-            logger.info("Found clusters: %s", app.storage.general['clusters'])
+                app.storage.user["clusters"].update(cls)
+            logger.info("Found clusters: %s", app.storage.user['clusters'])
             # select first cluster to avoid null value
-            app.storage.general["cluster"] = next(iter(app.storage.general["clusters"]))
-            logger.info("Set cluster: %s", app.storage.general['cluster'])
+            app.storage.user["cluster"] = next(iter(app.storage.user["clusters"]))
+            logger.info("Set cluster: %s", app.storage.user['cluster'])
     except Exception as error:
         logger.warning("Failed to update clusters: %s", error)
 
@@ -213,8 +232,16 @@ async def run_command(command: str):
 
 
 def get_cluster_name():
-    return app.storage.general["clusterinfo"]["name"] or "Not Connected"
-    # clustername = app.storage.general.get('clusters', {}).get(app.storage.general.get('cluster', ''), '')
+    """
+    Get the name of the cluster from the settings.
+    """
+
+    if "clusterinfo" in app.storage.user.keys() and "name" in app.storage.user["clusterinfo"].keys():
+        return app.storage.user["clusterinfo"]["cluster"]["name"]
+    else:
+        return None
+
+    # clustername = app.storage.user.get('clusters', {}).get(app.storage.user.get('cluster', ''), '')
     # if clustername != "":
     #     return clustername
     # else: return "maprdemo.mapr.io"
@@ -225,9 +252,9 @@ async def create_volumes():
     Create an app folder and create volumes in it
     """
 
-    auth = (app.storage.general["MAPR_USER"], app.storage.general["MAPR_PASS"])
+    auth = (app.storage.user["MAPR_USER"], app.storage.user["MAPR_PASS"])
 
-    app.storage.general['busy'] = True
+    app.storage.user['busy'] = True
 
     # create base folder if not exists
     basedir = f"{MOUNT_PATH}/{get_cluster_name()}{BASEDIR}"
@@ -236,7 +263,7 @@ async def create_volumes():
 
     for vol in [VOLUME_BRONZE, VOLUME_SILVER, VOLUME_GOLD]:
 
-        URL = f"https://{app.storage.general['cluster']}:8443/rest/volume/create?name={vol}&path={BASEDIR}/{vol}&replication=1&minreplication=1&nsreplication=1&nsminreplication=1"
+        URL = f"https://{app.storage.user['cluster']}:8443/rest/volume/create?name={vol}&path={BASEDIR}/{vol}&replication=1&minreplication=1&nsreplication=1&nsminreplication=1"
 
         logger.debug("REST call to: %s", URL)
 
@@ -260,18 +287,18 @@ async def create_volumes():
             ui.notify(f"Failed to connect to REST. Please manually set /opt/mapr/conf/mapr-clusters.conf file with the hostname/ip address of the apiserver!", type='warning')
             return
 
-    app.storage.general['busy'] = False
+    app.storage.user['busy'] = False
 
 
 async def create_tables():
-    auth = (app.storage.general["MAPR_USER"], app.storage.general["MAPR_PASS"])
+    auth = (app.storage.user["MAPR_USER"], app.storage.user["MAPR_PASS"])
 
-    app.storage.general['busy'] = True
+    app.storage.user['busy'] = True
     for tier in [VOLUME_BRONZE, VOLUME_SILVER]:
         try:
             # Create table
             async with httpx.AsyncClient(verify=False) as client:
-                URL = f"https://{app.storage.general['cluster']}:8443/rest/table/create?path={BASEDIR}/{tier}/b{TABLE_TRANSACTIONS}&tabletype=binary&defaultreadperm=p&defaultwriteperm=p&defaultappendperm=p&defaultunmaskedreadperm=p"
+                URL = f"https://{app.storage.user['cluster']}:8443/rest/table/create?path={BASEDIR}/{tier}/b{TABLE_TRANSACTIONS}&tabletype=binary&defaultreadperm=p&defaultwriteperm=p&defaultappendperm=p&defaultunmaskedreadperm=p"
                 response = await client.post(
                     url=URL,
                     auth=auth
@@ -293,7 +320,7 @@ async def create_tables():
 
             # Create Column Family
             async with httpx.AsyncClient(verify=False) as client:
-                URL = f"https://{app.storage.general['cluster']}:8443/rest/table/cf/create?path={BASEDIR}/{tier}/b{TABLE_TRANSACTIONS}&cfname=cf1"
+                URL = f"https://{app.storage.user['cluster']}:8443/rest/table/cf/create?path={BASEDIR}/{tier}/b{TABLE_TRANSACTIONS}&cfname=cf1"
                 response = await client.post(
                     url=URL,
                     auth=auth
@@ -319,24 +346,24 @@ async def create_tables():
             return
 
         finally:
-            app.storage.general['busy'] = False
+            app.storage.user['busy'] = False
 
     # TODO: build MySQL DB tables
     # Create RDBMS tables
-    # mydb = f"mysql+pymysql://{app.storage.general['MYSQL_USER']}:{app.storage.general['MYSQL_PASS']}@{app.storage.general['cluster']}/{DATA_PRODUCT}"
+    # mydb = f"mysql+pymysql://{app.storage.user['MYSQL_USER']}:{app.storage.user['MYSQL_PASS']}@{app.storage.user['cluster']}/{DATA_PRODUCT}"
 
 
 async def create_streams():
-    auth = (app.storage.general["MAPR_USER"], app.storage.general["MAPR_PASS"])
+    auth = (app.storage.user["MAPR_USER"], app.storage.user["MAPR_PASS"])
 
     for stream in [STREAM_INCOMING, STREAM_CHANGELOG]:
-        URL = f"https://{app.storage.general['cluster']}:8443/rest/stream/create?path={BASEDIR}/{stream}&ttl=38400&compression=lz4&produceperm=p&consumeperm=p&topicperm=p"
+        URL = f"https://{app.storage.user['cluster']}:8443/rest/stream/create?path={BASEDIR}/{stream}&ttl=38400&compression=lz4&produceperm=p&consumeperm=p&topicperm=p"
 
         # ensure changelog stream is enabled for cdc
         if stream == STREAM_CHANGELOG:
             URL += "&ischangelog=true&defaultpartitions=1"
 
-        app.storage.general['busy'] = True
+        app.storage.user['busy'] = True
         try:
             async with httpx.AsyncClient(verify=False) as client:
                 response = await client.post(URL, auth=auth)
@@ -359,11 +386,11 @@ async def create_streams():
             return
 
         finally:
-            app.storage.general['busy'] = False
+            app.storage.user['busy'] = False
 
 
 def show_mysql_tables():
-    mydb = f"mysql+pymysql://{app.storage.general['MYSQL_USER']}:{app.storage.general['MYSQL_PASS']}@{app.storage.general['cluster']}/{DATA_PRODUCT}"
+    mydb = f"mysql+pymysql://{app.storage.user['MYSQL_USER']}:{app.storage.user['MYSQL_PASS']}@{app.storage.user['cluster']}/{DATA_PRODUCT}"
     engine = create_engine(mydb)
     with engine.connect() as conn:
         tables = conn.execute(text("SHOW TABLES"))
@@ -386,7 +413,7 @@ def show_mysql_tables():
 # This is not used due to complexity of its setup
 # requires gateway node configuration and DNS modification
 async def enable_cdc(source_table_path: str, destination_stream_topic: str):
-    auth = (app.storage.general["MAPR_USER"], app.storage.general["MAPR_PASS"])
+    auth = (app.storage.user["MAPR_USER"], app.storage.user["MAPR_PASS"])
 
     if not os.path.lexists(f"{MOUNT_PATH}/{get_cluster_name()}{source_table_path}"):
         ui.notify(f"Table not found: {source_table_path}", type="warning")
@@ -394,7 +421,7 @@ async def enable_cdc(source_table_path: str, destination_stream_topic: str):
 
     logger.info("Check for changelog on: %s", source_table_path)
 
-    URL = f"https://{app.storage.general['cluster']}:8443/rest/table/changelog/list?path={source_table_path}&changelog={destination_stream_topic}"
+    URL = f"https://{app.storage.user['cluster']}:8443/rest/table/changelog/list?path={source_table_path}&changelog={destination_stream_topic}"
 
     try:
         async with httpx.AsyncClient(verify=False) as client:
@@ -413,7 +440,7 @@ async def enable_cdc(source_table_path: str, destination_stream_topic: str):
 
                 if res["total"] == 0:
                     # create CDC
-                    URL = f"https://{app.storage.general['cluster']}:8443/rest/table/changelog/add?path={source_table_path}&changelog={destination_stream_topic}&useexistingtopic=true"
+                    URL = f"https://{app.storage.user['cluster']}:8443/rest/table/changelog/add?path={source_table_path}&changelog={destination_stream_topic}&useexistingtopic=true"
 
                     response = await client.get(URL, auth=auth)
 
@@ -478,7 +505,7 @@ def toggle_log(arg: ValueChangeEventArguments):
 def gracefully_fail(exc: Exception):
     print("gracefully failing...")
     logger.exception(exc)
-    app.storage.general["busy"] = False
+    app.storage.user["busy"] = False
 
 
 def not_implemented():

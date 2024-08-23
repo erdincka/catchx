@@ -5,33 +5,35 @@ from functions import *
 from page import *
 
 def app_init():
+    # ui.add_head_html('<link href="https://api.iconify.design/grommet-icons?icons=apps,home,connect,add,user-settings,download-option,upload-option,circle-information" rel="stylesheet" />')
 
-    # Reset metrics
-    for metric in [
-                "in_txn_pushed",
-                "in_txn_pulled",
-                "brnz_customers",
-                "brnx_txns",
-                "slvr_profiles",
-                "slvr_txns",
-                "slvr_customers",
-                "gold_txns",
-                "gold_customers",
-                "gold_fraud",
-            ]:
-        app.storage.general[metric] = 0
+    return
+    # # Reset metrics
+    # for metric in [
+    #             "in_txn_pushed",
+    #             "in_txn_pulled",
+    #             "brnz_customers",
+    #             "brnx_txns",
+    #             "slvr_profiles",
+    #             "slvr_txns",
+    #             "slvr_customers",
+    #             "gold_txns",
+    #             "gold_customers",
+    #             "gold_fraud",
+    #         ]:
+    #     app.storage.user[metric] = 0
 
-    # and previous run state if it was hang
-    app.storage.general["busy"] = False
+    # # and previous run state if it was hang
+    # app.storage.user["busy"] = False
 
-    # reset the cluster info
-    if "clusters" not in app.storage.general:
-        app.storage.general["clusters"] = {}
+    # # reset the cluster info
+    # if "clusters" not in app.storage.user:
+    #     app.storage.user["clusters"] = {}
 
-    # If user is not set, get from environment
-    if "MAPR_USER" not in app.storage.general:
-        app.storage.general["MAPR_USER"] = os.environ.get("MAPR_USER", "")
-        app.storage.general["MAPR_PASS"] = os.environ.get("MAPR_PASS", "")
+    # # If user is not set, get from environment
+    # if "MAPR_USER" not in app.storage.user:
+    #     app.storage.user["MAPR_USER"] = os.environ.get("MAPR_USER", "")
+    #     app.storage.user["MAPR_PASS"] = os.environ.get("MAPR_PASS", "")
 
 
 # catch-all exceptions

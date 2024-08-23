@@ -27,11 +27,11 @@ def new_echart(title: str):
                 },
             },
             "title": {
-                "left": 4, 
-                "text": title, 
-                "textStyle": { 
-                    "fontSize": 12 
-                } 
+                "left": 4,
+                "text": title,
+                "textStyle": {
+                    "fontSize": 12
+                }
             },
             # "legend": {"right": "center"},
             "xAxis": {
@@ -146,7 +146,7 @@ def new_series():
 def mapr_monitoring():
     stream_path = "/var/mapr/mapr.monitoring/metricstreams/0"
 
-    metric_host_fqdn = socket.getfqdn(app.storage.general['cluster'])
+    metric_host_fqdn = socket.getfqdn(app.storage.user['cluster'])
 
     for record in streams.consume(stream=stream_path, topic=metric_host_fqdn, consumer_group="monitoring"):
         metric = json.loads(record)
@@ -169,13 +169,13 @@ async def incoming_topic_stats():
     stream_path = f"{BASEDIR}/{STREAM_INCOMING}"
     topic = TOPIC_TRANSACTIONS
 
-    if app.storage.general.get("cluster", None) is None:
+    if app.storage.user.get("cluster", None) is None:
         logger.warning("Cluster not configured, skipping.")
         return
 
     try:
-        URL = f"https://{app.storage.general['cluster']}:8443/rest/stream/topic/info?path={stream_path}&topic={topic}"
-        auth = (app.storage.general["MAPR_USER"], app.storage.general["MAPR_PASS"])
+        URL = f"https://{app.storage.user['cluster']}:8443/rest/stream/topic/info?path={stream_path}&topic={topic}"
+        auth = (app.storage.user["MAPR_USER"], app.storage.user["MAPR_PASS"])
 
         async with httpx.AsyncClient(verify=False) as client:  # using async httpx instead of sync requests to avoid blocking the event loop
             response = await client.get(URL, auth=auth, timeout=2.0)
@@ -215,8 +215,8 @@ async def incoming_topic_stats():
                         # )
                     # logger.info("Metrics %s", series)
                     # update counter
-                    app.storage.general["in_txn_pushed"] = m["maxoffset"] + 1
-                    app.storage.general["in_txn_pulled"] = m["minoffsetacrossconsumers"]
+                    app.storage.user["in_txn_pushed"] = m["maxoffset"] + 1
+                    app.storage.user["in_txn_pulled"] = m["minoffsetacrossconsumers"]
 
                     return {
                         "name": "Incoming",
@@ -239,13 +239,13 @@ async def txn_consumer_stats():
     stream_path = f"{BASEDIR}/{STREAM_INCOMING}"
     topic = TOPIC_TRANSACTIONS
 
-    if app.storage.general.get("cluster", None) is None:
+    if app.storage.user.get("cluster", None) is None:
         logger.warning("Cluster not configured, skipping.")
         return
 
     try:
-        URL = f"https://{app.storage.general['cluster']}:8443/rest/stream/cursor/list?path={stream_path}&topic={topic}"
-        auth = (app.storage.general["MAPR_USER"], app.storage.general["MAPR_PASS"])
+        URL = f"https://{app.storage.user['cluster']}:8443/rest/stream/cursor/list?path={stream_path}&topic={topic}"
+        auth = (app.storage.user["MAPR_USER"], app.storage.user["MAPR_PASS"])
         async with httpx.AsyncClient(verify=False) as client:
             response = await client.get(URL, auth=auth, timeout=2.0)
 
@@ -296,7 +296,7 @@ async def txn_consumer_stats():
 
 
 async def bronze_stats():
-    if app.storage.general.get("cluster", None) is None:
+    if app.storage.user.get("cluster", None) is None:
         logger.warning("Cluster not configured, skipping.")
         return
 
@@ -312,14 +312,14 @@ async def bronze_stats():
         if os.path.lexists(f"{MOUNT_PATH}/{get_cluster_name()}{ttable}"):
             num_transactions = len(tables.get_documents(ttable, limit=None))
             series.append({ "transactions": num_transactions })
-            app.storage.general["brnx_txns"] = num_transactions
+            app.storage.user["brnx_txns"] = num_transactions
         else:
-            app.storage.general["brnx_txns"] = 0
+            app.storage.user["brnx_txns"] = 0
 
         # FIX: binary table counters are not usable, might need to query the table for total distinct records
         # if os.path.lexists(f"{MOUNT_PATH}/{get_cluster_name()}{binarytable}"):
-        #     URL = f"https://{app.storage.general['cluster']}:8443/rest/table/info?path={binarytable}"
-        #     auth = (app.storage.general["MAPR_USER"], app.storage.general["MAPR_PASS"])
+        #     URL = f"https://{app.storage.user['cluster']}:8443/rest/table/info?path={binarytable}"
+        #     auth = (app.storage.user["MAPR_USER"], app.storage.user["MAPR_PASS"])
         #     async with httpx.AsyncClient(verify=False) as client:
         #         response = await client.get(URL, auth=auth, timeout=2.0)
 
@@ -333,12 +333,12 @@ async def bronze_stats():
         #             if not metrics["status"] == "ERROR":
         #                 # logger.debug(metrics)
         #                 for m in metrics["data"]:
-        #                     app.storage.general["brnx_txns"] += m["totalrows"]
+        #                     app.storage.user["brnx_txns"] += m["totalrows"]
 
         if os.path.isdir(f"{MOUNT_PATH}/{get_cluster_name()}{ctable}"): # isdir for iceberg tables
             num_customers = len(iceberger.find_all(VOLUME_BRONZE, TABLE_CUSTOMERS))
             series.append({ "customers": num_customers })
-            app.storage.general["brnz_customers"] = num_customers
+            app.storage.user["brnz_customers"] = num_customers
 
         logger.debug("Bronze stat time: %f", timeit.default_timer() - tick)
 
@@ -357,7 +357,7 @@ async def bronze_stats():
 
 
 async def silver_stats():
-    if app.storage.general.get("cluster", None) is None:
+    if app.storage.user.get("cluster", None) is None:
         logger.warning("Cluster not configured, skipping.")
         return
 
@@ -377,18 +377,18 @@ async def silver_stats():
             num_profiles = len(tables.get_documents(ptable, limit=None))
             # logger.debug("Got metrics for silver profiles %d", num_profiles)
             series.append({ "profiles": num_profiles })
-            app.storage.general["slvr_profiles"] = num_profiles
+            app.storage.user["slvr_profiles"] = num_profiles
         else:
             logger.warning("Cannot get metric for silver profiles")
 
         if os.path.lexists(f"{MOUNT_PATH}/{get_cluster_name()}{ttable}"):
             num_transactions = len(tables.get_documents(ttable, limit=None))
             series.append({ "transactions": num_transactions })
-            app.storage.general["slvr_txns"] = num_transactions
+            app.storage.user["slvr_txns"] = num_transactions
         if os.path.lexists(f"{MOUNT_PATH}/{get_cluster_name()}{ctable}"):
             num_customers = len(tables.get_documents(ctable, limit=None))
             series.append({ "customers": num_customers })
-            app.storage.general["slvr_customers"] = num_customers
+            app.storage.user["slvr_customers"] = num_customers
 
         logger.debug("Silver stat time: %f", timeit.default_timer() - tick)
         # Don't update metrics for empty results
@@ -406,14 +406,14 @@ async def silver_stats():
 
 
 async def gold_stats():
-    if app.storage.general.get("cluster", None) is None:
+    if app.storage.user.get("cluster", None) is None:
         logger.warning("Cluster not configured, skipping.")
         return
 
     series = []
 
     try:
-        mydb = f"mysql+pymysql://{app.storage.general['MYSQL_USER']}:{app.storage.general['MYSQL_PASS']}@{app.storage.general['cluster']}/{DATA_PRODUCT}"
+        mydb = f"mysql+pymysql://{app.storage.user['MYSQL_USER']}:{app.storage.user['MYSQL_PASS']}@{app.storage.user['cluster']}/{DATA_PRODUCT}"
 
         # return if table is missing
         engine = create_engine(mydb)
@@ -424,17 +424,17 @@ async def gold_stats():
             if sqlalchemy.inspect(engine).has_table(TABLE_TRANSACTIONS):
                 num_transactions = conn.execute(text(f"SELECT COUNT('_id') FROM {TABLE_TRANSACTIONS}")).scalar()
                 series.append({ TABLE_TRANSACTIONS: num_transactions })
-                app.storage.general["gold_txns"] = num_transactions
+                app.storage.user["gold_txns"] = num_transactions
 
             if sqlalchemy.inspect(engine).has_table(TABLE_CUSTOMERS):
                 num_customers = conn.execute(text(f"SELECT COUNT('_id') FROM {TABLE_CUSTOMERS}")).scalar()
                 series.append({ TABLE_CUSTOMERS: num_customers })
-                app.storage.general["gold_customers"] = num_customers
+                app.storage.user["gold_customers"] = num_customers
 
             if sqlalchemy.inspect(engine).has_table(TABLE_FRAUD):
                 num_fraud = conn.execute(text(f"SELECT COUNT('_id') FROM {TABLE_FRAUD}")).scalar()
                 series.append({ TABLE_FRAUD: num_fraud })
-                app.storage.general["gold_fraud"] = num_fraud
+                app.storage.user["gold_fraud"] = num_fraud
 
             logger.debug("Gold stat time: %f", timeit.default_timer() - tick)
 
@@ -465,11 +465,11 @@ async def monitoring_metrics():
 
         logger.info("incoming: %s", metrics)
 
-        app.storage.general["in_txn_pushed"] = next(
+        app.storage.user["in_txn_pushed"] = next(
             iter([m["publishedMsgs"] for m in metrics if "publishedMsgs" in m]), None
         )
 
-        app.storage.general["in_txn_pulled"] = next(
+        app.storage.user["in_txn_pulled"] = next(
             iter([m["consumedMsgs"] for m in metrics if "consumedMsgs" in m]), None
         )
 
@@ -478,10 +478,10 @@ async def monitoring_metrics():
 
     if bronze is not None:
         metrics = bronze["values"]
-        app.storage.general["brnx_txns"] = next(
+        app.storage.user["brnx_txns"] = next(
             iter([m["transactions"] for m in metrics if "transactions" in m]), None
         )
-        app.storage.general["brnz_customers"] = next(
+        app.storage.user["brnz_customers"] = next(
             iter([m["customers"] for m in metrics if "customers" in m]), None
         )
 
@@ -490,13 +490,13 @@ async def monitoring_metrics():
 
     if silver is not None:
         metrics = silver["values"]
-        app.storage.general["slvr_profiles"] = next(
+        app.storage.user["slvr_profiles"] = next(
             iter([m["profiles"] for m in metrics if "profiles" in m]), None
         )
-        app.storage.general["slvr_txns"] = next(
+        app.storage.user["slvr_txns"] = next(
             iter([m["transactions"] for m in metrics if "transactions" in m]), None
         )
-        app.storage.general["slvr_customers"] = next(
+        app.storage.user["slvr_customers"] = next(
             iter([m["customers"] for m in metrics if "customers" in m]), None
         )
 
@@ -505,14 +505,14 @@ async def monitoring_metrics():
 
     if gold is not None:
         metrics = gold["values"]
-        app.storage.general["gold_fraud"] = next(
+        app.storage.user["gold_fraud"] = next(
             iter([m[TABLE_FRAUD] for m in metrics if TABLE_FRAUD in m]), None
         )
-        app.storage.general["gold_txns"] = next(
+        app.storage.user["gold_txns"] = next(
             iter([m[TABLE_TRANSACTIONS] for m in metrics if TABLE_TRANSACTIONS in m]),
             None,
         )
-        app.storage.general["gold_customers"] = next(
+        app.storage.user["gold_customers"] = next(
             iter([m[TABLE_CUSTOMERS] for m in metrics if TABLE_CUSTOMERS in m]), None
         )
 
@@ -520,12 +520,12 @@ async def monitoring_metrics():
 def toggle_monitoring(value: bool):
     for timer in monitoring_timers():
         if value: timer.activate()
-        else: 
+        else:
             timer.deactivate()
 
 
 def monitoring_timers():
-    
+
     """Set timers to refresh each chart"""
 
     global MONITORING_TIMERS
@@ -638,7 +638,7 @@ async def update_metrics(chart: ui.chart):
 
 def monitoring_card():
     # Realtime monitoring information
-    with ui.card().bind_visibility_from(app.storage.general, 'demo_mode').props("flat") as monitoring_card:
+    with ui.card().bind_visibility_from(app.storage.user, 'demo_mode').props("flat") as monitoring_card:
         ui.label("Realtime Visibility").classes("uppercase")
         with ui.grid(columns=2).classes("w-full"):
             for metric in [
@@ -656,7 +656,7 @@ def monitoring_card():
                 with ui.row().classes("w-full place-content-between"):
                     ui.label(metric).classes("text-xs m-0 p-0")
                     ui.badge().bind_text_from(
-                        app.storage.general, metric
+                        app.storage.user, metric
                     ).props("color=red align=middle").classes(
                         "size-xs self-end"
                     )
@@ -666,7 +666,7 @@ def monitoring_card():
 
 def logging_card():
     # Realtime logging
-    with ui.card().bind_visibility_from(app.storage.general, 'demo_mode').props("flat") as logging_card:
+    with ui.card().bind_visibility_from(app.storage.user, 'demo_mode').props("flat") as logging_card:
         ui.label("App log").classes("uppercase")
         log = ui.log().classes("h-40")
         handler = LogElementHandler(log, logging.INFO)

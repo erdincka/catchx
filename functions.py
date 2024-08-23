@@ -25,9 +25,9 @@ async def upsert_profile(transaction: dict):
         "_id": get_customer_id(transaction['receiver_account']),
         "score": await dummy_fraud_score()
     }
-    
+
     logger.info("Profile to update %s", profile)
-    
+
     # skip unmatched records (txn records left from previous data sets, ie, new customer csv ingested)
     if profile['_id'] == None: return
 
@@ -93,7 +93,7 @@ async def refine_transactions():
         ui.notify(f"Failed to write into table: {error}", type='negative')
 
     finally:
-        app.storage.general["busy"] = False
+        app.storage.user["busy"] = False
 
 
 # SSE-TODO: output to be written to maprdb binary table
@@ -115,7 +115,7 @@ async def refine_customers():
 
     logger.info("Reading from iceberg")
 
-    # app.storage.general["busy"] = True
+    # app.storage.user["busy"] = True
     ui.notify("Processing customers for enrichment", type='positive')
 
     df = iceberger.find_all(tier=VOLUME_BRONZE, tablename=TABLE_CUSTOMERS)
@@ -175,7 +175,7 @@ async def refine_customers():
         ui.notify(f"Failed to write into table: {error}", type='negative')
 
     finally:
-        # app.storage.general["busy"] = False
+        # app.storage.user["busy"] = False
         pass
 
 
@@ -260,7 +260,7 @@ async def peek_sqlrecords(tablenames: list):
     :param tablename str: table name to query
     """
 
-    mydb = f"mysql+pymysql://{app.storage.general['MYSQL_USER']}:{app.storage.general['MYSQL_PASS']}@{app.storage.general['cluster']}/{DATA_PRODUCT}"
+    mydb = f"mysql+pymysql://{app.storage.user['MYSQL_USER']}:{app.storage.user['MYSQL_PASS']}@{app.storage.user['cluster']}/{DATA_PRODUCT}"
 
     with ui.dialog().props("full-width") as dialog, ui.card().classes("grow relative"):
         ui.button(icon="close", on_click=dialog.close).props("flat round dense").classes("absolute right-2 top-2")
@@ -281,13 +281,13 @@ async def peek_sqlrecords(tablenames: list):
 
 async def create_golden():
 
-    app.storage.general["busy"] = True
+    app.storage.user["busy"] = True
 
     (msg, sev) = await run.io_bound(data_aggregation)
 
     ui.notify(msg, type=sev)
 
-    app.storage.general["busy"] = False
+    app.storage.user["busy"] = False
 
 
 def data_aggregation():
@@ -322,7 +322,7 @@ def data_aggregation():
     transactions_df.drop(["sender_account", "receiver_account"], axis=1, inplace=True)
 
     # Append customers and transactions in the gold tier rdbms
-    mydb = f"mysql+pymysql://{app.storage.general['MYSQL_USER']}:{app.storage.general['MYSQL_PASS']}@{app.storage.general['cluster']}/{DATA_PRODUCT}"
+    mydb = f"mysql+pymysql://{app.storage.user['MYSQL_USER']}:{app.storage.user['MYSQL_PASS']}@{app.storage.user['cluster']}/{DATA_PRODUCT}"
 
     # upsert by reading existing records and updating them
     try:
@@ -349,13 +349,13 @@ def data_aggregation():
 
 
 async def delete_volumes_and_streams():
-    auth = (app.storage.general["MAPR_USER"], app.storage.general["MAPR_PASS"])
+    auth = (app.storage.user["MAPR_USER"], app.storage.user["MAPR_PASS"])
 
-    app.storage.general['busy'] = True
+    app.storage.user['busy'] = True
 
     for vol in [VOLUME_BRONZE, VOLUME_SILVER, VOLUME_GOLD]:
 
-        URL = f"https://{app.storage.general['cluster']}:8443/rest/volume/remove?name={vol}"
+        URL = f"https://{app.storage.user['cluster']}:8443/rest/volume/remove?name={vol}"
         async with httpx.AsyncClient(verify=False) as client:
             response = await client.post(URL, auth=auth)
 
@@ -372,7 +372,7 @@ async def delete_volumes_and_streams():
 
     # Delete streams
     for stream in [STREAM_INCOMING, STREAM_CHANGELOG]:
-        URL = f"https://{app.storage.general['cluster']}:8443/rest/stream/delete?path={BASEDIR}/{stream}"
+        URL = f"https://{app.storage.user['cluster']}:8443/rest/stream/delete?path={BASEDIR}/{stream}"
         async with httpx.AsyncClient(verify=False) as client:
             response = await client.post(URL, auth=auth)
 
@@ -429,14 +429,14 @@ async def delete_volumes_and_streams():
             "gold_customers",
             "gold_fraud",
         ]:
-            app.storage.general[metric] = 0
+            app.storage.user[metric] = 0
 
 
     except Exception as error:
         logger.warning(error)
 
     # remove tables from mysql
-    mydb = f"mysql+pymysql://{app.storage.general['MYSQL_USER']}:{app.storage.general['MYSQL_PASS']}@{app.storage.general['cluster']}/{DATA_PRODUCT}"
+    mydb = f"mysql+pymysql://{app.storage.user['MYSQL_USER']}:{app.storage.user['MYSQL_PASS']}@{app.storage.user['cluster']}/{DATA_PRODUCT}"
     try:
         engine = create_engine(mydb)
         with engine.connect() as conn:
@@ -450,7 +450,7 @@ async def delete_volumes_and_streams():
         logger.warning(error)
         ui.notify(f"Failed to remove db tables: {error}", type='negative')
 
-    app.storage.general['busy'] = False
+    app.storage.user['busy'] = False
 
 
 def handle_image_info(e: events.MouseEventArguments):
@@ -514,7 +514,7 @@ async def s3_upload():
     )
     if (
         os.path.lexists(transactions_file)
-        and len(app.storage.general.get("S3_SECRET_KEY", "")) > 0
+        and len(app.storage.user.get("S3_SECRET_KEY", "")) > 0
     ):
         ui.notify(
             f"Copying {TABLE_TRANSACTIONS} to external S3 bucket", type="success"
@@ -538,4 +538,3 @@ def nfs_upload():
                 customers_file, f"/mnt{EXTERNAL_NFS_PATH}/{TABLE_CUSTOMERS}"
             )
         )
-

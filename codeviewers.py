@@ -82,10 +82,10 @@ def code_nifi_stream():
         template = environment.get_template("TransactionFlow.xml.j2")
         content = template.render(
             hive_db_connect_url = "jdbc:hive2://localhost:10000/default;auth=maprsasl;ssl=true",
-            database_connection_url = f"jdbc:mariadb://{app.storage.general.get('cluster', 'localhost')}:3306/{DATA_PRODUCT}",
+            database_connection_url = f"jdbc:mariadb://{app.storage.user.get('cluster', 'localhost')}:3306/{DATA_PRODUCT}",
             database_driver_location = f"{MOUNT_PATH}/{DATA_PRODUCT}/user/root/mariadb-java-client-3.4.1.jar",
-            database_user = app.storage.general.get("MYSQL_USER", "mysql"),
-            database_password = app.storage.general.get("MYSQL_PASS", "mysql"),
+            database_user = app.storage.user.get("MYSQL_USER", "mysql"),
+            database_password = app.storage.user.get("MYSQL_PASS", "mysql"),
             hive3_table_name = TABLE_TRANSACTIONS,
             hive3_external_table_location = f"{BASEDIR}/{VOLUME_SILVER}/hive{TABLE_TRANSACTIONS}",
             app_dir = BASEDIR,
@@ -98,8 +98,8 @@ def code_nifi_stream():
             hbase_table_name_silver = f"{BASEDIR}/{VOLUME_SILVER}/b{TABLE_TRANSACTIONS}",
             hbase_table_name_bronze = f"{BASEDIR}/{VOLUME_BRONZE}/b{TABLE_TRANSACTIONS}",
             incoming_topic = f"{BASEDIR}/{STREAM_INCOMING}:{TOPIC_TRANSACTIONS}",
-            sasl_username = app.storage.general.get("MAPR_USER", ""),
-            sasl_password = app.storage.general.get("MAPR_PASS", ""),
+            sasl_username = app.storage.user.get("MAPR_USER", ""),
+            sasl_password = app.storage.user.get("MAPR_PASS", ""),
             bronze_transactions_dir = f"{BASEDIR}/{VOLUME_BRONZE}/{TABLE_TRANSACTIONS}",
         )
         ui.code(content).classes("w-full mt-6")
@@ -188,7 +188,7 @@ async def handle_image_action(e: events.MouseEventArguments):
 
     element = e["element_id"]
 
-    app.storage.general["busy"] = True
+    app.storage.user["busy"] = True
 
     if element == "Fraud":
         ui.navigate.to(DATA_PRODUCT)
@@ -202,11 +202,11 @@ async def handle_image_action(e: events.MouseEventArguments):
         await run_command_with_dialog(f"df -h /mnt; ls -lA /mnt; ls -lA /mnt{EXTERNAL_NFS_PATH}")
 
     elif element == "S3":
-        ui.navigate.to(f"http://{app.storage.general.get('S3_SERVER', 'http://localhost:9000')}", new_tab=True)
+        ui.navigate.to(f"http://{app.storage.user.get('S3_SERVER', 'http://localhost:9000')}", new_tab=True)
         ui.notify("Bring existing object stores into the Global Namespace.", type="info")
 
     elif element == "IAM":
-        ui.navigate.to(f"https://{app.storage.general.get('cluster', 'localhost')}:8443/app/dfui/#/login", new_tab=True)
+        ui.navigate.to(f"https://{app.storage.user.get('cluster', 'localhost')}:8443/app/dfui/#/login", new_tab=True)
         ui.notify(
             "Integrate with central IAM provider for consistent access control across the enterprise",
             type="info",
@@ -221,7 +221,7 @@ async def handle_image_action(e: events.MouseEventArguments):
             "Integrate with an external catalogue manager to classify, document and serve various data sources.",
             type="info",
         )
-        ui.navigate.to(app.storage.general.get('CATALOGUE_URL', ''), new_tab=True)
+        ui.navigate.to(app.storage.user.get('CATALOGUE_URL', ''), new_tab=True)
     elif element == "Edge":
         ui.notify(
             "Enable non-data products to become a part of the global namespace, enabling them to access data across the enterprise.",
@@ -249,7 +249,7 @@ async def handle_image_action(e: events.MouseEventArguments):
         code_create_customers().open()
 
     elif element == "AirflowBatch":
-        ui.navigate.to(f"https://{app.storage.general.get('cluster', 'localhost')}:8780/home", new_tab=True)
+        ui.navigate.to(f"https://{app.storage.user.get('cluster', 'localhost')}:8780/home", new_tab=True)
 
     elif element == "IngestCustomersIceberg":
         await ingest_customers_iceberg()
@@ -268,7 +268,7 @@ async def handle_image_action(e: events.MouseEventArguments):
         await ingest_transactions()
 
     elif element == "NifiStreams":
-        ui.navigate.to(f"https://{app.storage.general.get('cluster', 'localhost')}:12443/nifi/", new_tab=True)
+        ui.navigate.to(f"https://{app.storage.user.get('cluster', 'localhost')}:12443/nifi/", new_tab=True)
 
     elif element == "IngestTransactionsCode":
         code_stream().open()
@@ -323,7 +323,7 @@ async def handle_image_action(e: events.MouseEventArguments):
 
     elif element == "ReportView":
         ui.navigate.to(
-            app.storage.general.get("DASHBOARD_URL", "about:blank"),
+            app.storage.user.get("DASHBOARD_URL", "about:blank"),
             new_tab=True,
         )
 
@@ -334,4 +334,4 @@ async def handle_image_action(e: events.MouseEventArguments):
         logger.warning(element)
         ui.notify(f"{element} not configured yet")
 
-    app.storage.general["busy"] = False
+    app.storage.user["busy"] = False

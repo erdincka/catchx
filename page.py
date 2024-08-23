@@ -22,40 +22,41 @@ def header(title: str):
 
         ui.label(title)
 
-        # ui.icon(None, size='lg').bind_name_from(app.storage.general, "demo_mode", backward=lambda x: "s_preview" if x else "s_preview_off").tooltip("Presentation Mode")
+        # ui.icon(None, size='lg').bind_name_from(app.storage.user, "demo_mode", backward=lambda x: "s_preview" if x else "s_preview_off").tooltip("Presentation Mode")
 
-        ui.switch("Go Live").bind_value(app.storage.general, 'demo_mode')
+        ui.switch("Go Live").bind_value(app.storage.user, 'demo_mode').bind_visibility_from(app.storage.user, "cluster", backward=lambda x: x and len(x) > 0)
 
-        ui.switch("Monitor", on_change=lambda x: toggle_monitoring(x.value)).bind_visibility_from(app.storage.general, 'demo_mode')
+        ui.switch("Monitor", on_change=lambda x: toggle_monitoring(x.value)).bind_visibility_from(app.storage.user, 'demo_mode')
 
         ui.space()
 
         with ui.row().classes("place-items-center"):
             ui.link(
-                target=f"https://{app.storage.general.get('MAPR_USER', '')}:{app.storage.general.get('MAPR_PASS', '')}@{app.storage.general.get('cluster', 'localhost')}:8443/app/mcs/",
+                target=f"https://{app.storage.user.get('MAPR_USER', '')}:{app.storage.user.get('MAPR_PASS', '')}@{app.storage.user.get('cluster', 'localhost')}:8443/app/mcs/",
                 new_tab=True
             ).classes(
                 "text-white hover:text-blue-600"
-            ).bind_text_from(app.storage.general.get("clustername", "NOT CONNECTED")
-            ).bind_visibility_from(app.storage.general, "cluster", backward=lambda x: x and len(x) > 0)
+            ).bind_text_from(app.storage.user.get("clustername", "NOT CONNECTED")
+            ).bind_visibility_from(app.storage.user, "cluster", backward=lambda x: x and len(x) > 0)
 
-            # ui.label("Not configured!").classes("text-bold red").bind_visibility_from(app.storage.general, "cluster", backward=lambda x: not x or len(x) == 0)
-            ui.button(icon="link" if "clustername" in app.storage.general.keys() else "link_off", on_click=cluster_connect).props("flat color=light")
+            # Connect to a cluster
+            # ui.label("Not configured!").classes("text-bold red").bind_visibility_from(app.storage.user, "cluster", backward=lambda x: not x or len(x) == 0)
+            ui.button(icon="link" if "clustername" in app.storage.user.keys() else "link_off", on_click=cluster_connect).props("flat color=light")
 
             ui.button(icon="settings", on_click=demo_configuration_dialog).props(
                 "flat color=light"
             )
 
             ui.icon("error", size="2em", color="red").bind_visibility_from(
-                app.storage.general, "cluster", lambda x: not x or len(x) == 0
+                app.storage.user, "cluster", lambda x: not x or len(x) == 0
             ).tooltip("Requires configuration!")
 
-            with ui.element("div").bind_visibility_from(app.storage.general, "demo_mode"):
+            with ui.element("div").bind_visibility_from(app.storage.user, "demo_mode"):
                 ui.icon("check_circle", size="2em", color="green").bind_visibility_from(
-                    app.storage.general, "busy", lambda x: not x
+                    app.storage.user, "busy", lambda x: not x
                 ).tooltip("Ready")
                 ui.spinner("ios", size="2em", color="red").bind_visibility_from(
-                    app.storage.general, "busy"
+                    app.storage.user, "busy"
                 ).tooltip("Busy")
 
     return header
@@ -102,7 +103,7 @@ def footer():
             ui.space()
 
             # ui.button("CDC", on_click=lambda: enable_cdc(source_table_path=f"{BASEDIR}/{VOLUME_BRONZE}/{TABLE_TRANSACTIONS}", destination_stream_topic=f"{BASEDIR}/{STREAM_CHANGELOG}:{TOPIC_TRANSACTIONS}"))
-            # ui.switch("Lights on!", on_change=lights_on).props("flat outline color=dark keep-color").bind_value(app.storage.general, "lightson")
+            # ui.switch("Lights on!", on_change=lights_on).props("flat outline color=dark keep-color").bind_value(app.storage.user, "lightson")
             # ui.space()
 
             ui.switch(on_change=toggle_log).tooltip("Debug").props(
@@ -203,14 +204,14 @@ def demo_steps():
                 ui.button("Customers", on_click=peek_mocked_customers).props("outline")
                 ui.button("Transactions", on_click=peek_mocked_transactions).props("outline")
 
-            # with ui.row().classes("w-full place-items-center").bind_visibility_from(app.storage.general, "S3_SECRET_KEY"):
+            # with ui.row().classes("w-full place-items-center").bind_visibility_from(app.storage.user, "S3_SECRET_KEY"):
             #     ui.label("Create Input files: ").classes("w-40")
             #     ui.button("Into S3", color='notify', on_click=lambda: upload_to_s3(f"{MOUNT_PATH}/{get_cluster_name()}{BASEDIR}/{TABLE_TRANSACTIONS}.csv")).props('outline')
-            #     ui.button("Show Bucket", color='notify', on_click=lambda: ui.navigate.to(f"http://{app.storage.general.get('S3_SERVER', 'localhost:9000')}", new_tab=True)).props('outline')
+            #     ui.button("Show Bucket", color='notify', on_click=lambda: ui.navigate.to(f"http://{app.storage.user.get('S3_SERVER', 'localhost:9000')}", new_tab=True)).props('outline')
 
             with ui.row().classes("w-full place-items-center"):
                 ui.label("Publish: ").classes("w-40")
-                ui.button("To Kafka", on_click=publish_transactions).bind_enabled_from(app.storage.general, "busy", backward=lambda x: not x)
+                ui.button("To Kafka", on_click=publish_transactions).bind_enabled_from(app.storage.user, "busy", backward=lambda x: not x)
 
             with ui.row().classes("w-full place-items-center"):
                 ui.label("View Code: ").classes("w-40")
@@ -226,7 +227,7 @@ def demo_steps():
 
             with ui.row().classes("w-full place-items-center"):
                 ui.label("Batch ingestion: ").classes("w-40")
-                ui.button("Customers", on_click=ingest_customers_iceberg).bind_enabled_from(app.storage.general, "busy", backward=lambda x: not x)
+                ui.button("Customers", on_click=ingest_customers_iceberg).bind_enabled_from(app.storage.user, "busy", backward=lambda x: not x)
                 ui.button("History", on_click=lambda: iceberg_table_history(tier=VOLUME_BRONZE, tablename=TABLE_CUSTOMERS)).props("outline")
                 ui.button("Tail", on_click=lambda: iceberg_table_tail(tier=VOLUME_BRONZE, tablename=TABLE_CUSTOMERS)).props("outline")
                 ui.button("Code", on_click=batch_dialog.open, color="info").props("outline")
@@ -240,9 +241,9 @@ def demo_steps():
 
             with ui.row().classes("w-full place-items-center"):
                 ui.label("Stream ingestion: ").classes("w-40")
-                ui.button("Transactions", on_click=ingest_transactions).bind_enabled_from(app.storage.general, "busy", backward=lambda x: not x)
+                ui.button("Transactions", on_click=ingest_transactions).bind_enabled_from(app.storage.user, "busy", backward=lambda x: not x)
                 ui.button("Peek", on_click=lambda: peek_documents(tablepath=f"{BASEDIR}/{VOLUME_BRONZE}/{TABLE_TRANSACTIONS}")).props("outline")
-                ui.button("Using Airflow", color='notify', on_click=code_airflow_batch).props("outline").bind_enabled_from(app.storage.general, "busy", backward=lambda x: not x)
+                ui.button("Using Airflow", color='notify', on_click=code_airflow_batch).props("outline").bind_enabled_from(app.storage.user, "busy", backward=lambda x: not x)
                 ui.button("Code", on_click=stream_dialog.open, color="info").props("outline")
 
         with ui.expansion("Enrich & Clean (Silver)", caption="Integrate with data catalogue and clean/enrich data into silver tier", group="flow"):
@@ -253,8 +254,8 @@ def demo_steps():
 
             with ui.row().classes("w-full place-items-center"):
                 ui.label("Data enrichment: ").classes("w-40")
-                ui.button("Customers", on_click=refine_customers).bind_enabled_from(app.storage.general, "busy", backward=lambda x: not x)
-                ui.button("Transactions", on_click=refine_transactions).bind_enabled_from(app.storage.general, "busy", backward=lambda x: not x)
+                ui.button("Customers", on_click=refine_customers).bind_enabled_from(app.storage.user, "busy", backward=lambda x: not x)
+                ui.button("Transactions", on_click=refine_transactions).bind_enabled_from(app.storage.user, "busy", backward=lambda x: not x)
                 ui.button("Code", on_click=enrich_dialog.open, color="info").props("outline")
 
             with ui.row().classes("w-full place-items-center"):
@@ -271,7 +272,7 @@ def demo_steps():
 
             with ui.row().classes("w-full place-items-center"):
                 ui.label("Data aggregation: ").classes("w-40")
-                ui.button("Aggregate to Gold Tier", on_click=create_golden).bind_enabled_from(app.storage.general, "busy", backward=lambda x: not x).bind_visibility_from(app.storage.general, 'MYSQL_PASS', backward=lambda x: x is not None and len(x) > 0)
+                ui.button("Aggregate to Gold Tier", on_click=create_golden).bind_enabled_from(app.storage.user, "busy", backward=lambda x: not x).bind_visibility_from(app.storage.user, 'MYSQL_PASS', backward=lambda x: x is not None and len(x) > 0)
                 ui.button("Code", on_click=aggregate_dialog.open, color="info").props("outline")
 
         with ui.expansion("Check transactions for Fraud", caption="Process every transaction and check for fraud", group="flow"):
@@ -287,45 +288,54 @@ def demo_steps():
     return demo_list
 
 
-async def cluster_connect():
-    with ui.dialog() as cluster_connect_dialog, ui.card():
-        ui.input("Hostname / IP Address").bind_value(app.storage.general, "MAPR_HOST")
-        ui.input("Username").bind_value(app.storage.general, "MAPR_USER")
-        ui.input("Password", password=True, password_toggle_button=True).bind_value(app.storage.general, "MAPR_PASS")
+def cluster_connect():
+    with ui.dialog().props("full-width") as cluster_connect_dialog, ui.card():
+        with ui.row().classes("w-full place-items-center"):
+            ui.input("Hostname / IP Address").classes("flex-grow").bind_value(app.storage.user, "MAPR_HOST")
+            ui.input("Username").classes("flex-grow").bind_value(app.storage.user, "MAPR_USER")
+            ui.input("Password", password=True, password_toggle_button=True).classes("flex-grow").bind_value(app.storage.user, "MAPR_PASS")
+            # ui.space()
+            ui.button(icon="link", on_click=run_configuration_steps)
 
-        with ui.row().classes("w-full"):
-            ui.button("Connect", on_click=lambda: cluster_connect_dialog.submit(True))
-            ui.space()
-            ui.button("Cancel", on_click=lambda: cluster_connect_dialog.submit(False))
+        ui.separator()
 
-    if await cluster_connect_dialog:
-        logger.info("Connecting to node %s...", app.storage.general['cluster'])
-        try:
-            # get cluster information
-            auth = (app.storage.general["MAPR_USER"], app.storage.general["MAPR_PASS"])
-            URL = f"https://{app.storage.general['MAPR_HOST']}:8443/rest/dashboard/info"
-            async with httpx.AsyncClient(verify=False) as client:
-                response = await client.post(URL, auth=auth)
+        with ui.grid(columns=3):
+            for step in cluster_configuration_steps:
+                ui.label(step["name"])
+                ui.label(step["command"])
+                ui.icon("", size='sm', color="success" if step["status"] == "success" else None).bind_name_from(step, "status")
 
-                if response is None or response.status_code != 200:
-                    logger.warning("Response: %s", response.text)
 
-                else:
-                    res = response.json()
-                    app.storage.general["cluster"] = res["data"]["cluster"]["ip"]
-                    app.storage.general["clusterinfo"] = res["data"]
+async def run_configuration_steps():
+    logger.info("Connecting to node %s...", app.storage.user['MAPR_HOST'])
 
-            # set environment
-            os.environ["CLUSTER_IP"] = app.storage.general['cluster']
-            os.environ["CLUSTER_NAME"] = get_cluster_name()
-            os.environ["MAPR_USER"] = app.storage.general["MAPR_USER"]
-            os.environ["MAPR_PASS"] = app.storage.general["MAPR_PASS"]
-            await run_command_with_dialog("bash ./connect_and_configure.sh")
-            ui.notify("Continue with demo configurations", type='positive')
+    try:
+        # Step 1 - Get cluster information
+        auth = (app.storage.user["MAPR_USER"], app.storage.user["MAPR_PASS"])
+        URL = f"https://{app.storage.user['MAPR_HOST']}:8443/rest/dashboard/info"
 
-        except Exception as error:
-            logger.error("Failed to connect to cluster.")
-            logger.warning(error)
+        async with httpx.AsyncClient(verify=False) as client:
+            response = await client.get(URL, auth=auth)
+
+            if response is None or response.status_code != 200:
+                logger.warning("Response: %s", response.text)
+
+            else:
+                res = response.json()
+                logger.debug("Got dashboard data: %s", json.dumps(res))
+                # Set cluster information
+                app.storage.user["clusterinfo"] = res["data"][0]["cluster"]
+
+                # set environment
+                os.environ["CLUSTER_IP"] = res["data"][0]["cluster"]["ip"]
+                os.environ["CLUSTER_NAME"] = res["data"][0]["cluster"]["name"]
+                os.environ["MAPR_USER"] = app.storage.user["MAPR_USER"]
+                os.environ["MAPR_PASS"] = app.storage.user["MAPR_PASS"]
+                # await run_command_with_dialog("bash ./connect_and_configure.sh")
+
+    except Exception as error:
+        logger.error("Failed to connect to cluster.")
+        logger.info(error)
 
 
 def demo_configuration_dialog():
@@ -351,7 +361,7 @@ def demo_configuration_dialog():
         #     with ui.row().classes("w-full place-items-center mt-4"):
         #         ui.label("Select Data Domain").classes("text-lg")
         #         ui.button(icon="refresh", on_click=update_clusters).props("flat round")
-        #     ui.toggle(app.storage.general.get("clusters", [])).bind_value(app.storage.general, "cluster")
+        #     ui.toggle(app.storage.user.get("clusters", [])).bind_value(app.storage.user, "cluster")
 
         # ui.separator()
 
@@ -359,12 +369,12 @@ def demo_configuration_dialog():
         with ui.card_section():
             ui.label("External Data Lakes").classes("text-lg w-full")
             with ui.row().classes("w-full place-items-center"):
-                ui.input("Minio Host", placeholder="minio.local").bind_value(app.storage.general, "S3_SERVER")
-                ui.input("NFS Server", placeholder="nfs-server.dom").bind_value(app.storage.general, "NFS_SERVER")
+                ui.input("Minio Host", placeholder="minio.local").bind_value(app.storage.user, "S3_SERVER")
+                ui.input("NFS Server", placeholder="nfs-server.dom").bind_value(app.storage.user, "NFS_SERVER")
                 ui.button(
                     "Mount",
                     on_click=lambda: run_command_with_dialog(
-                        f"umount -l /mnt; mount -t nfs4 -o nolock,proto=tcp,port=2049,sec=sys {app.storage.general.get('NFS_SERVER', 'localhost')}:/ /mnt; ls -lA /mnt"
+                        f"umount -l /mnt; mount -t nfs4 -o nolock,proto=tcp,port=2049,sec=sys {app.storage.user.get('NFS_SERVER', 'localhost')}:/ /mnt; ls -lA /mnt"
                     )
                 ).props("")
 
@@ -373,16 +383,16 @@ def demo_configuration_dialog():
             # ui.label("User Credentials").classes("text-lg w-full")
             # ui.label("User to create volumes and operate all demo steps").classes("text-sm text-italic")
             # with ui.row().classes("w-full place-items-center"):
-            #     ui.input("Username").bind_value(app.storage.general, "MAPR_USER")
-            #     ui.input("Password", password=True, password_toggle_button=True).bind_value(app.storage.general, "MAPR_PASS")
+            #     ui.input("Username").bind_value(app.storage.user, "MAPR_USER")
+            #     ui.input("Password", password=True, password_toggle_button=True).bind_value(app.storage.user, "MAPR_PASS")
 
             # ui.space()
 
             ui.label("S3 Credentials").classes("text-lg w-full mt-4")
             ui.label("for iceberg and spark").classes("text-sm text-italic")
             with ui.row().classes("w-full place-items-center"):
-                ui.input("Access Key").bind_value(app.storage.general, "S3_ACCESS_KEY")
-                ui.input("Secret Key", password=True, password_toggle_button=True).bind_value(app.storage.general, "S3_SECRET_KEY")
+                ui.input("Access Key").bind_value(app.storage.user, "S3_ACCESS_KEY")
+                ui.input("Secret Key", password=True, password_toggle_button=True).bind_value(app.storage.user, "S3_SECRET_KEY")
 
             ui.space()
             with ui.dialog() as mysql_user_dialog, ui.card():
@@ -403,50 +413,50 @@ def demo_configuration_dialog():
                 ui.button(icon="info", on_click=mysql_user_dialog.open).props("flat round")
             ui.label("for gold tier RDBMS").classes("text-sm text-italic")
             with ui.row().classes("w-full place-items-center mt-4"):
-                ui.input("Username").bind_value(app.storage.general, "MYSQL_USER")
-                ui.input("Password", password=True, password_toggle_button=True).bind_value(app.storage.general, "MYSQL_PASS")
+                ui.input("Username").bind_value(app.storage.user, "MYSQL_USER")
+                ui.input("Password", password=True, password_toggle_button=True).bind_value(app.storage.user, "MYSQL_PASS")
 
         # ui.separator()
         # Cluster configuration
         # with ui.card_section():
         #     ui.label("Configure and Login").classes("text-lg w-full")
         #     ui.label("login if not using JWT").classes("text-sm text-italic")
-        #     if "MAPR_USER" in app.storage.general.keys() and "cluster" in app.storage.general.keys():
-        #         cluster = app.storage.general.get("cluster", "127.0.0.1")
+        #     if "MAPR_USER" in app.storage.user.keys() and "cluster" in app.storage.user.keys():
+        #         cluster = app.storage.user.get("cluster", "127.0.0.1")
         #         os.environ["CLUSTER_NAME"] = get_cluster_name()
         #         os.environ["CLUSTER_IP"] = cluster if cluster is not None else "127.0.0.1"
-        #         os.environ["MAPR_USER"] = app.storage.general.get("MAPR_USER", "")
-        #         os.environ["MAPR_PASS"] = app.storage.general.get("MAPR_PASS", "")
+        #         os.environ["MAPR_USER"] = app.storage.user.get("MAPR_USER", "")
+        #         os.environ["MAPR_PASS"] = app.storage.user.get("MAPR_PASS", "")
         #         with ui.row().classes("w-full place-items-center mt-4"):
         #                 # ui.button("Reconfigure", on_click=lambda: run_command_with_dialog("bash ./reconfigure.sh"))
-        #                 ui.button("maprlogin", on_click=lambda: run_command_with_dialog(f"echo {app.storage.general['MAPR_PASS']} | maprlogin password -user {app.storage.general['MAPR_USER']}"))
+        #                 ui.button("maprlogin", on_click=lambda: run_command_with_dialog(f"echo {app.storage.user['MAPR_PASS']} | maprlogin password -user {app.storage.user['MAPR_USER']}"))
         #         with ui.row().classes("w-full place-items-center mt-4"):
-        #             ui.button(f"remount {MOUNT_PATH}", on_click=lambda: run_command_with_dialog(f"[ -d {MOUNT_PATH} ] && umount -l {MOUNT_PATH}; [ -d {MOUNT_PATH} ] || mkdir -p {MOUNT_PATH}; mount -t nfs -o nolock,soft {app.storage.general['cluster']}:/mapr {MOUNT_PATH}"))
+        #             ui.button(f"remount {MOUNT_PATH}", on_click=lambda: run_command_with_dialog(f"[ -d {MOUNT_PATH} ] && umount -l {MOUNT_PATH}; [ -d {MOUNT_PATH} ] || mkdir -p {MOUNT_PATH}; mount -t nfs -o nolock,soft {app.storage.user['cluster']}:/mapr {MOUNT_PATH}"))
         #             ui.button("List Cluster /", on_click=lambda: run_command_with_dialog(f"ls -la {MOUNT_PATH}/{get_cluster_name()}")).props('outline')
 
         ui.separator()
         with ui.card_section():
             ui.label("Dashboard").classes("text-lg w-full")
             ui.label("Link to external dashboard page").classes("text-sm text-italic")
-            ui.input("Dashboard URL").bind_value(app.storage.general, "DASHBOARD_URL").classes("w-full")
+            ui.input("Dashboard URL").bind_value(app.storage.user, "DASHBOARD_URL").classes("w-full")
             ui.label("Catalogue").classes("text-lg w-full")
             ui.label("Link to external catalogue page").classes("text-sm text-italic")
-            ui.input("Catalogue URL").bind_value(app.storage.general, "CATALOGUE_URL").classes("w-full")
+            ui.input("Catalogue URL").bind_value(app.storage.user, "CATALOGUE_URL").classes("w-full")
 
         ui.separator()
         with ui.card_section():
             ui.label("Create the Entities").classes("text-lg w-full")
             ui.label("required volumes and streams")
             with ui.row().classes("w-full place-items-center mt-4"):
-                ui.button("Volumes", on_click=create_volumes).bind_enabled_from(app.storage.general, "busy", backward=lambda x: not x)
-                ui.button("Streams", on_click=create_streams).bind_enabled_from(app.storage.general, "busy", backward=lambda x: not x)
-                ui.button("Tables", on_click=create_tables).bind_enabled_from(app.storage.general, "busy", backward=lambda x: not x)
+                ui.button("Volumes", on_click=create_volumes).bind_enabled_from(app.storage.user, "busy", backward=lambda x: not x)
+                ui.button("Streams", on_click=create_streams).bind_enabled_from(app.storage.user, "busy", backward=lambda x: not x)
+                ui.button("Tables", on_click=create_tables).bind_enabled_from(app.storage.user, "busy", backward=lambda x: not x)
 
         ui.separator()
         with ui.card_section():
             ui.label("Clean up!").classes("text-lg")
             ui.label("Use when done with the demo. This will remove all volumes and streams, ALL DATA will be gone!").classes("text-sm text-italic")
-            ui.button("DELETE ALL!", on_click=delete_volumes_and_streams, color="negative").classes("mt-4").bind_enabled_from(app.storage.general, "busy", backward=lambda x: not x)
+            ui.button("DELETE ALL!", on_click=delete_volumes_and_streams, color="negative").classes("mt-4").bind_enabled_from(app.storage.user, "busy", backward=lambda x: not x)
 
     dialog.on("close", lambda d=dialog: d.delete())
     dialog.open()
@@ -454,7 +464,7 @@ def demo_configuration_dialog():
 
 def config_show():
     with ui.dialog() as config_show, ui.card().classes("grow"):
-        ui.code(json.dumps(app.storage.general, indent=2), language="json").classes("w-full text-wrap")
+        ui.code(json.dumps(app.storage.user, indent=2), language="json").classes("w-full text-wrap")
         with ui.row().classes("w-full"):
             ui.button(
                 "Save",
@@ -482,7 +492,7 @@ def config_load():
 def config_save(val: str, dialog):
     try:
         for key, value in json.loads(val.replace("\n", "")).items():
-            app.storage.general[key] = value
+            app.storage.user[key] = value
         dialog.close()
         ui.notify("Settings loaded", type="positive")
         ui.notify("Refresh the page!!", type="error")
@@ -495,7 +505,7 @@ def config_save(val: str, dialog):
 def download(content: str = None):
     # by default downloading settings
     if content is None:
-        content = app.storage.general
+        content = app.storage.user
 
     string_io = io.StringIO(json.dumps(content))  # create a file-like object from the string
 
