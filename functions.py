@@ -260,7 +260,7 @@ async def peek_sqlrecords(tablenames: list):
     :param tablename str: table name to query
     """
 
-    mydb = f"mysql+pymysql://{app.storage.user['MYSQL_USER']}:{app.storage.user['MYSQL_PASS']}@{app.storage.user['cluster']}/{DATA_PRODUCT}"
+    mydb = f"mysql+pymysql://{app.storage.user['MYSQL_USER']}:{app.storage.user['MYSQL_PASS']}@{app.storage.user['MAPR_IP']}/{DATA_PRODUCT}"
 
     with ui.dialog().props("full-width") as dialog, ui.card().classes("grow relative"):
         ui.button(icon="close", on_click=dialog.close).props("flat round dense").classes("absolute right-2 top-2")
@@ -322,7 +322,7 @@ def data_aggregation():
     transactions_df.drop(["sender_account", "receiver_account"], axis=1, inplace=True)
 
     # Append customers and transactions in the gold tier rdbms
-    mydb = f"mysql+pymysql://{app.storage.user['MYSQL_USER']}:{app.storage.user['MYSQL_PASS']}@{app.storage.user['cluster']}/{DATA_PRODUCT}"
+    mydb = f"mysql+pymysql://{app.storage.user['MYSQL_USER']}:{app.storage.user['MYSQL_PASS']}@{app.storage.user['MAPR_IP']}/{DATA_PRODUCT}"
 
     # upsert by reading existing records and updating them
     try:
@@ -355,7 +355,7 @@ async def delete_volumes_and_streams():
 
     for vol in [VOLUME_BRONZE, VOLUME_SILVER, VOLUME_GOLD]:
 
-        URL = f"https://{app.storage.user['cluster']}:8443/rest/volume/remove?name={vol}"
+        URL = f"https://{app.storage.user['MAPR_HOST']}:8443/rest/volume/remove?name={vol}"
         async with httpx.AsyncClient(verify=False) as client:
             response = await client.post(URL, auth=auth)
 
@@ -372,7 +372,7 @@ async def delete_volumes_and_streams():
 
     # Delete streams
     for stream in [STREAM_INCOMING, STREAM_CHANGELOG]:
-        URL = f"https://{app.storage.user['cluster']}:8443/rest/stream/delete?path={BASEDIR}/{stream}"
+        URL = f"https://{app.storage.user['MAPR_HOST']}:8443/rest/stream/delete?path={BASEDIR}/{stream}"
         async with httpx.AsyncClient(verify=False) as client:
             response = await client.post(URL, auth=auth)
 
@@ -436,7 +436,7 @@ async def delete_volumes_and_streams():
         logger.warning(error)
 
     # remove tables from mysql
-    mydb = f"mysql+pymysql://{app.storage.user['MYSQL_USER']}:{app.storage.user['MYSQL_PASS']}@{app.storage.user['cluster']}/{DATA_PRODUCT}"
+    mydb = f"mysql+pymysql://{app.storage.user['MYSQL_USER']}:{app.storage.user['MYSQL_PASS']}@{app.storage.user['MAPR_IP']}/{DATA_PRODUCT}"
     try:
         engine = create_engine(mydb)
         with engine.connect() as conn:

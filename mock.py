@@ -185,11 +185,11 @@ def create_csv_files():
 
 
 async def peek_mocked_customers():
-    await run_command_with_dialog(f"head {MOUNT_PATH}/{get_cluster_name()}{BASEDIR}/{TABLE_CUSTOMERS}.csv")
+    await run_command_with_dialog(f"cat {MOUNT_PATH}/{get_cluster_name()}{BASEDIR}/{TABLE_CUSTOMERS}.csv")
 
 
 async def peek_mocked_transactions():
-    await run_command_with_dialog(f"head {MOUNT_PATH}/{get_cluster_name()}{BASEDIR}/{TABLE_TRANSACTIONS}.csv")
+    await run_command_with_dialog(f"cat {MOUNT_PATH}/{get_cluster_name()}{BASEDIR}/{TABLE_TRANSACTIONS}.csv")
 
 
 # NOT USED

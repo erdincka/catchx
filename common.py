@@ -100,10 +100,11 @@ DOCUMENTATION = {
     """,
 
     "Source Data Generation": """
-        Let's start with generating some random data for our customers and their transactions.
+        Customer data is used for batch ingestion, that can be processed using an ETL process.
 
-        We will create csv files that will act as our data sources that will be ingested as customers (batch) and transactions (stream).
+        Transactions data is used for streaming ingestion.
 
+        You can view the source data generation code, sample it, and submit it to the pipeline. You can also generate a new set of customers or transactions for testing.
     """
 }
 
@@ -191,8 +192,8 @@ def update_clusters():
                 app.storage.user["clusters"].update(cls)
             logger.info("Found clusters: %s", app.storage.user['clusters'])
             # select first cluster to avoid null value
-            app.storage.user["cluster"] = next(iter(app.storage.user["clusters"]))
-            logger.info("Set cluster: %s", app.storage.user['cluster'])
+            app.storage.user['MAPR_IP'] = next(iter(app.storage.user["clusters"]))
+            logger.info("Set cluster: %s", app.storage.user['MAPR_IP'])
     except Exception as error:
         logger.warning("Failed to update clusters: %s", error)
 
@@ -268,7 +269,7 @@ async def create_volumes():
 
     for vol in [VOLUME_BRONZE, VOLUME_SILVER, VOLUME_GOLD]:
 
-        URL = f"https://{app.storage.user['cluster']}:8443/rest/volume/create?name={vol}&path={BASEDIR}/{vol}&replication=1&minreplication=1&nsreplication=1&nsminreplication=1"
+        URL = f"https://{app.storage.user['MAPR_HOST']}:8443/rest/volume/create?name={vol}&path={BASEDIR}/{vol}&replication=1&minreplication=1&nsreplication=1&nsminreplication=1"
 
         logger.debug("REST call to: %s", URL)
 
@@ -306,7 +307,7 @@ async def create_tables():
         try:
             # Create table
             async with httpx.AsyncClient(verify=False) as client:
-                URL = f"https://{app.storage.user['cluster']}:8443/rest/table/create?path={BASEDIR}/{tier}/b{TABLE_TRANSACTIONS}&tabletype=binary&defaultreadperm=p&defaultwriteperm=p&defaultappendperm=p&defaultunmaskedreadperm=p"
+                URL = f"https://{app.storage.user['MAPR_HOST']}:8443/rest/table/create?path={BASEDIR}/{tier}/b{TABLE_TRANSACTIONS}&tabletype=binary&defaultreadperm=p&defaultwriteperm=p&defaultappendperm=p&defaultunmaskedreadperm=p"
                 response = await client.post(
                     url=URL,
                     auth=auth
@@ -328,7 +329,7 @@ async def create_tables():
 
             # Create Column Family
             async with httpx.AsyncClient(verify=False) as client:
-                URL = f"https://{app.storage.user['cluster']}:8443/rest/table/cf/create?path={BASEDIR}/{tier}/b{TABLE_TRANSACTIONS}&cfname=cf1"
+                URL = f"https://{app.storage.user['MAPR_HOST']}:8443/rest/table/cf/create?path={BASEDIR}/{tier}/b{TABLE_TRANSACTIONS}&cfname=cf1"
                 response = await client.post(
                     url=URL,
                     auth=auth
@@ -359,14 +360,14 @@ async def create_tables():
 
     # TODO: build MySQL DB tables
     # Create RDBMS tables
-    # mydb = f"mysql+pymysql://{app.storage.user['MYSQL_USER']}:{app.storage.user['MYSQL_PASS']}@{app.storage.user['cluster']}/{DATA_PRODUCT}"
+    # mydb = f"mysql+pymysql://{app.storage.user['MYSQL_USER']}:{app.storage.user['MYSQL_PASS']}@{app.storage.user['MAPR_IP']}/{DATA_PRODUCT}"
 
 
 async def create_streams():
     auth = (app.storage.user["MAPR_USER"], app.storage.user["MAPR_PASS"])
 
     for stream in [STREAM_INCOMING, STREAM_CHANGELOG]:
-        URL = f"https://{app.storage.user['cluster']}:8443/rest/stream/create?path={BASEDIR}/{stream}&ttl=38400&compression=lz4&produceperm=p&consumeperm=p&topicperm=p"
+        URL = f"https://{app.storage.user['MAPR_HOST']}:8443/rest/stream/create?path={BASEDIR}/{stream}&ttl=38400&compression=lz4&produceperm=p&consumeperm=p&topicperm=p"
 
         # ensure changelog stream is enabled for cdc
         if stream == STREAM_CHANGELOG:
@@ -400,7 +401,7 @@ async def create_streams():
 
 
 def show_mysql_tables():
-    mydb = f"mysql+pymysql://{app.storage.user['MYSQL_USER']}:{app.storage.user['MYSQL_PASS']}@{app.storage.user['cluster']}/{DATA_PRODUCT}"
+    mydb = f"mysql+pymysql://{app.storage.user['MYSQL_USER']}:{app.storage.user['MYSQL_PASS']}@{app.storage.user['MAPR_IP']}/{DATA_PRODUCT}"
     engine = create_engine(mydb)
     with engine.connect() as conn:
         tables = conn.execute(text("SHOW TABLES"))
@@ -431,7 +432,7 @@ async def enable_cdc(source_table_path: str, destination_stream_topic: str):
 
     logger.info("Check for changelog on: %s", source_table_path)
 
-    URL = f"https://{app.storage.user['cluster']}:8443/rest/table/changelog/list?path={source_table_path}&changelog={destination_stream_topic}"
+    URL = f"https://{app.storage.user['MAPR_HOST']}:8443/rest/table/changelog/list?path={source_table_path}&changelog={destination_stream_topic}"
 
     try:
         async with httpx.AsyncClient(verify=False) as client:
@@ -450,7 +451,7 @@ async def enable_cdc(source_table_path: str, destination_stream_topic: str):
 
                 if res["total"] == 0:
                     # create CDC
-                    URL = f"https://{app.storage.user['cluster']}:8443/rest/table/changelog/add?path={source_table_path}&changelog={destination_stream_topic}&useexistingtopic=true"
+                    URL = f"https://{app.storage.user['MAPR_HOST']}:8443/rest/table/changelog/add?path={source_table_path}&changelog={destination_stream_topic}&useexistingtopic=true"
 
                     response = await client.get(URL, auth=auth)
 

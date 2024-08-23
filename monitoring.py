@@ -146,7 +146,7 @@ def new_series():
 def mapr_monitoring():
     stream_path = "/var/mapr/mapr.monitoring/metricstreams/0"
 
-    metric_host_fqdn = socket.getfqdn(app.storage.user['cluster'])
+    metric_host_fqdn = socket.getfqdn(app.storage.user['MAPR_IP'])
 
     for record in streams.consume(stream=stream_path, topic=metric_host_fqdn, consumer_group="monitoring"):
         metric = json.loads(record)
@@ -174,7 +174,7 @@ async def incoming_topic_stats():
         return
 
     try:
-        URL = f"https://{app.storage.user['cluster']}:8443/rest/stream/topic/info?path={stream_path}&topic={topic}"
+        URL = f"https://{app.storage.user['MAPR_HOST']}:8443/rest/stream/topic/info?path={stream_path}&topic={topic}"
         auth = (app.storage.user["MAPR_USER"], app.storage.user["MAPR_PASS"])
 
         async with httpx.AsyncClient(verify=False) as client:  # using async httpx instead of sync requests to avoid blocking the event loop
@@ -244,7 +244,7 @@ async def txn_consumer_stats():
         return
 
     try:
-        URL = f"https://{app.storage.user['cluster']}:8443/rest/stream/cursor/list?path={stream_path}&topic={topic}"
+        URL = f"https://{app.storage.user['MAPR_HOST']}:8443/rest/stream/cursor/list?path={stream_path}&topic={topic}"
         auth = (app.storage.user["MAPR_USER"], app.storage.user["MAPR_PASS"])
         async with httpx.AsyncClient(verify=False) as client:
             response = await client.get(URL, auth=auth, timeout=2.0)
@@ -318,7 +318,7 @@ async def bronze_stats():
 
         # FIX: binary table counters are not usable, might need to query the table for total distinct records
         # if os.path.lexists(f"{MOUNT_PATH}/{get_cluster_name()}{binarytable}"):
-        #     URL = f"https://{app.storage.user['cluster']}:8443/rest/table/info?path={binarytable}"
+        #     URL = f"https://{app.storage.user['MAPR_HOST']}:8443/rest/table/info?path={binarytable}"
         #     auth = (app.storage.user["MAPR_USER"], app.storage.user["MAPR_PASS"])
         #     async with httpx.AsyncClient(verify=False) as client:
         #         response = await client.get(URL, auth=auth, timeout=2.0)
@@ -413,7 +413,7 @@ async def gold_stats():
     series = []
 
     try:
-        mydb = f"mysql+pymysql://{app.storage.user['MYSQL_USER']}:{app.storage.user['MYSQL_PASS']}@{app.storage.user['cluster']}/{DATA_PRODUCT}"
+        mydb = f"mysql+pymysql://{app.storage.user['MYSQL_USER']}:{app.storage.user['MYSQL_PASS']}@{app.storage.user['MAPR_IP']}/{DATA_PRODUCT}"
 
         # return if table is missing
         engine = create_engine(mydb)

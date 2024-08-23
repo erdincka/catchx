@@ -24,7 +24,7 @@ def header(title: str):
 
         # ui.icon(None, size='lg').bind_name_from(app.storage.user, "demo_mode", backward=lambda x: "s_preview" if x else "s_preview_off").tooltip("Presentation Mode")
 
-        ui.switch("Go Live").bind_value(app.storage.user, 'demo_mode').bind_visibility_from(app.storage.user, "cluster", backward=lambda x: x and len(x) > 0)
+        ui.switch("Go Live").bind_value(app.storage.user, 'demo_mode').bind_visibility_from(app.storage.user, "clusterinfo", backward=lambda x: x and len(x) > 0)
 
         ui.switch("Monitor", on_change=lambda x: toggle_monitoring(x.value)).bind_visibility_from(app.storage.user, 'demo_mode')
 
@@ -32,23 +32,23 @@ def header(title: str):
 
         with ui.row().classes("place-items-center"):
             ui.link(
-                target=f"https://{app.storage.user.get('MAPR_USER', '')}:{app.storage.user.get('MAPR_PASS', '')}@{app.storage.user.get('cluster', 'localhost')}:8443/app/mcs/",
+                target=f"https://{app.storage.user['MAPR_USER']}:{app.storage.user['MAPR_PASS']}@{app.storage.user['MAPR_HOST']}:8443/app/mcs/",
                 new_tab=True
             ).classes(
                 "text-white hover:text-blue-600"
-            ).bind_text_from(app.storage.user.get("clustername", "NOT CONNECTED")
-            ).bind_visibility_from(app.storage.user, "cluster", backward=lambda x: x and len(x) > 0)
+            ).bind_text_from(app.storage.user, "clusterinfo", backward=lambda x: x["name"] if x else "No Cluster"
+            ).bind_visibility_from(app.storage.user, "clusterinfo", backward=lambda x: x and len(x) > 0)
 
             # Connect to a cluster
             # ui.label("Not configured!").classes("text-bold red").bind_visibility_from(app.storage.user, "cluster", backward=lambda x: not x or len(x) == 0)
-            ui.button(icon="link" if "clustername" in app.storage.user.keys() else "link_off", on_click=cluster_connect).props("flat color=light")
+            ui.button(icon="link" if "clusterinfo" in app.storage.user.keys() else "link_off", on_click=cluster_connect).props("flat color=light")
 
             ui.button(icon="settings", on_click=demo_configuration_dialog).props(
                 "flat color=light"
             )
 
             ui.icon("error", size="2em", color="red").bind_visibility_from(
-                app.storage.user, "cluster", lambda x: not x or len(x) == 0
+                app.storage.user, "clusterinfo", lambda x: not x or len(x) == 0
             ).tooltip("Requires configuration!")
 
             with ui.element("div").bind_visibility_from(app.storage.user, "demo_mode"):
@@ -190,34 +190,44 @@ def demo_steps():
             ui.markdown(DOCUMENTATION["Overview"])
             ui.image(DATA_DOMAIN["diagram"]).props("fit=scale-down")
 
-        with ui.expansion("Data Generation", caption="Prepare and publish mocked data into the pipeline", group="flow", value=True):
+        with ui.expansion("Data Ingestion", caption="Review and push data into the pipeline", group="flow", value=True):
 
             ui.markdown(DOCUMENTATION["Source Data Generation"])
 
-            with ui.row().classes("w-full place-items-center"):
-                ui.label("Create files: ").classes("w-40")
-                ui.button("Customers", on_click=create_customers)
-                ui.button("Transactions", on_click=create_transactions)
-
-            with ui.row().classes("w-full place-items-center"):
-                ui.label("Peek files: ").classes("w-40")
-                ui.button("Customers", on_click=peek_mocked_customers).props("outline")
-                ui.button("Transactions", on_click=peek_mocked_transactions).props("outline")
+            with ui.list().props('bordered separator'):
+                ui.item_label('Data Sources').props('header').classes('text-bold')
+                ui.separator()
+                with ui.item():
+                    with ui.item_section().props('avatar'):
+                        ui.icon('people')
+                    with ui.item_section().classes("flex-grow"):
+                        ui.item_label('Customers')
+                        ui.item_label(f"{MOUNT_PATH}/{get_cluster_name()}{BASEDIR}/{TABLE_CUSTOMERS}.csv").props('caption')
+                    with ui.item_section().props('side'):
+                        with ui.row():
+                            ui.button(icon='visibility', color="neutral", on_click=peek_mocked_customers).props('flat dense round').tooltip("Preview data")
+                            ui.button(icon='person_add', color="info", on_click=code_create_customers).props('flat dense round').tooltip("View code for new customers")
+                            ui.button(icon='person_add', color="secondary", on_click=create_customers).props('flat dense round').tooltip("Create new customers")
+                            ui.button(icon='code', color="info", on_click=code_batch).props('flat dense round').tooltip("View code for batch ingestion")
+                            ui.button(icon='rocket_launch', color="positive", on_click=ingest_customers_iceberg).props('flat dense round').tooltip("Ingest customers to Iceberg table")
+                with ui.item():
+                    with ui.item_section().props('avatar'):
+                        ui.icon('payments')
+                    with ui.item_section().classes("flex-grow"):
+                        ui.item_label('Transactions')
+                        ui.item_label(f"{MOUNT_PATH}/{get_cluster_name()}{BASEDIR}/{TABLE_TRANSACTIONS}.csv").props('caption')
+                    with ui.item_section().props('side'):
+                        with ui.row():
+                            ui.button(icon='visibility', color="neutral", on_click=peek_mocked_transactions).props('flat dense round').tooltip("Preview data")
+                            ui.button(icon='add_card', color="info", on_click=code_create_transactions).props('flat dense round').tooltip("View code for new transactions")
+                            ui.button(icon='add_card', color="secondary", on_click=create_transactions).props('flat dense round').tooltip("Create new transactions")
+                            ui.button(icon='code', color="info", on_click=code_publish_transactions).props('flat dense round').tooltip("View code for transactions ingestion")
+                            ui.button(icon='rocket_launch', color="positive", on_click=publish_transactions).props('flat dense round').tooltip("Publish transactions")
 
             # with ui.row().classes("w-full place-items-center").bind_visibility_from(app.storage.user, "S3_SECRET_KEY"):
             #     ui.label("Create Input files: ").classes("w-40")
             #     ui.button("Into S3", color='notify', on_click=lambda: upload_to_s3(f"{MOUNT_PATH}/{get_cluster_name()}{BASEDIR}/{TABLE_TRANSACTIONS}.csv")).props('outline')
             #     ui.button("Show Bucket", color='notify', on_click=lambda: ui.navigate.to(f"http://{app.storage.user.get('S3_SERVER', 'localhost:9000')}", new_tab=True)).props('outline')
-
-            with ui.row().classes("w-full place-items-center"):
-                ui.label("Publish: ").classes("w-40")
-                ui.button("To Kafka", on_click=publish_transactions).bind_enabled_from(app.storage.user, "busy", backward=lambda x: not x)
-
-            with ui.row().classes("w-full place-items-center"):
-                ui.label("View Code: ").classes("w-40")
-                ui.button("Customers", on_click=code_create_customers, color="info").props("outline")
-                ui.button("Transaction", on_click=code_create_transactions, color="info").props("outline")
-                ui.button("Publish", on_click=code_publish_transactions, color="info").props("outline")
 
         with ui.expansion("Ingestion & ETL Processing (Bronze)", caption="Realtime processing on incoming data", group="flow"):
             with ui.dialog().props("full-width") as batch_dialog, ui.card().classes("grow relative"):
@@ -295,7 +305,7 @@ def cluster_connect():
             ui.input("Username").classes("flex-grow").bind_value(app.storage.user, "MAPR_USER")
             ui.input("Password", password=True, password_toggle_button=True).classes("flex-grow").bind_value(app.storage.user, "MAPR_PASS")
             # ui.space()
-            ui.button(icon="link", on_click=run_configuration_steps)
+            ui.button(icon="directions_run", on_click=run_configuration_steps)
 
         ui.separator()
 
@@ -303,7 +313,7 @@ def cluster_connect():
             for step in cluster_configuration_steps:
                 ui.label(step["name"])
                 ui.label(step["info"])
-                ui.icon("", size='sm', color="success" if step["status"] == "check" else "error" if step["status"] == "error" else "info" if step["status"] == "run_circle" else None).bind_name_from(step, "status")
+                ui.icon("", size='sm', color="info").bind_name_from(step, "status")
 
     cluster_connect_dialog.open()
 
@@ -342,11 +352,10 @@ async def run_configuration_steps():
                 logger.info(error)
                 step["status"] = "error"
 
-
+        # Step 2 - Configure cluster
         elif step["name"] == "reconfigure":
             step["status"] = "run_circle"
 
-            # Step 2 - Set environment variables
             os.environ["CLUSTER_IP"] = res["data"][0]["cluster"]["ip"]
             os.environ["CLUSTER_NAME"] = res["data"][0]["cluster"]["name"]
             os.environ["MAPR_USER"] = app.storage.user["MAPR_USER"]
@@ -356,12 +365,14 @@ async def run_configuration_steps():
 
             step["status"] = "check"
 
+        # Step 3 - Create volumes and streams
         elif step["name"] == "createvolumes":
             step["status"] = "run_circle"
             if await create_volumes() and await create_tables() and await create_streams():
                 step["status"] = "check"
             else: step["status"] = "error"
 
+        # Step 4 - Create customers and transactions
         elif step["name"] == "mockdata":
             step["status"] = "run_circle"
             if await create_customers() and await create_transactions():
@@ -369,6 +380,10 @@ async def run_configuration_steps():
             else: step["status"] = "error"
 
         else: logger.debug("%s not defined", step["name"])
+
+    # mark configured
+    app.storage.user["configured"] = True
+
 
 def demo_configuration_dialog():
     with ui.dialog().props("position=right full-height") as dialog, ui.card().classes("relative bordered"):
@@ -393,7 +408,7 @@ def demo_configuration_dialog():
         #     with ui.row().classes("w-full place-items-center mt-4"):
         #         ui.label("Select Data Domain").classes("text-lg")
         #         ui.button(icon="refresh", on_click=update_clusters).props("flat round")
-        #     ui.toggle(app.storage.user.get("clusters", [])).bind_value(app.storage.user, "cluster")
+        #     ui.toggle(app.storage.user.get("clusters", [])).bind_value(app.storage.user, "clusterinfo")
 
         # ui.separator()
 
@@ -463,7 +478,7 @@ def demo_configuration_dialog():
         #                 # ui.button("Reconfigure", on_click=lambda: run_command_with_dialog("bash ./reconfigure.sh"))
         #                 ui.button("maprlogin", on_click=lambda: run_command_with_dialog(f"echo {app.storage.user['MAPR_PASS']} | maprlogin password -user {app.storage.user['MAPR_USER']}"))
         #         with ui.row().classes("w-full place-items-center mt-4"):
-        #             ui.button(f"remount {MOUNT_PATH}", on_click=lambda: run_command_with_dialog(f"[ -d {MOUNT_PATH} ] && umount -l {MOUNT_PATH}; [ -d {MOUNT_PATH} ] || mkdir -p {MOUNT_PATH}; mount -t nfs -o nolock,soft {app.storage.user['cluster']}:/mapr {MOUNT_PATH}"))
+        #             ui.button(f"remount {MOUNT_PATH}", on_click=lambda: run_command_with_dialog(f"[ -d {MOUNT_PATH} ] && umount -l {MOUNT_PATH}; [ -d {MOUNT_PATH} ] || mkdir -p {MOUNT_PATH}; mount -t nfs -o nolock,soft {app.storage.user['MAPR_IP']}:/mapr {MOUNT_PATH}"))
         #             ui.button("List Cluster /", on_click=lambda: run_command_with_dialog(f"ls -la {MOUNT_PATH}/{get_cluster_name()}")).props('outline')
 
         ui.separator()

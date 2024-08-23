@@ -141,7 +141,7 @@ async def fraud_detection():
         return
 
     # Gold table to update if fraud found
-    mydb = f"mysql+pymysql://{app.storage.user['MYSQL_USER']}:{app.storage.user['MYSQL_PASS']}@{app.storage.user['cluster']}/{DATA_PRODUCT}"
+    mydb = f"mysql+pymysql://{app.storage.user['MYSQL_USER']}:{app.storage.user['MYSQL_PASS']}@{app.storage.user['MAPR_IP']}/{DATA_PRODUCT}"
 
     fraud_count = 0
     non_fraud_count = 0
