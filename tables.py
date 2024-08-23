@@ -22,10 +22,10 @@ def get_connection():
     global ojaiconnection
     if ojaiconnection is not None: return ojaiconnection
 
-    connection_str = f"{app.storage.user['MAPR_IP']}:5678?auth=basic;user={app.storage.user['MAPR_USER']};password={app.storage.user['MAPR_PASS']};" \
+    connection_str = f"{app.storage.user['MAPR_HOST']}:5678?auth=basic;user={app.storage.user['MAPR_USER']};password={app.storage.user['MAPR_PASS']};" \
             "ssl=true;" \
             "sslCA=/opt/mapr/conf/ssl_truststore.pem;" \
-            f"sslTargetNameOverride={socket.getfqdn(app.storage.user['MAPR_IP'])}"
+            f"sslTargetNameOverride={socket.getfqdn(app.storage.user['MAPR_HOST'])}"
 
     ojaiconnection = ConnectionFactory.get_connection(connection_str=connection_str)
     logger.info("Got new maprdb connection using OJAI")

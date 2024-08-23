@@ -145,6 +145,7 @@ def dt_from_iso(timestring):
     return dt + datetime.timedelta(hours=12) if isPM else dt
 
 
+# NOT USED
 def upload_client_files(e: events.UploadEventArguments):
     # possibly a security issue to use uploaded file names directly - don't care in demo/lab environment
     try:
@@ -180,6 +181,7 @@ def upload_client_files(e: events.UploadEventArguments):
         ui.notify(error, type="negative")
 
 
+# NOT USED
 def update_clusters():
     try:
         with open("/opt/mapr/conf/mapr-clusters.conf", "r") as conf:
@@ -192,8 +194,8 @@ def update_clusters():
                 app.storage.user["clusters"].update(cls)
             logger.info("Found clusters: %s", app.storage.user['clusters'])
             # select first cluster to avoid null value
-            app.storage.user['MAPR_IP'] = next(iter(app.storage.user["clusters"]))
-            logger.info("Set cluster: %s", app.storage.user['MAPR_IP'])
+            app.storage.user['MAPR_HOST'] = next(iter(app.storage.user["clusters"]))
+            logger.info("Set cluster: %s", app.storage.user['MAPR_HOST'])
     except Exception as error:
         logger.warning("Failed to update clusters: %s", error)
 
@@ -251,6 +253,25 @@ def get_cluster_name():
     # if clustername != "":
     #     return clustername
     # else: return "maprdemo.mapr.io"
+
+
+def get_cluster_ip(cluster):
+    """
+    Get the ip of a cluster from the settings.
+    """
+
+    if "clusterinfo" in app.storage.user.keys() and "ip" in app.storage.user["clusterinfo"].keys():
+        return app.storage.user["clusterinfo"]["ip"]
+    else:
+        return None
+
+
+def get_mysql_connection_string():
+    """
+     Get the mysql connection from the settings.
+    """
+
+    return f"mysql+pymysql://{app.storage.user['MYSQL_USER']}:{app.storage.user['MYSQL_PASS']}@{app.storage.user['MAPR_HOST']}/{DATA_PRODUCT}" or None
 
 
 async def create_volumes():
@@ -360,7 +381,7 @@ async def create_tables():
 
     # TODO: build MySQL DB tables
     # Create RDBMS tables
-    # mydb = f"mysql+pymysql://{app.storage.user['MYSQL_USER']}:{app.storage.user['MYSQL_PASS']}@{app.storage.user['MAPR_IP']}/{DATA_PRODUCT}"
+    # mydb = get_mysql_connection_string()
 
 
 async def create_streams():
@@ -401,8 +422,10 @@ async def create_streams():
 
 
 def show_mysql_tables():
-    mydb = f"mysql+pymysql://{app.storage.user['MYSQL_USER']}:{app.storage.user['MYSQL_PASS']}@{app.storage.user['MAPR_IP']}/{DATA_PRODUCT}"
+    mydb = get_mysql_connection_string()
+
     engine = create_engine(mydb)
+
     with engine.connect() as conn:
         tables = conn.execute(text("SHOW TABLES"))
         peek_tables = {}

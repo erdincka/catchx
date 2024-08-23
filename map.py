@@ -37,7 +37,7 @@ def meshmap():
         edge = 'L.icon({iconUrl: "/images/edge.png", iconSize: [24, 24]})'
         marker = m.marker(latlng=(get_city_latlng(app.storage.user['clusters'][cls])))
 
-        if cls == app.storage.user['MAPR_IP']:
+        if cls == app.storage.user['MAPR_HOST']:
             ui.timer(0.1, lambda mr=marker: mr.run_method(':setIcon', dc), once=True)
             m.set_center(marker.latlng)
         else:

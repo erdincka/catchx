@@ -260,7 +260,7 @@ async def peek_sqlrecords(tablenames: list):
     :param tablename str: table name to query
     """
 
-    mydb = f"mysql+pymysql://{app.storage.user['MYSQL_USER']}:{app.storage.user['MYSQL_PASS']}@{app.storage.user['MAPR_IP']}/{DATA_PRODUCT}"
+    mydb = get_mysql_connection_string()
 
     with ui.dialog().props("full-width") as dialog, ui.card().classes("grow relative"):
         ui.button(icon="close", on_click=dialog.close).props("flat round dense").classes("absolute right-2 top-2")
@@ -322,7 +322,7 @@ def data_aggregation():
     transactions_df.drop(["sender_account", "receiver_account"], axis=1, inplace=True)
 
     # Append customers and transactions in the gold tier rdbms
-    mydb = f"mysql+pymysql://{app.storage.user['MYSQL_USER']}:{app.storage.user['MYSQL_PASS']}@{app.storage.user['MAPR_IP']}/{DATA_PRODUCT}"
+    mydb = get_mysql_connection_string()
 
     # upsert by reading existing records and updating them
     try:
@@ -436,7 +436,7 @@ async def delete_volumes_and_streams():
         logger.warning(error)
 
     # remove tables from mysql
-    mydb = f"mysql+pymysql://{app.storage.user['MYSQL_USER']}:{app.storage.user['MYSQL_PASS']}@{app.storage.user['MAPR_IP']}/{DATA_PRODUCT}"
+    mydb = get_mysql_connection_string()
     try:
         engine = create_engine(mydb)
         with engine.connect() as conn:

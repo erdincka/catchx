@@ -478,7 +478,7 @@ def demo_configuration_dialog():
         #                 # ui.button("Reconfigure", on_click=lambda: run_command_with_dialog("bash ./reconfigure.sh"))
         #                 ui.button("maprlogin", on_click=lambda: run_command_with_dialog(f"echo {app.storage.user['MAPR_PASS']} | maprlogin password -user {app.storage.user['MAPR_USER']}"))
         #         with ui.row().classes("w-full place-items-center mt-4"):
-        #             ui.button(f"remount {MOUNT_PATH}", on_click=lambda: run_command_with_dialog(f"[ -d {MOUNT_PATH} ] && umount -l {MOUNT_PATH}; [ -d {MOUNT_PATH} ] || mkdir -p {MOUNT_PATH}; mount -t nfs -o nolock,soft {app.storage.user['MAPR_IP']}:/mapr {MOUNT_PATH}"))
+        #             ui.button(f"remount {MOUNT_PATH}", on_click=lambda: run_command_with_dialog(f"[ -d {MOUNT_PATH} ] && umount -l {MOUNT_PATH}; [ -d {MOUNT_PATH} ] || mkdir -p {MOUNT_PATH}; mount -t nfs -o nolock,soft {app.storage.user['MAPR_HOST']}:/mapr {MOUNT_PATH}"))
         #             ui.button("List Cluster /", on_click=lambda: run_command_with_dialog(f"ls -la {MOUNT_PATH}/{get_cluster_name()}")).props('outline')
 
         ui.separator()
