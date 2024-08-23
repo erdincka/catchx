@@ -302,41 +302,73 @@ def cluster_connect():
         with ui.grid(columns=3):
             for step in cluster_configuration_steps:
                 ui.label(step["name"])
-                ui.label(step["command"])
-                ui.icon("", size='sm', color="success" if step["status"] == "success" else None).bind_name_from(step, "status")
+                ui.label(step["info"])
+                ui.icon("", size='sm', color="success" if step["status"] == "check" else "error" if step["status"] == "error" else "info" if step["status"] == "run_circle" else None).bind_name_from(step, "status")
+
+    cluster_connect_dialog.open()
 
 
 async def run_configuration_steps():
     logger.info("Connecting to node %s...", app.storage.user['MAPR_HOST'])
 
-    try:
+    for step in cluster_configuration_steps:
         # Step 1 - Get cluster information
-        auth = (app.storage.user["MAPR_USER"], app.storage.user["MAPR_PASS"])
-        URL = f"https://{app.storage.user['MAPR_HOST']}:8443/rest/dashboard/info"
+        if step["name"] == "clusterinfo":
+            step["status"] = "run_circle"
 
-        async with httpx.AsyncClient(verify=False) as client:
-            response = await client.get(URL, auth=auth)
+            try:
+                auth = (app.storage.user["MAPR_USER"], app.storage.user["MAPR_PASS"])
+                URL = f"https://{app.storage.user['MAPR_HOST']}:8443/rest/dashboard/info"
 
-            if response is None or response.status_code != 200:
-                logger.warning("Response: %s", response.text)
+                async with httpx.AsyncClient(verify=False) as client:
+                    response = await client.get(URL, auth=auth)
 
-            else:
-                res = response.json()
-                logger.debug("Got dashboard data: %s", json.dumps(res))
-                # Set cluster information
-                app.storage.user["clusterinfo"] = res["data"][0]["cluster"]
+                    logger.debug(response.text)
 
-                # set environment
-                os.environ["CLUSTER_IP"] = res["data"][0]["cluster"]["ip"]
-                os.environ["CLUSTER_NAME"] = res["data"][0]["cluster"]["name"]
-                os.environ["MAPR_USER"] = app.storage.user["MAPR_USER"]
-                os.environ["MAPR_PASS"] = app.storage.user["MAPR_PASS"]
-                # await run_command_with_dialog("bash ./connect_and_configure.sh")
+                    if response is None or response.status_code != 200:
+                        logger.warning("Response: %s", response.text)
+                        step["status"] = "error"
 
-    except Exception as error:
-        logger.error("Failed to connect to cluster.")
-        logger.info(error)
+                    else:
+                        res = response.json()
+                        logger.debug("Got dashboard data: %s", json.dumps(res))
+                        # Set cluster information
+                        app.storage.user["clusterinfo"] = res["data"][0]["cluster"]
+                        step["status"] = "check"
 
+
+            except Exception as error:
+                logger.error("Failed to connect to cluster.")
+                logger.info(error)
+                step["status"] = "error"
+
+
+        elif step["name"] == "reconfigure":
+            step["status"] = "run_circle"
+
+            # Step 2 - Set environment variables
+            os.environ["CLUSTER_IP"] = res["data"][0]["cluster"]["ip"]
+            os.environ["CLUSTER_NAME"] = res["data"][0]["cluster"]["name"]
+            os.environ["MAPR_USER"] = app.storage.user["MAPR_USER"]
+            os.environ["MAPR_PASS"] = app.storage.user["MAPR_PASS"]
+            async for out in run_command("/bin/bash ./cluster_configure_and_attach.sh"):
+                logger.info(out)
+
+            step["status"] = "check"
+
+        elif step["name"] == "createvolumes":
+            step["status"] = "run_circle"
+            if await create_volumes() and await create_tables() and await create_streams():
+                step["status"] = "check"
+            else: step["status"] = "error"
+
+        elif step["name"] == "mockdata":
+            step["status"] = "run_circle"
+            if await create_customers() and await create_transactions():
+                step["status"] = "check"
+            else: step["status"] = "error"
+
+        else: logger.debug("%s not defined", step["name"])
 
 def demo_configuration_dialog():
     with ui.dialog().props("position=right full-height") as dialog, ui.card().classes("relative bordered"):

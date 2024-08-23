@@ -44,7 +44,8 @@ fi
 echo ${MAPR_PASS} | maprlogin password -user ${MAPR_USER}
 
 # Mount /mapr
-([ -d /mapr ] && umount -l /mapr) || mkdir -p /mapr
+([ -d /mapr ] && umount -l /mapr) || mkdir /mapr
+
 mount -t nfs4 -o nolock,soft ${CLUSTER_IP}:/mapr /mapr
 
 echo "Cluster configuration is complete"

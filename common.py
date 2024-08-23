@@ -110,19 +110,24 @@ DOCUMENTATION = {
 
 cluster_configuration_steps = [
     {
-        "name": "Get cluster details",
-        "command": "/bin/bash cluster_configure_and_attach.sh",
-        "status": "hourglass_bottom",
-    },
-    {
-        "name": "Create customer data",
-        "command": "python3 create-customer.py",
+        "name": "clusterinfo",
+        "info": "Get cluster details",
         "status": "pending",
     },
     {
-        "name": "Create transaction data",
-        "command": "python3 create-transaction.py",
-        "status": "highlight_off",
+        "name": "reconfigure",
+        "info": "Configure cluster",
+        "status": "pending",
+    },
+    {
+        "name": "createvolumes",
+        "info": "Create application volumes and streams",
+        "status": "pending",
+    },
+    {
+        "name": "mockdata",
+        "info": "Create dummy customer and transaction data",
+        "status": "pending",
     }
 ]
 
@@ -237,7 +242,7 @@ def get_cluster_name():
     """
 
     if "clusterinfo" in app.storage.user.keys() and "name" in app.storage.user["clusterinfo"].keys():
-        return app.storage.user["clusterinfo"]["cluster"]["name"]
+        return app.storage.user["clusterinfo"]["name"]
     else:
         return None
 
@@ -283,11 +288,14 @@ async def create_volumes():
                         ui.notify(f"{res['errors'][0]['desc']}", type='negative')
 
         except Exception as error:
-            logger.warning("Failed to connect %s! Please manually set /opt/mapr/conf/mapr-clusters.conf file with the hostname/ip address of the apiserver!", URL)
-            ui.notify(f"Failed to connect to REST. Please manually set /opt/mapr/conf/mapr-clusters.conf file with the hostname/ip address of the apiserver!", type='warning')
-            return
+            logger.warning("Failed to connect %s!", URL)
+            ui.notify(f"Failed to connect to REST.", type='warning')
+            logger.debug(error)
+            app.storage.user['busy'] = False
+            return False
 
     app.storage.user['busy'] = False
+    return True
 
 
 async def create_tables():
@@ -343,10 +351,11 @@ async def create_tables():
         except Exception as error:
             logger.warning("Failed to connect %s: %s", URL, error)
             ui.notify(f"Failed to connect to REST: {type(error)}", type='negative')
-            return
-
-        finally:
             app.storage.user['busy'] = False
+            return False
+
+    app.storage.user['busy'] = False
+    return True
 
     # TODO: build MySQL DB tables
     # Create RDBMS tables
@@ -383,10 +392,11 @@ async def create_streams():
         except Exception as error:
             logger.warning("Failed to connect %s: %s", URL, type(error))
             ui.notify(f"Failed to connect to REST: {error}", type='negative')
-            return
-
-        finally:
             app.storage.user['busy'] = False
+            return False
+
+    app.storage.user['busy'] = False
+    return True
 
 
 def show_mysql_tables():

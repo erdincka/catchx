@@ -78,7 +78,7 @@ async def create_transactions(count: int = 100):
     try:
         transactions = await get_new_transactions(count)
 
-        if len(transactions) == 0: return # silently discard if transaction creation is failed
+        if len(transactions) == 0: return False
 
         filepath = f"{MOUNT_PATH}/{get_cluster_name()}{BASEDIR}/{TABLE_TRANSACTIONS}.csv" if count < 101 else f"{MOUNT_PATH}/{get_cluster_name()}{BASEDIR}/{TABLE_TRANSACTIONS}-bulk.csv"
 
@@ -95,10 +95,11 @@ async def create_transactions(count: int = 100):
 
     except Exception as error:
         ui.notify(error, type='warning')
+        return False
 
     logger.info("%d transactions created", count)
     ui.notify(f"{count} transactions written to file {filepath}", type='positive')
-
+    return True
 
 async def create_customers(count: int = 200):
     try:
@@ -129,6 +130,7 @@ async def create_customers(count: int = 200):
 
     logger.info("%d customers created", count)
     ui.notify(f"{count} customers created", type='positive')
+    return True
 
 # NOT USED
 def create_csv_files():
