@@ -223,7 +223,7 @@ def iceberg_table_tail(tier: str, tablename: str):
         logger.debug(df)
 
         ui.label(f"Total records: {df.shape[0]}") # shape[0] giving total rows
-        ui.table.from_pandas(df.tail(), row_key="_id", title=f"{tier}.{tablename}").classes('w-full mt-6').props("dense")
+        ui.table.from_pandas(df.tail(100), row_key="_id", title=f"{tier}.{tablename}").classes('w-full mt-6').props("dense")
 
     dialog.on("close", lambda d=dialog: d.delete())
     dialog.open()

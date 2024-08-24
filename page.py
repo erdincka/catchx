@@ -9,7 +9,6 @@ import gui
 from ingestion import *
 from mock import *
 from monitoring import *
-import streams
 import tables
 from codeviewers import *
 
@@ -194,7 +193,7 @@ def demo_steps():
 
             ui.markdown(DOCUMENTATION["Source Data Generation"])
 
-            with ui.list().props('bordered separator'):
+            with ui.list().props('bordered separator').classes("w-full"):
                 ui.item_label('Data Sources').props('header').classes('text-bold')
                 ui.separator()
                 with ui.item():
@@ -207,9 +206,7 @@ def demo_steps():
                         with ui.row():
                             ui.button(icon='visibility', color="neutral", on_click=peek_mocked_customers).props('flat dense round').tooltip("Preview data")
                             ui.button(icon='person_add', color="info", on_click=code_create_customers).props('flat dense round').tooltip("View code for new customers")
-                            ui.button(icon='person_add', color="secondary", on_click=create_customers).props('flat dense round').tooltip("Create new customers")
-                            ui.button(icon='code', color="info", on_click=code_batch).props('flat dense round').tooltip("View code for batch ingestion")
-                            ui.button(icon='rocket_launch', color="positive", on_click=ingest_customers_iceberg).props('flat dense round').tooltip("Ingest customers to Iceberg table")
+                            ui.button(icon='person_add', color="secondary", on_click=create_customers).props('flat dense round').tooltip("Create new customers").bind_visibility_from(app.storage.user, "demo_mode")
                 with ui.item():
                     with ui.item_section().props('avatar'):
                         ui.icon('payments')
@@ -220,9 +217,9 @@ def demo_steps():
                         with ui.row():
                             ui.button(icon='visibility', color="neutral", on_click=peek_mocked_transactions).props('flat dense round').tooltip("Preview data")
                             ui.button(icon='add_card', color="info", on_click=code_create_transactions).props('flat dense round').tooltip("View code for new transactions")
-                            ui.button(icon='add_card', color="secondary", on_click=create_transactions).props('flat dense round').tooltip("Create new transactions")
+                            ui.button(icon='add_card', color="secondary", on_click=create_transactions).props('flat dense round').tooltip("Create new transactions").bind_visibility_from(app.storage.user, "demo_mode")
                             ui.button(icon='code', color="info", on_click=code_publish_transactions).props('flat dense round').tooltip("View code for transactions ingestion")
-                            ui.button(icon='rocket_launch', color="positive", on_click=publish_transactions).props('flat dense round').tooltip("Publish transactions")
+                            ui.button(icon='rocket_launch', color="positive", on_click=publish_transactions).props('flat dense round').tooltip("Publish transactions").bind_visibility_from(app.storage.user, "demo_mode")
 
             # with ui.row().classes("w-full place-items-center").bind_visibility_from(app.storage.user, "S3_SECRET_KEY"):
             #     ui.label("Create Input files: ").classes("w-40")
@@ -230,51 +227,77 @@ def demo_steps():
             #     ui.button("Show Bucket", color='notify', on_click=lambda: ui.navigate.to(f"http://{app.storage.user.get('S3_SERVER', 'localhost:9000')}", new_tab=True)).props('outline')
 
         with ui.expansion("Ingestion & ETL Processing (Bronze)", caption="Realtime processing on incoming data", group="flow"):
-            with ui.dialog().props("full-width") as batch_dialog, ui.card().classes("grow relative"):
-                ui.button(icon="close", on_click=batch_dialog.close).props("flat round dense").classes("absolute right-2 top-2")
-                ui.code(inspect.getsource(ingest_customers_iceberg)).classes("w-full mt-6")
-                ui.code(inspect.getsource(iceberger.write)).classes("w-full")
 
-            with ui.row().classes("w-full place-items-center"):
-                ui.label("Batch ingestion: ").classes("w-40")
-                ui.button("Customers", on_click=ingest_customers_iceberg).bind_enabled_from(app.storage.user, "busy", backward=lambda x: not x)
-                ui.button("History", on_click=lambda: iceberg_table_history(tier=VOLUME_BRONZE, tablename=TABLE_CUSTOMERS)).props("outline")
-                ui.button("Tail", on_click=lambda: iceberg_table_tail(tier=VOLUME_BRONZE, tablename=TABLE_CUSTOMERS)).props("outline")
-                ui.button("Code", on_click=batch_dialog.open, color="info").props("outline")
+            ui.markdown(DOCUMENTATION["Data Ingestion and ETL"])
 
-            with ui.dialog().props("full-width") as stream_dialog, ui.card().classes("grow relative"):
-                ui.button(icon="close", on_click=stream_dialog.close).props("flat round dense").classes("absolute right-2 top-2")
-                ui.code(inspect.getsource(ingest_transactions)).classes("w-full mt-6")
-                ui.code(inspect.getsource(streams.consume)).classes("w-full")
-                ui.code(inspect.getsource(upsert_profile)).classes("w-full")
-                ui.code(inspect.getsource(tables.upsert_document)).classes("w-full")
+            with ui.list().props('bordered separator').classes("w-full"):
+                ui.item_label('ETL Processing').props('header').classes('text-bold')
+                ui.separator()
+                with ui.item():
+                    with ui.item_section().props('avatar'):
+                        ui.icon('content_copy')
+                    with ui.item_section().classes("flex-grow"):
+                        ui.item_label('Batch')
+                        ui.item_label(f"into {MOUNT_PATH}/{get_cluster_name()}{BASEDIR}/{VOLUME_BRONZE}/{TABLE_CUSTOMERS}").props('caption')
+                    with ui.item_section().props('side'):
+                        with ui.row():
+                            ui.button(icon='visibility', color="neutral", on_click=lambda: iceberg_table_tail(tier=VOLUME_BRONZE, tablename=TABLE_CUSTOMERS)).props('flat dense round').tooltip("Sample data in Iceberg table")
+                            ui.button(icon='history', color="neutral", on_click=lambda: iceberg_table_history(tier=VOLUME_BRONZE, tablename=TABLE_CUSTOMERS)).props('flat dense round').tooltip("Iceberg table history")
+                            ui.button(icon='code', color="info", on_click=code_batch).props('flat dense round').tooltip("View code for ingesting data into Iceberg table")
+                            ui.button(icon='rocket_launch', color="positive", on_click=ingest_customers_iceberg).props('flat dense round').tooltip("Ingest customers to Iceberg table").bind_visibility_from(app.storage.user, "demo_mode")
+                with ui.item():
+                    with ui.item_section().props('avatar'):
+                        ui.icon('sms')
+                    with ui.item_section().classes("flex-grow"):
+                        ui.item_label('Streaming')
+                        ui.item_label(f"into {MOUNT_PATH}/{get_cluster_name()}{BASEDIR}/{VOLUME_BRONZE}/{TABLE_TRANSACTIONS}").props('caption')
+                    with ui.item_section().props('side'):
+                        with ui.row():
+                            ui.button(icon='visibility', color="neutral", on_click=lambda: peek_documents(tablepath=f"{BASEDIR}/{VOLUME_BRONZE}/{TABLE_TRANSACTIONS}")).props('flat dense round').tooltip("Look at the data in transactions table")
+                            ui.button(icon='stream', color="info", on_click=code_nifi_stream).props('flat dense round').tooltip("View code for Nifi")
+                            ui.button(icon='stream', color="secondary", on_click=lambda: ui.navigate.to(f"https://{app.storage.user.get('MAPR_HOST', 'localhost')}:12443/nifi/", new_tab=True)).props('flat dense round').tooltip("Open NiFi").bind_visibility_from(app.storage.user, "demo_mode")
+                            ui.button(icon='code', color="info", on_click=code_stream).props('flat dense round').tooltip("View code for transactions ingestion")
+                            ui.button(icon='rocket_launch', color="positive", on_click=ingest_transactions).props('flat dense round').tooltip("Publish transactions").bind_visibility_from(app.storage.user, "demo_mode")
 
-            with ui.row().classes("w-full place-items-center"):
-                ui.label("Stream ingestion: ").classes("w-40")
-                ui.button("Transactions", on_click=ingest_transactions).bind_enabled_from(app.storage.user, "busy", backward=lambda x: not x)
-                ui.button("Peek", on_click=lambda: peek_documents(tablepath=f"{BASEDIR}/{VOLUME_BRONZE}/{TABLE_TRANSACTIONS}")).props("outline")
-                ui.button("Using Airflow", color='notify', on_click=code_airflow_batch).props("outline").bind_enabled_from(app.storage.user, "busy", backward=lambda x: not x)
-                ui.button("Code", on_click=stream_dialog.open, color="info").props("outline")
+        with ui.expansion("Enrich & Clean Up (Silver)", caption="Integrate with data catalogue and clean/enrich data into silver tier", group="flow"):
+            ui.markdown(DOCUMENTATION["Data Enrichment"])
 
-        with ui.expansion("Enrich & Clean (Silver)", caption="Integrate with data catalogue and clean/enrich data into silver tier", group="flow"):
-            with ui.dialog().props("full-width") as enrich_dialog, ui.card().classes("grow relative"):
-                ui.button(icon="close", on_click=enrich_dialog.close).props("flat round dense").classes("absolute right-2 top-2")
-                ui.code(inspect.getsource(refine_customers)).classes("w-full mt-6")
-                ui.code(inspect.getsource(refine_transactions)).classes("w-full")
+            # with ui.dialog().props("full-width") as enrich_dialog, ui.card().classes("grow relative"):
+            #     ui.button(icon="close", on_click=enrich_dialog.close).props("flat round dense").classes("absolute right-2 top-2")
+            #     ui.code(inspect.getsource(refine_customers)).classes("w-full mt-6")
+            #     ui.code(inspect.getsource(refine_transactions)).classes("w-full")
 
-            with ui.row().classes("w-full place-items-center"):
-                ui.label("Data enrichment: ").classes("w-40")
-                ui.button("Customers", on_click=refine_customers).bind_enabled_from(app.storage.user, "busy", backward=lambda x: not x)
-                ui.button("Transactions", on_click=refine_transactions).bind_enabled_from(app.storage.user, "busy", backward=lambda x: not x)
-                ui.button("Code", on_click=enrich_dialog.open, color="info").props("outline")
+            with ui.list().props('bordered separator').classes("w-full"):
+                ui.item_label('Data Cleansing').props('header').classes('text-bold')
+                ui.separator()
+                with ui.item():
+                    with ui.item_section().props('avatar'):
+                        ui.icon('auto_awesome')
+                    with ui.item_section().classes("flex-grow"):
+                        ui.item_label('Refine customers')
+                        ui.item_label(f"Add country_name and iso3166_2 county code, hide birthday and current_location").props('caption')
+                    with ui.item_section().props('side'):
+                        with ui.row():
+                            ui.button(icon='visibility', color="neutral", on_click=lambda: peek_documents(tablepath=f"{BASEDIR}/{VOLUME_SILVER}/{TABLE_PROFILES}")).props('flat dense round').tooltip("Sample refined profile data")
+                            ui.button(icon='visibility', color="neutral", on_click=lambda: peek_documents(tablepath=f"{BASEDIR}/{VOLUME_SILVER}/{TABLE_CUSTOMERS}")).props('flat dense round').tooltip("Sample refined customer data")
+                            ui.button(icon='code', color="info", on_click=code_enrich_customers).props('flat dense round').tooltip("View code for ingesting data into Iceberg table")
+                            ui.button(icon='rocket_launch', color="positive", on_click=refine_customers).props('flat dense round').tooltip("Ingest customers to Iceberg table").bind_visibility_from(app.storage.user, "demo_mode")
 
-            with ui.row().classes("w-full place-items-center"):
-                ui.label("Peek: ").classes("w-40")
-                ui.button("Profiles", on_click=lambda: peek_documents(tablepath=f"{BASEDIR}/{VOLUME_SILVER}/{TABLE_PROFILES}")).props("outline")
-                ui.button("Customers", on_click=lambda: peek_documents(tablepath=f"{BASEDIR}/{VOLUME_SILVER}/{TABLE_CUSTOMERS}")).props("outline")
-                ui.button("Transactions", on_click=lambda: peek_documents(f"{BASEDIR}/{VOLUME_SILVER}/{TABLE_TRANSACTIONS}")).props("outline")
+                with ui.item():
+                    with ui.item_section().props('avatar'):
+                        ui.icon('auto_awesome')
+                    with ui.item_section().classes("flex-grow"):
+                        ui.item_label('Refine transactions')
+                        ui.item_label(f"Add category to transactions table").props('caption')
+                    with ui.item_section().props('side'):
+                        with ui.row():
+                            ui.button(icon='visibility', color="neutral", on_click=lambda: peek_documents(tablepath=f"{BASEDIR}/{VOLUME_SILVER}/{TABLE_TRANSACTIONS}")).props('flat dense round').tooltip("Sample refined transaction data")
+                            ui.button(icon='code', color="info", on_click=code_enrich_transactions).props('flat dense round').tooltip("View code for ingesting data into Iceberg table")
+                            ui.button(icon='rocket_launch', color="positive", on_click=refine_transactions).props('flat dense round').tooltip("Ingest customers to Iceberg table").bind_visibility_from(app.storage.user, "demo_mode")
 
         with ui.expansion("Consolidate (Gold)", caption="Create data lake for gold tier", group="flow"):
+            ui.markdown(DOCUMENTATION["Data Enrichment"])
+
             with ui.dialog().props("full-width") as aggregate_dialog, ui.card().classes("grow relative"):
                 ui.button(icon="close", on_click=aggregate_dialog.close).props("flat round dense").classes("absolute right-2 top-2")
                 ui.code(inspect.getsource(data_aggregation)).classes("w-full mt-6")
@@ -305,7 +328,7 @@ def cluster_connect():
             ui.input("Username").classes("flex-grow").bind_value(app.storage.user, "MAPR_USER")
             ui.input("Password", password=True, password_toggle_button=True).classes("flex-grow").bind_value(app.storage.user, "MAPR_PASS")
             # ui.space()
-            ui.button(icon="directions_run", on_click=run_configuration_steps)
+            ui.button(icon="rocket_launch", on_click=run_configuration_steps)
 
         ui.separator()
 

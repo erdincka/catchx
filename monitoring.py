@@ -169,7 +169,7 @@ async def incoming_topic_stats():
     stream_path = f"{BASEDIR}/{STREAM_INCOMING}"
     topic = TOPIC_TRANSACTIONS
 
-    if app.storage.user.get("cluster", None) is None:
+    if app.storage.user.get("MAPR_HOST", None) is None:
         logger.warning("Cluster not configured, skipping.")
         return
 
@@ -239,7 +239,7 @@ async def txn_consumer_stats():
     stream_path = f"{BASEDIR}/{STREAM_INCOMING}"
     topic = TOPIC_TRANSACTIONS
 
-    if app.storage.user.get("cluster", None) is None:
+    if app.storage.user.get("MAPR_HOST", None) is None:
         logger.warning("Cluster not configured, skipping.")
         return
 
@@ -296,14 +296,14 @@ async def txn_consumer_stats():
 
 
 async def bronze_stats():
-    if app.storage.user.get("cluster", None) is None:
+    if app.storage.user.get("MAPR_HOST", None) is None:
         logger.warning("Cluster not configured, skipping.")
         return
 
     series = []
 
     ttable = f"{BASEDIR}/{VOLUME_BRONZE}/{TABLE_TRANSACTIONS}"
-    binarytable = f"{BASEDIR}/{VOLUME_BRONZE}/b{TABLE_TRANSACTIONS}"
+    binarytable = f"{BASEDIR}/{VOLUME_BRONZE}/{TABLE_TRANSACTIONS}-binary"
     ctable = f"{BASEDIR}/{VOLUME_BRONZE}/{TABLE_CUSTOMERS}"
 
     try:
@@ -357,7 +357,7 @@ async def bronze_stats():
 
 
 async def silver_stats():
-    if app.storage.user.get("cluster", None) is None:
+    if app.storage.user.get("MAPR_HOST", None) is None:
         logger.warning("Cluster not configured, skipping.")
         return
 
@@ -406,7 +406,7 @@ async def silver_stats():
 
 
 async def gold_stats():
-    if app.storage.user.get("cluster", None) is None:
+    if app.storage.user.get("MAPR_HOST", None) is None:
         logger.warning("Cluster not configured, skipping.")
         return
 

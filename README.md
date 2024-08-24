@@ -22,7 +22,7 @@ Just follow the instructions from [Ezmeral documentation](https://docs.ezmeral.h
 
 ## Fraud Detection pipeline demo with Ezmeral Data Fabric
 
-This is not an accurate representation of a real fraud detection process, but rather an end-to-end demonstration of how a pipeline can be built using some of Ezmeral Data Fabric capabilities for a real-life scenario. We aim to highlight the flexibility and openness of Ezmeral Data Fabric as a converged data platform for various data types and choices of open-source ecosystem tools/frameworks. 
+This is not an accurate representation of a real fraud detection process, but rather an end-to-end demonstration of how a pipeline can be built using some of Ezmeral Data Fabric capabilities for a real-life scenario. We aim to highlight the flexibility and openness of Ezmeral Data Fabric as a converged data platform for various data types and choices of open-source ecosystem tools/frameworks.
 
 The tools and frameworks used in the demo is selected with simplicity of their implementation in mind, but they are not meant to limit user's choice when it comes to real life implementation. Users are free to choose included or third-party tools, as Data Fabric supports various industry-standard protocols to read, process and store data.
 
@@ -45,6 +45,17 @@ You can also delete the stream, and then re-start from Step 2, so you can have c
 
 Setup Data Fabric cluster following the instructions below, and optionally create a user with volume, table and stream creation rights. For isolated/standalone demo environments, you can simply use the cluster admin `mapr` user.
 
+Data Fabric should have following packages installed and configured:
+
+Shared MariaDB (for Hive metastore and the demo database `fraud`).
+
+```bash
+mapr-hivemetastore
+mapr-kafka
+mapr-nfs4server
+mapr-data-access-gateway
+mapr-hbase
+```
 
 ## Install MariaDB (if not already installed)
 
@@ -223,11 +234,10 @@ If the data/tables have gone too large or you would like to start from clear sta
 
 # Demo Flow
 
-Read and follow the steps. Process should be followed from top to bottom, and left to right. 
+Read and follow the steps. Process should be followed from top to bottom, and left to right.
 
-- Filled buttons are required actions. 
+- Filled buttons are required actions.
 
 - Outlined buttons are optional actions.
 
 - Light outlined buttons are informational.
-

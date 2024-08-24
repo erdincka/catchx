@@ -95,8 +95,8 @@ def code_nifi_stream():
             dir_app_logs_failed = f"{MOUNT_PATH}/{DATA_PRODUCT}{BASEDIR}/logs/failed",
             hive3_external_table_location_gold = f"{BASEDIR}/{VOLUME_GOLD}",
             put_db_record_table_name = TABLE_TRANSACTIONS,
-            hbase_table_name_silver = f"{BASEDIR}/{VOLUME_SILVER}/b{TABLE_TRANSACTIONS}",
-            hbase_table_name_bronze = f"{BASEDIR}/{VOLUME_BRONZE}/b{TABLE_TRANSACTIONS}",
+            hbase_table_name_silver = f"{BASEDIR}/{VOLUME_SILVER}/{TABLE_TRANSACTIONS}-binary",
+            hbase_table_name_bronze = f"{BASEDIR}/{VOLUME_BRONZE}/{TABLE_TRANSACTIONS}-binary",
             incoming_topic = f"{BASEDIR}/{STREAM_INCOMING}:{TOPIC_TRANSACTIONS}",
             sasl_username = app.storage.user.get("MAPR_USER", ""),
             sasl_password = app.storage.user.get("MAPR_PASS", ""),
@@ -118,6 +118,8 @@ def code_stream():
         ui.code(inspect.getsource(ingest_transactions)).classes("w-full mt-6")
         ui.code(inspect.getsource(streams.consume)).classes("w-full")
         ui.code(inspect.getsource(tables.upsert_document)).classes("w-full")
+        ui.code(inspect.getsource(upsert_profile)).classes("w-full")
+
     stream_codeview.on("close", lambda d=stream_codeview: d.delete())
     return stream_codeview
 

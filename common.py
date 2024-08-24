@@ -105,6 +105,40 @@ DOCUMENTATION = {
         Transactions data is used for streaming ingestion.
 
         You can view the source data generation code, sample it, and submit it to the pipeline. You can also generate a new set of customers or transactions for testing.
+    """,
+
+    "Data Ingestion and ETL": """
+        The first step in our madallion architecture is to ingest the data from the sources. We will be using two different methods to ingest the data.
+
+        - Batch ingestion: This method is used when we have a large amount of data that needs to be processed.
+
+        - Streaming ingestion: This method is used when we have a small amount of data that needs to be processed in real time.
+
+        We will be using both methods to ingest the data. Customers are ingested as batch data and transactions are ingested as streaming data.
+    """,
+
+    "Data Enrichment": """
+        The next step in our madallion architecture is to enrich the data with additional information that is not available in the source.
+
+        We simulate the enrichment process by adding and hiding information about customers and transactions.
+
+            - Add country name from country_code to the customer data.
+
+            - Find and add iso3166_2 code for customers.
+
+            - Hide birthday and current_location of customers.
+
+            - Add category name to the transaction data.
+
+    """,
+
+    "Data Consolidation": """
+        The final step in our madallion architecture is to consolidate the data from multiple sources into a single source.
+
+        With this, we will be able to create a "product" that we can share with the rest of the organisation.
+
+        Data consolidation is done by taking customer and transaction data and clean them from individual information and then providing a consolidated summary view for all the transactions and customer base.
+
     """
 }
 
@@ -328,7 +362,7 @@ async def create_tables():
         try:
             # Create table
             async with httpx.AsyncClient(verify=False) as client:
-                URL = f"https://{app.storage.user['MAPR_HOST']}:8443/rest/table/create?path={BASEDIR}/{tier}/b{TABLE_TRANSACTIONS}&tabletype=binary&defaultreadperm=p&defaultwriteperm=p&defaultappendperm=p&defaultunmaskedreadperm=p"
+                URL = f"https://{app.storage.user['MAPR_HOST']}:8443/rest/table/create?path={BASEDIR}/{tier}/{TABLE_TRANSACTIONS}-binary&tabletype=binary&defaultreadperm=p&defaultwriteperm=p&defaultappendperm=p&defaultunmaskedreadperm=p"
                 response = await client.post(
                     url=URL,
                     auth=auth
@@ -344,13 +378,13 @@ async def create_tables():
                 else:
                     res = response.json()
                     if res['status'] == "OK":
-                        ui.notify(f"Table \"b{TABLE_TRANSACTIONS}\" created in {tier}", type='positive')
+                        ui.notify(f"Table \"{TABLE_TRANSACTIONS}-binary\" created in {tier}", type='positive')
                     elif res['status'] == "ERROR":
                         ui.notify(f"Table: \"{TABLE_TRANSACTIONS}\" in {tier}: {res['errors'][0]['desc']}", type='negative')
 
             # Create Column Family
             async with httpx.AsyncClient(verify=False) as client:
-                URL = f"https://{app.storage.user['MAPR_HOST']}:8443/rest/table/cf/create?path={BASEDIR}/{tier}/b{TABLE_TRANSACTIONS}&cfname=cf1"
+                URL = f"https://{app.storage.user['MAPR_HOST']}:8443/rest/table/cf/create?path={BASEDIR}/{tier}/{TABLE_TRANSACTIONS}-binary&cfname=cf1"
                 response = await client.post(
                     url=URL,
                     auth=auth
