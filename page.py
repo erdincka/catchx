@@ -275,7 +275,7 @@ def demo_steps():
                         ui.icon('auto_awesome')
                     with ui.item_section().classes("flex-grow"):
                         ui.item_label('Refine customers')
-                        ui.item_label(f"Add country_name and iso3166_2 county code, hide birthday and current_location").props('caption')
+                        ui.item_label("Add country_name and iso3166_2 county code, hide birthday and current_location").props('caption')
                     with ui.item_section().props('side'):
                         with ui.row():
                             ui.button(icon='visibility', color="neutral", on_click=lambda: peek_documents(tablepath=f"{BASEDIR}/{VOLUME_SILVER}/{TABLE_PROFILES}")).props('flat dense round').tooltip("Sample refined profile data")
@@ -296,17 +296,33 @@ def demo_steps():
                             ui.button(icon='rocket_launch', color="positive", on_click=refine_transactions).props('flat dense round').tooltip("Ingest customers to Iceberg table").bind_visibility_from(app.storage.user, "demo_mode")
 
         with ui.expansion("Consolidate (Gold)", caption="Create data lake for gold tier", group="flow"):
-            ui.markdown(DOCUMENTATION["Data Enrichment"])
+            ui.markdown(DOCUMENTATION["Data Consolidation"])
 
-            with ui.dialog().props("full-width") as aggregate_dialog, ui.card().classes("grow relative"):
-                ui.button(icon="close", on_click=aggregate_dialog.close).props("flat round dense").classes("absolute right-2 top-2")
-                ui.code(inspect.getsource(data_aggregation)).classes("w-full mt-6")
-                ui.code(inspect.getsource(tables.get_documents)).classes("w-full mt-6")
+            with ui.list().props('bordered separator').classes("w-full"):
+                ui.item_label('Summerize').props('header').classes('text-bold')
+                ui.separator()
+                with ui.item():
+                    with ui.item_section().props('avatar'):
+                        ui.icon('compare_arrows')
+                    with ui.item_section().classes("flex-grow"):
+                        ui.item_label('Consolidate')
+                        ui.item_label("Create the golden tier").props('caption')
+                    with ui.item_section().props('side'):
+                        with ui.row():
+                            ui.button(icon='visibility', color="neutral", on_click=lambda: peek_documents(tablepath=f"{BASEDIR}/{VOLUME_SILVER}/{TABLE_PROFILES}")).props('flat dense round').tooltip("Sample refined profile data")
+                            ui.button(icon='visibility', color="neutral", on_click=lambda: peek_documents(tablepath=f"{BASEDIR}/{VOLUME_SILVER}/{TABLE_CUSTOMERS}")).props('flat dense round').tooltip("Sample refined customer data")
+                            ui.button(icon='code', color="info", on_click=code_enrich_customers).props('flat dense round').tooltip("View code for ingesting data into Iceberg table")
+                            ui.button(icon='rocket_launch', color="positive", on_click=refine_customers).props('flat dense round').tooltip("Ingest customers to Iceberg table").bind_visibility_from(app.storage.user, "demo_mode")
+
+            # with ui.dialog().props("full-width") as aggregate_dialog, ui.card().classes("grow relative"):
+            #     ui.button(icon="close", on_click=aggregate_dialog.close).props("flat round dense").classes("absolute right-2 top-2")
+            #     ui.code(inspect.getsource(data_aggregation)).classes("w-full mt-6")
+            #     ui.code(inspect.getsource(tables.get_documents)).classes("w-full mt-6")
 
             with ui.row().classes("w-full place-items-center"):
                 ui.label("Data aggregation: ").classes("w-40")
                 ui.button("Aggregate to Gold Tier", on_click=create_golden).bind_enabled_from(app.storage.user, "busy", backward=lambda x: not x).bind_visibility_from(app.storage.user, 'MYSQL_PASS', backward=lambda x: x is not None and len(x) > 0)
-                ui.button("Code", on_click=aggregate_dialog.open, color="info").props("outline")
+                # ui.button("Code", on_click=aggregate_dialog.open, color="info").props("outline")
 
         with ui.expansion("Check transactions for Fraud", caption="Process every transaction and check for fraud", group="flow"):
             with ui.dialog().props("full-width") as fraud_detection_dialog, ui.card().classes("grow relative"):
