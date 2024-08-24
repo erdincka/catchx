@@ -118,9 +118,9 @@ async def create_customers(count: int = 200):
         for _ in range(count):
             customers.append(fake_customer())
 
-        with open(csvfile, "w", newline='') as csvfile:
+        with open(csvfile, "w", newline='') as file:
             fieldnames = fake_customer().keys()
-            writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+            writer = csv.DictWriter(file, fieldnames=fieldnames)
             writer.writeheader()
             writer.writerows(customers)
             app.storage.user["raw_customers"] = len(customers)
