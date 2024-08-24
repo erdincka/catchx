@@ -229,7 +229,7 @@ def iceberg_table_tail(tier: str, tablename: str):
     dialog.open()
 
 
-def peek_documents(tablepath: str):
+async def peek_documents(tablepath: str):
     """
     Get `FETCH_RECORD_NUM` documents from DocumentDB table
 
@@ -241,16 +241,34 @@ def peek_documents(tablepath: str):
         ui.notify(f"Table not found: {tablepath}", type="warning")
         return
 
+    docs = await tables.get_documents(table_path=tablepath, limit=FETCH_RECORD_NUM)
+    # logger.debug(docs)
+
     with ui.dialog().props("full-width") as dialog, ui.card().classes("grow relative"):
         ui.button(icon="close", on_click=dialog.close).props("flat round dense").classes("absolute right-2 top-2")
 
-        docs = tables.get_documents(table_path=tablepath, limit=FETCH_RECORD_NUM)
         with ui.row():
             ui.label(f"Fetched records: {len(docs)}")
-        ui.table.from_pandas(pd.DataFrame.from_dict(docs)).classes('w-full mt-6').props("dense")
+        ui.table.from_pandas(pd.DataFrame([doc for doc in docs])).classes('w-full mt-6').props("dense")
 
     dialog.on("close", lambda d=dialog: d.delete())
     dialog.open()
+
+
+async def peek_silver_profiles():
+    await peek_documents(tablepath=f"{BASEDIR}/{VOLUME_SILVER}/{TABLE_PROFILES}")
+
+
+async def peek_silver_customers():
+    await peek_documents(tablepath=f"{BASEDIR}/{VOLUME_SILVER}/{TABLE_CUSTOMERS}")
+
+
+async def peek_bronze_transactions():
+    await peek_documents(tablepath=f"{BASEDIR}/{VOLUME_BRONZE}/{TABLE_TRANSACTIONS}")
+
+
+async def peek_silver_transactions():
+    await peek_documents(tablepath=f"{BASEDIR}/{VOLUME_SILVER}/{TABLE_TRANSACTIONS}")
 
 
 async def peek_sqlrecords(tablenames: list):

@@ -285,7 +285,7 @@ async def handle_image_action(e: events.MouseEventArguments):
         code_enrich_transactions().open()
 
     elif element == "BronzeTransactions":
-        peek_documents(f"{BASEDIR}/{VOLUME_BRONZE}/{TABLE_TRANSACTIONS}")
+        await peek_bronze_transactions()
 
     elif element == "RefineCustomers":
         await refine_customers()
@@ -297,13 +297,13 @@ async def handle_image_action(e: events.MouseEventArguments):
         iceberg_table_tail(tier=VOLUME_BRONZE, tablename=TABLE_CUSTOMERS)
 
     elif element == "SilverCustomers":
-        peek_documents(tablepath=f"{BASEDIR}/{VOLUME_SILVER}/{TABLE_CUSTOMERS}")
+        await peek_silver_customers()
 
     elif element == "SilverTransactions":
-        peek_documents(tablepath=f"{BASEDIR}/{VOLUME_SILVER}/{TABLE_TRANSACTIONS}")
+        await peek_silver_transactions()
 
     elif element == "SilverProfiles":
-        peek_documents(tablepath=f"{BASEDIR}/{VOLUME_SILVER}/{TABLE_PROFILES}")
+        await peek_silver_profiles()
 
     elif element == "Consolidate":
         await create_golden()

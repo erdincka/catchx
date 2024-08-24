@@ -31,7 +31,7 @@ def header(title: str):
 
         with ui.row().classes("place-items-center"):
             ui.link(
-                target=f"https://{app.storage.user['MAPR_USER']}:{app.storage.user['MAPR_PASS']}@{app.storage.user['MAPR_HOST']}:8443/app/mcs/",
+                target=f"https://{app.storage.user.get('MAPR_USER', '')}:{app.storage.user.get('MAPR_PASS', '')}@{app.storage.user.get('MAPR_HOST', '')}:8443/app/mcs/",
                 new_tab=True
             ).classes(
                 "text-white hover:text-blue-600"
@@ -253,7 +253,7 @@ def demo_steps():
                         ui.item_label(f"into {MOUNT_PATH}/{get_cluster_name()}{BASEDIR}/{VOLUME_BRONZE}/{TABLE_TRANSACTIONS}").props('caption')
                     with ui.item_section().props('side'):
                         with ui.row():
-                            ui.button(icon='visibility', color="neutral", on_click=lambda: peek_documents(tablepath=f"{BASEDIR}/{VOLUME_BRONZE}/{TABLE_TRANSACTIONS}")).props('flat dense round').tooltip("Look at the data in transactions table")
+                            ui.button(icon='visibility', color="neutral", on_click=peek_bronze_transactions).props('flat dense round').tooltip("Look at the data in transactions table")
                             ui.button(icon='stream', color="info", on_click=code_nifi_stream).props('flat dense round').tooltip("View code for Nifi")
                             ui.button(icon='stream', color="secondary", on_click=lambda: ui.navigate.to(f"https://{app.storage.user.get('MAPR_HOST', 'localhost')}:12443/nifi/", new_tab=True)).props('flat dense round').tooltip("Open NiFi").bind_visibility_from(app.storage.user, "demo_mode")
                             ui.button(icon='code', color="info", on_click=code_stream).props('flat dense round').tooltip("View code for transactions ingestion")
@@ -278,8 +278,8 @@ def demo_steps():
                         ui.item_label("Add country_name and iso3166_2 county code, hide birthday and current_location").props('caption')
                     with ui.item_section().props('side'):
                         with ui.row():
-                            ui.button(icon='visibility', color="neutral", on_click=lambda: peek_documents(tablepath=f"{BASEDIR}/{VOLUME_SILVER}/{TABLE_PROFILES}")).props('flat dense round').tooltip("Sample refined profile data")
-                            ui.button(icon='visibility', color="neutral", on_click=lambda: peek_documents(tablepath=f"{BASEDIR}/{VOLUME_SILVER}/{TABLE_CUSTOMERS}")).props('flat dense round').tooltip("Sample refined customer data")
+                            ui.button(icon='visibility', color="neutral", on_click=peek_silver_profiles).props('flat dense round').tooltip("Sample refined profile data")
+                            ui.button(icon='visibility', color="neutral", on_click=peek_silver_customers).props('flat dense round').tooltip("Sample refined customer data")
                             ui.button(icon='code', color="info", on_click=code_enrich_customers).props('flat dense round').tooltip("View code for ingesting data into Iceberg table")
                             ui.button(icon='rocket_launch', color="positive", on_click=refine_customers).props('flat dense round').tooltip("Ingest customers to Iceberg table").bind_visibility_from(app.storage.user, "demo_mode")
 
@@ -291,7 +291,7 @@ def demo_steps():
                         ui.item_label(f"Add category to transactions table").props('caption')
                     with ui.item_section().props('side'):
                         with ui.row():
-                            ui.button(icon='visibility', color="neutral", on_click=lambda: peek_documents(tablepath=f"{BASEDIR}/{VOLUME_SILVER}/{TABLE_TRANSACTIONS}")).props('flat dense round').tooltip("Sample refined transaction data")
+                            ui.button(icon='visibility', color="neutral", on_click=peek_silver_transactions).props('flat dense round').tooltip("Sample refined transaction data")
                             ui.button(icon='code', color="info", on_click=code_enrich_transactions).props('flat dense round').tooltip("View code for ingesting data into Iceberg table")
                             ui.button(icon='rocket_launch', color="positive", on_click=refine_transactions).props('flat dense round').tooltip("Ingest customers to Iceberg table").bind_visibility_from(app.storage.user, "demo_mode")
 
@@ -309,8 +309,8 @@ def demo_steps():
                         ui.item_label("Create the golden tier").props('caption')
                     with ui.item_section().props('side'):
                         with ui.row():
-                            ui.button(icon='visibility', color="neutral", on_click=lambda: peek_documents(tablepath=f"{BASEDIR}/{VOLUME_SILVER}/{TABLE_PROFILES}")).props('flat dense round').tooltip("Sample refined profile data")
-                            ui.button(icon='visibility', color="neutral", on_click=lambda: peek_documents(tablepath=f"{BASEDIR}/{VOLUME_SILVER}/{TABLE_CUSTOMERS}")).props('flat dense round').tooltip("Sample refined customer data")
+                            ui.button(icon='visibility', color="neutral", on_click=peek_silver_profiles).props('flat dense round').tooltip("Sample refined profile data")
+                            ui.button(icon='visibility', color="neutral", on_click=peek_silver_customers).props('flat dense round').tooltip("Sample refined customer data")
                             ui.button(icon='code', color="info", on_click=code_enrich_customers).props('flat dense round').tooltip("View code for ingesting data into Iceberg table")
                             ui.button(icon='rocket_launch', color="positive", on_click=refine_customers).props('flat dense round').tooltip("Ingest customers to Iceberg table").bind_visibility_from(app.storage.user, "demo_mode")
 

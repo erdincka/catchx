@@ -101,6 +101,7 @@ async def create_transactions(count: int = 100):
     ui.notify(f"{count} transactions written to file {filepath}", type='positive')
     return True
 
+
 async def create_customers(count: int = 200):
     try:
         # customers
@@ -129,7 +130,7 @@ async def create_customers(count: int = 200):
         return False
 
     logger.info("%d customers created", count)
-    ui.notify(f"{count} customers created", type='positive')
+    ui.notify(f"{count} customers written to {csvfile}", type='positive')
     return True
 
 # NOT USED

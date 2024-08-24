@@ -310,7 +310,7 @@ async def bronze_stats():
         tick = timeit.default_timer()
 
         if os.path.lexists(f"{MOUNT_PATH}/{get_cluster_name()}{ttable}"):
-            num_transactions = len(tables.get_documents(ttable, limit=None))
+            num_transactions = len(await tables.get_documents(ttable, limit=None))
             series.append({ "transactions": num_transactions })
             app.storage.user["brnx_txns"] = num_transactions
         else:
@@ -374,7 +374,7 @@ async def silver_stats():
 
         if os.path.lexists(f"{MOUNT_PATH}/{get_cluster_name()}{ptable}"):
             # logger.info("Found table %s", ptable)
-            num_profiles = len(tables.get_documents(ptable, limit=None))
+            num_profiles = len(await tables.get_documents(ptable, limit=None))
             # logger.debug("Got metrics for silver profiles %d", num_profiles)
             series.append({ "profiles": num_profiles })
             app.storage.user["slvr_profiles"] = num_profiles

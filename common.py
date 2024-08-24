@@ -333,7 +333,7 @@ async def create_volumes():
                 response = await client.post(URL, auth=auth)
 
                 if response is None or response.status_code != 200:
-                    logger.warning(f"REST failed for create volume: %s", vol)
+                    logger.warning("REST failed for create volume: %s", vol)
                     logger.warning("Response: %s", response.text)
 
                 else:
@@ -341,11 +341,11 @@ async def create_volumes():
                     if res['status'] == "OK":
                         ui.notify(f"{res['messages'][0]}", type='positive')
                     elif res['status'] == "ERROR":
-                        ui.notify(f"{res['errors'][0]['desc']}", type='negative')
+                        ui.notify(f"{res['errors'][0]['desc']}", type='warning')
 
         except Exception as error:
             logger.warning("Failed to connect %s!", URL)
-            ui.notify(f"Failed to connect to REST.", type='warning')
+            ui.notify(f"Failed to connect to REST.", type='negative')
             logger.debug(error)
             app.storage.user['busy'] = False
             return False
@@ -380,7 +380,7 @@ async def create_tables():
                     if res['status'] == "OK":
                         ui.notify(f"Table \"{TABLE_TRANSACTIONS}-binary\" created in {tier}", type='positive')
                     elif res['status'] == "ERROR":
-                        ui.notify(f"Table: \"{TABLE_TRANSACTIONS}\" in {tier}: {res['errors'][0]['desc']}", type='negative')
+                        ui.notify(f"Table: \"{TABLE_TRANSACTIONS}\" in {tier}: {res['errors'][0]['desc']}", type='warning')
 
             # Create Column Family
             async with httpx.AsyncClient(verify=False) as client:
@@ -402,7 +402,7 @@ async def create_tables():
                     if res['status'] == "OK":
                         ui.notify(f"Column Family created for table in {tier}", type='positive')
                     elif res['status'] == "ERROR":
-                        ui.notify(f"Column Family failed for table in {tier}: {res['errors'][0]['desc']}", type='negative')
+                        ui.notify(f"Column Family failed for table in {tier}: {res['errors'][0]['desc']}", type='warning')
 
         except Exception as error:
             logger.warning("Failed to connect %s: %s", URL, error)
@@ -443,7 +443,7 @@ async def create_streams():
                     if res['status'] == "OK":
                         ui.notify(f"Stream \"{stream}\" created", type='positive')
                     elif res['status'] == "ERROR":
-                        ui.notify(f"Stream: \"{stream}\": {res['errors'][0]['desc']}", type='negative')
+                        ui.notify(f"Stream: \"{stream}\": {res['errors'][0]['desc']}", type='warning')
 
         except Exception as error:
             logger.warning("Failed to connect %s: %s", URL, type(error))

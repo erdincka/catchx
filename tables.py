@@ -18,6 +18,8 @@ def get_connection():
     Returns an OJAIConnection object for configured cluster
     """
 
+    tick = timeit.default_timer()
+
     # Use singleton
     global ojaiconnection
     if ojaiconnection is not None: return ojaiconnection
@@ -28,7 +30,7 @@ def get_connection():
             f"sslTargetNameOverride={socket.getfqdn(app.storage.user['MAPR_HOST'])}"
 
     ojaiconnection = ConnectionFactory.get_connection(connection_str=connection_str)
-    logger.info("Got new maprdb connection using OJAI")
+    logger.info("Got new maprdb connection using OJAI in %f sec", timeit.default_timer() - tick)
 
     return ojaiconnection
 
@@ -161,7 +163,7 @@ def search_documents(table: str, selectClause: list, whereClause: dict):
         return doc
 
 
-def get_documents(table_path: str, limit: int = FETCH_RECORD_NUM):
+async def get_documents(table_path: str, limit: int = FETCH_RECORD_NUM):
     """
     Read `limit` records from the table to peek data
 
@@ -174,11 +176,15 @@ def get_documents(table_path: str, limit: int = FETCH_RECORD_NUM):
     """
 
     try:
-        connection = get_connection()
-
         # logger.debug("Requesting docs from %s", table_path)
 
+        tick = timeit.default_timer()
+        connection = get_connection()
+        logger.debug("Got ojai connection in %f sec", timeit.default_timer() - tick)
+
+        tick = timeit.default_timer()
         table = connection.get_store(table_path)
+        logger.debug("Got store in %f sec", timeit.default_timer() - tick)
 
         # Create a query to get the last n records based on the timestamp field
         if limit is not None:
@@ -191,8 +197,9 @@ def get_documents(table_path: str, limit: int = FETCH_RECORD_NUM):
                 .select('*') \
                 .build()
 
+        tick = timeit.default_timer()
         # Run the query and return the results as list
-        # logger.debug("Returned docs for %s: %d", table_path, len([doc for doc in table.find(query)]))
+        logger.debug("Returned %d docs in %s, took %f sec", len([doc for doc in table.find(query)]), table_path, timeit.default_timer() - tick)
         # tick = timeit.default_timer()
         results = table.find(query)
         # logger.debug("TEST time: %f", timeit.default_timer() - tick)
