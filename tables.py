@@ -1,6 +1,9 @@
 import socket
 from mapr.ojai.storage.ConnectionFactory import ConnectionFactory
 
+import pandas as pd
+from deltalake import DeltaTable, write_deltalake
+
 from nicegui import app
 
 from common import *
@@ -178,13 +181,13 @@ async def get_documents(table_path: str, limit: int = FETCH_RECORD_NUM):
     try:
         # logger.debug("Requesting docs from %s", table_path)
 
-        tick = timeit.default_timer()
+        # tick = timeit.default_timer()
         connection = get_connection()
-        logger.debug("Got ojai connection in %f sec", timeit.default_timer() - tick)
+        # logger.debug("Got ojai connection in %f sec", timeit.default_timer() - tick)
 
-        tick = timeit.default_timer()
+        # tick = timeit.default_timer()
         table = connection.get_store(table_path)
-        logger.debug("Got store in %f sec", timeit.default_timer() - tick)
+        # logger.debug("Got store in %f sec", timeit.default_timer() - tick)
 
         # Create a query to get the last n records based on the timestamp field
         if limit is not None:
@@ -238,3 +241,28 @@ def binary_table_get_all(tablepath: str):
     """
 
     not_implemented()
+
+def delta_table_upsert(tablepath: str, records: pd.DataFrame):
+    """
+    Write list of dicts into Delta Lake table
+    """
+
+    try:
+        df = pd.DataFrame().from_records(records)
+
+        write_deltalake(f"{MOUNT_PATH}/{get_cluster_name()}{tablepath}", data=df, mode="append")
+
+    except Exception as error:
+        logger.error("Failed to write: %s", tablepath)
+        logger.error(error)
+        return False
+
+    return True
+
+
+def delta_table_get(tablepath, query):
+    """
+    Returns all records from the binary table as DataFrame
+    """
+
+    return DeltaTable(f"{MOUNT_PATH}/{get_cluster_name()}{tablepath}").to_pandas()

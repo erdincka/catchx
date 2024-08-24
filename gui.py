@@ -228,7 +228,7 @@ def metric_badges_on_ii():
     # bronze counts
     ui.badge("0", color="teal").bind_text_from(
         app.storage.user,
-        "brnx_txns",
+        "brnz_txns",
         lambda x: x if x is not None else 0,
     ).classes("absolute top-[280px] left-[450px]").tooltip("# of transactions")
     ui.badge("0", color="orange").bind_text_from(

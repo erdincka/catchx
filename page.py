@@ -1,4 +1,3 @@
-import inspect
 import io
 from fastapi.responses import StreamingResponse
 from nicegui import ui, app
@@ -9,7 +8,6 @@ import gui
 from ingestion import *
 from mock import *
 from monitoring import *
-import tables
 from codeviewers import *
 
 logger = logging.getLogger("page")
@@ -23,7 +21,7 @@ def header(title: str):
 
         # ui.icon(None, size='lg').bind_name_from(app.storage.user, "demo_mode", backward=lambda x: "s_preview" if x else "s_preview_off").tooltip("Presentation Mode")
 
-        ui.switch("Go Live").bind_value(app.storage.user, 'demo_mode').bind_visibility_from(app.storage.user, "clusterinfo", backward=lambda x: x and len(x) > 0)
+        ui.switch("Go Live").props("color=accent").bind_value(app.storage.user, 'demo_mode').bind_visibility_from(app.storage.user, "clusterinfo", backward=lambda x: x and len(x) > 0)
 
         ui.switch("Monitor", on_change=lambda x: toggle_monitoring(x.value)).bind_visibility_from(app.storage.user, 'demo_mode')
 
@@ -96,8 +94,8 @@ def footer():
                         f"ls -lAR {MOUNT_PATH}/{get_cluster_name()}{BASEDIR}/{VOLUME_SILVER}"
                     ),
                 )
-                ui.button(VOLUME_GOLD, on_click=show_mysql_tables)
-                # ui.button(VOLUME_GOLD, on_click=lambda: run_command_with_dialog(f"ls -lAR {MOUNT_PATH}/{get_cluster_name()}{BASEDIR}/{VOLUME_GOLD}"))
+
+                ui.button(VOLUME_GOLD, on_click=lambda: run_command_with_dialog(f"ls -lAR {MOUNT_PATH}/{get_cluster_name()}{BASEDIR}/{VOLUME_GOLD}"))
 
             ui.space()
 
@@ -131,15 +129,14 @@ async def index_page():
 
     header("Data Fabric Demo")
 
-    demo_steps().classes("h-lvh")
+    with ui.grid(columns=2).classes("w-full gap-0 flex"):
 
-    monitoring_card().classes(
-        "flex-grow shrink absolute top-10 right-0 w-1/4 h-fit opacity-50 hover:opacity-100"
-    )
+        demo_steps().classes("flex-1")
+
+        monitoring_card().classes("flex")
 
     logging_card().classes(
         "flex-grow shrink absolute bottom-0 left-0 w-full opacity-50 hover:opacity-100"
-        # "flex-grow shrink absolute top-64 right-0 w-1/4 opacity-50 hover:opacity-100"
     )
 
     # charts = monitoring_charts()
@@ -183,7 +180,7 @@ async def domain_page():
 
 
 def demo_steps():
-    with ui.list().classes("w-full") as demo_list:
+    with ui.list() as demo_list:
 
         with ui.expansion("Demo Overview", caption="Providing an end-to-end pipeline for data ingestion, processsing, preperation and presentation", group="flow", value=False):
             ui.markdown(DOCUMENTATION["Overview"])
@@ -309,30 +306,21 @@ def demo_steps():
                         ui.item_label("Create the golden tier").props('caption')
                     with ui.item_section().props('side'):
                         with ui.row():
-                            ui.button(icon='visibility', color="neutral", on_click=peek_silver_profiles).props('flat dense round').tooltip("Sample refined profile data")
-                            ui.button(icon='visibility', color="neutral", on_click=peek_silver_customers).props('flat dense round').tooltip("Sample refined customer data")
-                            ui.button(icon='code', color="info", on_click=code_enrich_customers).props('flat dense round').tooltip("View code for ingesting data into Iceberg table")
-                            ui.button(icon='rocket_launch', color="positive", on_click=refine_customers).props('flat dense round').tooltip("Ingest customers to Iceberg table").bind_visibility_from(app.storage.user, "demo_mode")
+                            ui.button(icon='visibility', color="neutral", on_click=peek_gold_customers).props('flat dense round').tooltip("Sample refined customer data")
+                            ui.button(icon='code', color="info", on_click=code_create_golden).props('flat dense round').tooltip("View code for ingesting data into Iceberg table")
+                            ui.button(icon='rocket_launch', color="positive", on_click=create_golden).props('flat dense round').tooltip("Ingest customers to Iceberg table").bind_visibility_from(app.storage.user, "demo_mode")
 
-            # with ui.dialog().props("full-width") as aggregate_dialog, ui.card().classes("grow relative"):
-            #     ui.button(icon="close", on_click=aggregate_dialog.close).props("flat round dense").classes("absolute right-2 top-2")
-            #     ui.code(inspect.getsource(data_aggregation)).classes("w-full mt-6")
-            #     ui.code(inspect.getsource(tables.get_documents)).classes("w-full mt-6")
-
-            with ui.row().classes("w-full place-items-center"):
-                ui.label("Data aggregation: ").classes("w-40")
-                ui.button("Aggregate to Gold Tier", on_click=create_golden).bind_enabled_from(app.storage.user, "busy", backward=lambda x: not x).bind_visibility_from(app.storage.user, 'MYSQL_PASS', backward=lambda x: x is not None and len(x) > 0)
-                # ui.button("Code", on_click=aggregate_dialog.open, color="info").props("outline")
-
-        with ui.expansion("Check transactions for Fraud", caption="Process every transaction and check for fraud", group="flow"):
-            with ui.dialog().props("full-width") as fraud_detection_dialog, ui.card().classes("grow relative"):
-                ui.button(icon="close", on_click=fraud_detection_dialog.close).props("flat round dense").classes("absolute right-2 top-2")
-                ui.code(inspect.getsource(fraud_detection)).classes("w-full mt-6")
-
-            with ui.row().classes("w-full place-items-center"):
-                ui.label("Run Fraud Detection against AI app: ").classes("w-40")
-                ui.button("Run", on_click=fraud_detection)
-                ui.button("Code", on_click=fraud_detection_dialog.open, color="info").props("outline")
+                with ui.item():
+                    with ui.item_section().props('avatar'):
+                        ui.icon('merge')
+                    with ui.item_section().classes("flex-grow"):
+                        ui.item_label('Check for Fraud')
+                        ui.item_label("Simulate an AI inference").props('caption')
+                    with ui.item_section().props('side'):
+                        with ui.row():
+                            ui.button(icon='visibility', color="neutral", on_click=peek_gold_fraud).props('flat dense round').tooltip("Sample refined customer data")
+                            ui.button(icon='code', color="info", on_click=code_fraud_detection).props('flat dense round').tooltip("View code for ingesting data into Iceberg table")
+                            ui.button(icon='rocket_launch', color="positive", on_click=fraud_detection).props('flat dense round').tooltip("Ingest customers to Iceberg table").bind_visibility_from(app.storage.user, "demo_mode")
 
     return demo_list
 
@@ -480,27 +468,27 @@ def demo_configuration_dialog():
                 ui.input("Access Key").bind_value(app.storage.user, "S3_ACCESS_KEY")
                 ui.input("Secret Key", password=True, password_toggle_button=True).bind_value(app.storage.user, "S3_SECRET_KEY")
 
-            ui.space()
-            with ui.dialog() as mysql_user_dialog, ui.card():
-                mysql_user_script = f"""
-                Using MySQL admin user, run these commands to create the database and the user:
-                ```
-                CREATE DATABASE {DATA_PRODUCT};
-                USE {DATA_PRODUCT};
-                CREATE USER 'your_user'@'%' IDENTIFIED BY 'your_password';
-                GRANT ALL ON {DATA_PRODUCT}.* TO 'your_user'@'%' WITH GRANT OPTION;
-                FLUSH PRIVILEGES;
-                ```
-                """
-                ui.code(content=mysql_user_script, language="shell")
+            # ui.space()
+            # with ui.dialog() as mysql_user_dialog, ui.card():
+            #     mysql_user_script = f"""
+            #     Using MySQL admin user, run these commands to create the database and the user:
+            #     ```
+            #     CREATE DATABASE {DATA_PRODUCT};
+            #     USE {DATA_PRODUCT};
+            #     CREATE USER 'your_user'@'%' IDENTIFIED BY 'your_password';
+            #     GRANT ALL ON {DATA_PRODUCT}.* TO 'your_user'@'%' WITH GRANT OPTION;
+            #     FLUSH PRIVILEGES;
+            #     ```
+            #     """
+            #     ui.code(content=mysql_user_script, language="shell")
 
-            with ui.row().classes("w-full place-items-center mt-4"):
-                ui.label("MySQL Credentials").classes("text-lg")
-                ui.button(icon="info", on_click=mysql_user_dialog.open).props("flat round")
-            ui.label("for gold tier RDBMS").classes("text-sm text-italic")
-            with ui.row().classes("w-full place-items-center mt-4"):
-                ui.input("Username").bind_value(app.storage.user, "MYSQL_USER")
-                ui.input("Password", password=True, password_toggle_button=True).bind_value(app.storage.user, "MYSQL_PASS")
+            # with ui.row().classes("w-full place-items-center mt-4"):
+            #     ui.label("MySQL Credentials").classes("text-lg")
+            #     ui.button(icon="info", on_click=mysql_user_dialog.open).props("flat round")
+            # ui.label("for gold tier RDBMS").classes("text-sm text-italic")
+            # with ui.row().classes("w-full place-items-center mt-4"):
+            #     ui.input("Username").bind_value(app.storage.user, "MYSQL_USER")
+            #     ui.input("Password", password=True, password_toggle_button=True).bind_value(app.storage.user, "MYSQL_PASS")
 
         # ui.separator()
         # Cluster configuration

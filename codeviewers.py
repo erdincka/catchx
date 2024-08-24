@@ -84,12 +84,12 @@ def code_nifi_stream():
             hive_db_connect_url = "jdbc:hive2://localhost:10000/default;auth=maprsasl;ssl=true",
             database_connection_url = f"jdbc:mariadb://{app.storage.user.get('cluster', 'localhost')}:3306/{DATA_PRODUCT}",
             database_driver_location = f"{MOUNT_PATH}/{DATA_PRODUCT}/user/root/mariadb-java-client-3.4.1.jar",
-            database_user = app.storage.user.get("MYSQL_USER", "mysql"),
-            database_password = app.storage.user.get("MYSQL_PASS", "mysql"),
+            database_user = app.storage.user.get("MYSQL_USER", ""),
+            database_password = app.storage.user.get("MYSQL_PASS", ""),
             hive3_table_name = TABLE_TRANSACTIONS,
             hive3_external_table_location = f"{BASEDIR}/{VOLUME_SILVER}/hive{TABLE_TRANSACTIONS}",
             app_dir = BASEDIR,
-            incoming_bulk_file = f"{TABLE_TRANSACTIONS}-bulk.csv",
+            incoming_bulk_file = f"{TABLE_TRANSACTIONS}.csv",
             app_logs_failed = f"{BASEDIR}/logs/failed",
             app_logs = f"{BASEDIR}/logs",
             dir_app_logs_failed = f"{MOUNT_PATH}/{DATA_PRODUCT}{BASEDIR}/logs/failed",
@@ -180,9 +180,21 @@ def code_create_golden():
         ui.button(icon="close", on_click=golden_codeview.close).props(
             "flat round dense"
         ).classes("absolute right-2 top-2")
-        ui.code(inspect.getsource(data_aggregation)).classes("w-full mt-6")
+        ui.code(inspect.getsource(create_golden)).classes("w-full mt-6")
     golden_codeview.on("close", lambda d=golden_codeview: d.delete())
     return golden_codeview
+
+
+def code_fraud_detection():
+    with ui.dialog().props("full-width") as fraud_codeview, ui.card().classes(
+        "grow relative"
+    ):
+        ui.button(icon="close", on_click=fraud_codeview.close).props(
+            "flat round dense"
+        ).classes("absolute right-2 top-2")
+        ui.code(inspect.getsource(fraud_detection)).classes("w-full mt-6")
+    fraud_codeview.on("close", lambda d=fraud_codeview: d.delete())
+    return fraud_codeview
 
 
 async def handle_image_action(e: events.MouseEventArguments):

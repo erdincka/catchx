@@ -13,17 +13,25 @@ catalog = None
 # def hive_cat():
 #     try:
 #         from pyiceberg import catalog
+
+        # conf = {
+        #     "type:": "hive",
+        #     "uri": f"thrift://{app.storage.user.get('MAPR_HOST', '')}:9083",
+        #     "ssl": True,
+        #     "sslTrustStore": "/opt/mapr/conf/ssl_truststore",
+        #     "trustStorePassword": "tI6zs4Kz8QmUqCzjLHQlEavWEdHzvLSF",
+        #     "s3.endpoint": f"https://{app.storage.user.get('MAPR_HOST', '')}:9000",
+        #     "s3.access-key-id": f"{app.storage.user.get('S3_ACCESSKEY', '')}",
+        #     "s3.secret-access-key": f"{app.storage.user.get('S3_SECRETKEY', '')}",
+        # }
+
+#         print(conf)
+
 #         catalog = catalog.load_catalog(
 #             "default",
-#             **{
-#                 "uri": "hive://10.1.1.31:10000/default",
-#                 "ssl": True,
-#                 # "s3.endpoint": "",
-#                 # "s3.access-key-id": "2XVBOI33OQ9LYDZ1X5IPIRXMYVD8HWWN6938VNVDI03YHHBK4XP273GXD5BURQNQ44E14Y0SMCG7F7FJ9YK8HJ3EEOQR8VCA2",
-#                 # "s3.secret-access-key": "FGOGA7I2BVV99HFPNRFOAUF79WOSZBO4V6T0D0P1ZGHSFLUTQ275HIO",
-#             },
+#             **conf,
 #         )
-#         print(catalog)
+
 #         print(catalog.list_namespaces())
 
 #     except Exception as error:

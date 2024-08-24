@@ -312,9 +312,9 @@ async def bronze_stats():
         if os.path.lexists(f"{MOUNT_PATH}/{get_cluster_name()}{ttable}"):
             num_transactions = len(await tables.get_documents(ttable, limit=None))
             series.append({ "transactions": num_transactions })
-            app.storage.user["brnx_txns"] = num_transactions
+            app.storage.user["brnz_txns"] = num_transactions
         else:
-            app.storage.user["brnx_txns"] = 0
+            app.storage.user["brnz_txns"] = 0
 
         # FIX: binary table counters are not usable, might need to query the table for total distinct records
         # if os.path.lexists(f"{MOUNT_PATH}/{get_cluster_name()}{binarytable}"):
@@ -333,7 +333,7 @@ async def bronze_stats():
         #             if not metrics["status"] == "ERROR":
         #                 # logger.debug(metrics)
         #                 for m in metrics["data"]:
-        #                     app.storage.user["brnx_txns"] += m["totalrows"]
+        #                     app.storage.user["brnz_txns"] += m["totalrows"]
 
         if os.path.isdir(f"{MOUNT_PATH}/{get_cluster_name()}{ctable}"): # isdir for iceberg tables
             num_customers = len(iceberger.find_all(VOLUME_BRONZE, TABLE_CUSTOMERS))
@@ -382,11 +382,11 @@ async def silver_stats():
             logger.warning("Cannot get metric for silver profiles")
 
         if os.path.lexists(f"{MOUNT_PATH}/{get_cluster_name()}{ttable}"):
-            num_transactions = len(tables.get_documents(ttable, limit=None))
+            num_transactions = len(await tables.get_documents(ttable, limit=None))
             series.append({ "transactions": num_transactions })
             app.storage.user["slvr_txns"] = num_transactions
         if os.path.lexists(f"{MOUNT_PATH}/{get_cluster_name()}{ctable}"):
-            num_customers = len(tables.get_documents(ctable, limit=None))
+            num_customers = len(await tables.get_documents(ctable, limit=None))
             series.append({ "customers": num_customers })
             app.storage.user["slvr_customers"] = num_customers
 
@@ -413,33 +413,55 @@ async def gold_stats():
     series = []
 
     try:
-        mydb = get_mysql_connection_string()
+        ### Switching from Mysql to Deltalake
 
-        # return if table is missing
-        engine = create_engine(mydb)
-        with engine.connect() as conn:
-            # logger.debug("mysql connected")
-            tick = timeit.default_timer()
+        tick = timeit.default_timer()
 
-            if sqlalchemy.inspect(engine).has_table(TABLE_TRANSACTIONS):
-                num_transactions = conn.execute(text(f"SELECT COUNT('_id') FROM {TABLE_TRANSACTIONS}")).scalar()
-                series.append({ TABLE_TRANSACTIONS: num_transactions })
-                app.storage.user["gold_txns"] = num_transactions
+        ctable = f"{MOUNT_PATH}/{get_cluster_name()}{BASEDIR}/{VOLUME_GOLD}/{TABLE_CUSTOMERS}"
+        ttable = f"{MOUNT_PATH}/{get_cluster_name()}{BASEDIR}/{VOLUME_GOLD}/{TABLE_TRANSACTIONS}"
 
-            if sqlalchemy.inspect(engine).has_table(TABLE_CUSTOMERS):
-                num_customers = conn.execute(text(f"SELECT COUNT('_id') FROM {TABLE_CUSTOMERS}")).scalar()
-                series.append({ TABLE_CUSTOMERS: num_customers })
-                app.storage.user["gold_customers"] = num_customers
+        customers_df = tables.delta_table_get(ctable, None)
+        transactions_df = tables.delta_table_get(ttable, None)
+        fraud_transactions_df = transactions_df.query("fraud == True")
 
-            if sqlalchemy.inspect(engine).has_table(TABLE_FRAUD):
-                num_fraud = conn.execute(text(f"SELECT COUNT('_id') FROM {TABLE_FRAUD}")).scalar()
-                series.append({ TABLE_FRAUD: num_fraud })
-                app.storage.user["gold_fraud"] = num_fraud
+        series.append({ TABLE_CUSTOMERS: customers_df.shape[0] })
+        app.storage.user["gold_customers"] = customers_df.shape[0]
 
-            logger.debug("Gold stat time: %f", timeit.default_timer() - tick)
+        series.append({ TABLE_TRANSACTIONS: transactions_df.shape[0] })
+        app.storage.user["gold_txns"] = transactions_df.shape[0]
 
-            # Don't update metrics for empty results
-            if len(series) == 0: return
+        series.append({ TABLE_FRAUD: fraud_transactions_df.shape[0] })
+        app.storage.user["gold_fraud"] = fraud_transactions_df.shape[0]
+
+        logger.debug("Gold stat time: %f", timeit.default_timer() - tick)
+
+        # mydb = get_mysql_connection_string()
+
+        # # return if table is missing
+        # engine = create_engine(mydb)
+        # with engine.connect() as conn:
+        #     # logger.debug("mysql connected")
+        #     tick = timeit.default_timer()
+
+        #     if sqlalchemy.inspect(engine).has_table(TABLE_TRANSACTIONS):
+        #         num_transactions = conn.execute(text(f"SELECT COUNT('_id') FROM {TABLE_TRANSACTIONS}")).scalar()
+        #         series.append({ TABLE_TRANSACTIONS: num_transactions })
+        #         app.storage.user["gold_txns"] = num_transactions
+
+        #     if sqlalchemy.inspect(engine).has_table(TABLE_CUSTOMERS):
+        #         num_customers = conn.execute(text(f"SELECT COUNT('_id') FROM {TABLE_CUSTOMERS}")).scalar()
+        #         series.append({ TABLE_CUSTOMERS: num_customers })
+        #         app.storage.user["gold_customers"] = num_customers
+
+        #     if sqlalchemy.inspect(engine).has_table(TABLE_FRAUD):
+        #         num_fraud = conn.execute(text(f"SELECT COUNT('_id') FROM {TABLE_FRAUD}")).scalar()
+        #         series.append({ TABLE_FRAUD: num_fraud })
+        #         app.storage.user["gold_fraud"] = num_fraud
+
+        #     logger.debug("Gold stat time: %f", timeit.default_timer() - tick)
+
+        #     # Don't update metrics for empty results
+        #     if len(series) == 0: return
 
     except Exception as error:
         logger.warning("STAT got error %s", error)
@@ -478,7 +500,7 @@ async def monitoring_metrics():
 
     if bronze is not None:
         metrics = bronze["values"]
-        app.storage.user["brnx_txns"] = next(
+        app.storage.user["brnz_txns"] = next(
             iter([m["transactions"] for m in metrics if "transactions" in m]), None
         )
         app.storage.user["brnz_customers"] = next(
@@ -645,7 +667,7 @@ def monitoring_card():
                 "in_txn_pushed",
                 "in_txn_pulled",
                 "brnz_customers",
-                "brnx_txns",
+                "brnz_txns",
                 "slvr_profiles",
                 "slvr_txns",
                 "slvr_customers",

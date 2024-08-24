@@ -2,14 +2,11 @@ import asyncio
 import datetime
 import logging
 import os
-import tarfile
 import inspect
 
 import httpx
-from nicegui import ui, events, app, binding
+from nicegui import ui, app, binding
 from nicegui.events import ValueChangeEventArguments
-import pandas as pd
-from sqlalchemy import create_engine, text
 
 
 APP_NAME = "Data Fabric"
@@ -179,61 +176,6 @@ def dt_from_iso(timestring):
     return dt + datetime.timedelta(hours=12) if isPM else dt
 
 
-# NOT USED
-def upload_client_files(e: events.UploadEventArguments):
-    # possibly a security issue to use uploaded file names directly - don't care in demo/lab environment
-    try:
-        filename = e.name
-        with open(f"/tmp/{filename}", "wb") as f:
-            f.write(e.content.read())
-
-        with tarfile.open(f"/tmp/{filename}", "r") as tf:
-            if "conf" in filename:
-                # For DF 7.7
-                if "conf/mapr-clusters.conf" in tf.getnames():
-                    tf.extract("conf/mapr-clusters.conf", path="/opt/mapr/")
-                    tf.extract("conf/ssl_truststore", path="/opt/mapr/")
-                    tf.extract("conf/ssl_truststore.pem", path="/opt/mapr/")
-                # For DF 7.5
-                else:
-                    tf.extract("mapr-clusters.conf", path="/opt/mapr/conf/")
-                    tf.extract("ssl_truststore", path="/opt/mapr/conf")
-
-                # Refresh cluster list in UI
-                update_clusters()
-                ui.notify("Refresh page to see cluster(s)", type='info')
-
-            elif "jwt" in filename:
-                tf.extractall(path="/root")
-            else:
-                ui.notify(f"Unknown filename: {filename}", type="warning")
-                return
-
-            ui.notify(f"{filename} extracted: {','.join(tf.getnames())}", type="positive")
-
-    except Exception as error:
-        ui.notify(error, type="negative")
-
-
-# NOT USED
-def update_clusters():
-    try:
-        with open("/opt/mapr/conf/mapr-clusters.conf", "r") as conf:
-            # reset the clusters
-            app.storage.user["clusters"] = {}
-            for line in conf.readlines():
-                t = line.split(' ')
-                # dict { 'value1': 'name1' } formatted cluster list, compatible to ui.select options
-                cls = { t[2].split(":")[0] : t[0] }
-                app.storage.user["clusters"].update(cls)
-            logger.info("Found clusters: %s", app.storage.user['clusters'])
-            # select first cluster to avoid null value
-            app.storage.user['MAPR_HOST'] = next(iter(app.storage.user["clusters"]))
-            logger.info("Set cluster: %s", app.storage.user['MAPR_HOST'])
-    except Exception as error:
-        logger.warning("Failed to update clusters: %s", error)
-
-
 async def run_command_with_dialog(command: str) -> None:
     """
     Run a command in the background and display the output in the pre-created dialog.
@@ -283,11 +225,6 @@ def get_cluster_name():
     else:
         return None
 
-    # clustername = app.storage.user.get('clusters', {}).get(app.storage.user.get('cluster', ''), '')
-    # if clustername != "":
-    #     return clustername
-    # else: return "maprdemo.mapr.io"
-
 
 def get_cluster_ip(cluster):
     """
@@ -298,14 +235,6 @@ def get_cluster_ip(cluster):
         return app.storage.user["clusterinfo"]["ip"]
     else:
         return None
-
-
-def get_mysql_connection_string():
-    """
-     Get the mysql connection from the settings.
-    """
-
-    return f"mysql+pymysql://{app.storage.user['MYSQL_USER']}:{app.storage.user['MYSQL_PASS']}@{app.storage.user['MAPR_HOST']}/{DATA_PRODUCT}" or None
 
 
 async def create_volumes():
@@ -413,10 +342,6 @@ async def create_tables():
     app.storage.user['busy'] = False
     return True
 
-    # TODO: build MySQL DB tables
-    # Create RDBMS tables
-    # mydb = get_mysql_connection_string()
-
 
 async def create_streams():
     auth = (app.storage.user["MAPR_USER"], app.storage.user["MAPR_PASS"])
@@ -455,28 +380,28 @@ async def create_streams():
     return True
 
 
-def show_mysql_tables():
-    mydb = get_mysql_connection_string()
+# def show_mysql_tables():
+#     mydb = get_mysql_connection_string()
 
-    engine = create_engine(mydb)
+#     engine = create_engine(mydb)
 
-    with engine.connect() as conn:
-        tables = conn.execute(text("SHOW TABLES"))
-        peek_tables = {}
-        for table in tables:
-            # peek_tables[table[0]] = pd.read_sql(f"SELECT * FROM {table[0]} LIMIT 5", con=mydb)
-            peek_tables[table[0]] = pd.read_sql(f"SELECT * FROM {table[0]} LIMIT 10", con=mydb)
-            logger.debug("%s: %s", table[0], peek_tables[table[0]])
+#     with engine.connect() as conn:
+#         tables = conn.execute(text("SHOW TABLES"))
+#         peek_tables = {}
+#         for table in tables:
+#             # peek_tables[table[0]] = pd.read_sql(f"SELECT * FROM {table[0]} LIMIT 5", con=mydb)
+#             peek_tables[table[0]] = pd.read_sql(f"SELECT * FROM {table[0]} LIMIT 10", con=mydb)
+#             logger.debug("%s: %s", table[0], peek_tables[table[0]])
 
-        with ui.dialog().props("full-width") as mysql_tables, ui.card().classes("grow relative"):
-            ui.button(icon="close", on_click=mysql_tables.close).props("flat round dense").classes("absolute right-2 top-2")
+#         with ui.dialog().props("full-width") as mysql_tables, ui.card().classes("grow relative"):
+#             ui.button(icon="close", on_click=mysql_tables.close).props("flat round dense").classes("absolute right-2 top-2")
 
-            with ui.row().classes("w-full mt-6"):
-                ui.label("Tables from MySQL DB")
-            for table in peek_tables.keys():
-                ui.table.from_pandas(peek_tables[table], title=table).classes('w-full mt-6').props("dense")
+#             with ui.row().classes("w-full mt-6"):
+#                 ui.label("Tables from MySQL DB")
+#             for table in peek_tables.keys():
+#                 ui.table.from_pandas(peek_tables[table], title=table).classes('w-full mt-6').props("dense")
 
-        mysql_tables.open()
+#         mysql_tables.open()
 
 # This is not used due to complexity of its setup
 # requires gateway node configuration and DNS modification

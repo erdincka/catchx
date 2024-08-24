@@ -13,7 +13,7 @@ def app_init():
     #             "in_txn_pushed",
     #             "in_txn_pulled",
     #             "brnz_customers",
-    #             "brnx_txns",
+    #             "brnz_txns",
     #             "slvr_profiles",
     #             "slvr_txns",
     #             "slvr_customers",
