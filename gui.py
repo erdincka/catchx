@@ -109,7 +109,7 @@ def mesh_ii():
         ui.button(icon="upload", on_click=nfs_upload).classes(
             "absolute top-10 left-5"
         ).props("flat").bind_visibility_from(
-            app.storage.user, "NFS_SERVER", backward=lambda x: len(x) > 0
+            app.storage.user, "NFS_PATH", backward=lambda x: len(x) > 0
         ).tooltip(
             "Upload Customers"
         )
@@ -211,12 +211,12 @@ def metric_badges_on_ii():
     # ingest counts
     ui.badge("0", color="lightteal").bind_text_from(
         app.storage.user,
-        "in_txn_pushed",
+        "transactions_ingested",
         lambda x: x if x is not None else 0,
     ).classes("absolute top-[250px] left-[280px]").tooltip("published transactions")
     ui.badge("0", color="teal").bind_text_from(
         app.storage.user,
-        "in_txn_pulled",
+        "transactions_processed",
         lambda x: x if x is not None else 0,
     ).classes("absolute top-[280px] left-[280px]").tooltip("consumed transactions")
     ui.badge("0", color="orange").bind_text_from(
@@ -228,29 +228,29 @@ def metric_badges_on_ii():
     # bronze counts
     ui.badge("0", color="teal").bind_text_from(
         app.storage.user,
-        "brnz_txns",
+        "bronze_transactions",
         lambda x: x if x is not None else 0,
     ).classes("absolute top-[280px] left-[450px]").tooltip("# of transactions")
     ui.badge("0", color="orange").bind_text_from(
         app.storage.user,
-        "brnz_customers",
+        "bronze_customers",
         lambda x: x if x is not None else 0,
     ).classes("absolute top-[450px] left-[450px]").tooltip("# of customers")
 
     # silver counts
     ui.badge("0", color="darkturquoise").bind_text_from(
         app.storage.user,
-        "slvr_profiles",
+        "silver_profiles",
         lambda x: x if x is not None else 0,
     ).classes("absolute top-[140px] left-[680px]").tooltip("# of profiles")
     ui.badge("0", color="teal").bind_text_from(
         app.storage.user,
-        "slvr_txns",
+        "silver_transactions",
         lambda x: x if x is not None else 0,
     ).classes("absolute top-[280px] left-[680px]").tooltip("# of transactions")
     ui.badge("0", color="orange").bind_text_from(
         app.storage.user,
-        "slvr_customers",
+        "silver_customers",
         lambda x: x if x is not None else 0,
     ).classes("absolute top-[450px] left-[680px]").tooltip("# of customers")
 
@@ -262,7 +262,7 @@ def metric_badges_on_ii():
     ).classes("absolute top-[420px] left-[870px]").tooltip("# of fraud")
     ui.badge("0", color="teal").bind_text_from(
         app.storage.user,
-        "gold_txns",
+        "gold_transactions",
         lambda x: x if x is not None else 0,
     ).classes("absolute top-[440px] left-[870px]").tooltip("# of transactions")
     ui.badge("0", color="orange").bind_text_from(

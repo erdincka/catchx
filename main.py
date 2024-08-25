@@ -10,14 +10,14 @@ def app_init():
     return
     # # Reset metrics
     # for metric in [
-    #             "in_txn_pushed",
-    #             "in_txn_pulled",
-    #             "brnz_customers",
-    #             "brnz_txns",
-    #             "slvr_profiles",
-    #             "slvr_txns",
-    #             "slvr_customers",
-    #             "gold_txns",
+    #             "transactions_ingested",
+    #             "transactions_processed",
+    #             "bronze_customers",
+    #             "bronze_transactions",
+    #             "silver_profiles",
+    #             "silver_transactions",
+    #             "silver_customers",
+    #             "gold_transactions",
     #             "gold_customers",
     #             "gold_fraud",
     #         ]:

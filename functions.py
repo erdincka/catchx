@@ -75,7 +75,7 @@ async def refine_transactions():
         ui.notify(f"Input table not found: {tablename} on {tier} volume", type="warning")
         return
 
-    df = pd.DataFrame.from_dict(tables.get_documents(table_path=f"{BASEDIR}/{tier}/{tablename}", limit=None))
+    df = pd.DataFrame.from_dict(await tables.get_documents(table_path=f"{BASEDIR}/{tier}/{tablename}", limit=None))
     ui.notify(f"Found {df.shape[0]} rows in {tablename}")
 
     # assign a random category to the transaction
@@ -83,7 +83,7 @@ async def refine_transactions():
 
     try:
         logger.info("Loading %s documents into %s", df.shape[0], silver_transactions_table)
-        if await run.io_bound(tables.upsert_documents, table_path=silver_transactions_table, docs=df.to_dict("records")):
+        if await tables.upsert_documents(table_path=silver_transactions_table, docs=df.to_dict("records")):
             ui.notify(f"Records are written to {silver_transactions_table}", type='positive')
         else:
             ui.notify(f"Failed to save records in {silver_transactions_table}", type='negative')
@@ -229,19 +229,19 @@ def iceberg_table_tail(tier: str, tablename: str):
     dialog.open()
 
 
-async def peek_documents(tablepath: str):
+async def peek_documents(table_path: str):
     """
     Get `FETCH_RECORD_NUM` documents from DocumentDB table
 
-    :param tablepath str: full path for the JSON table
+    :param table_path str: full path for the JSON table
     """
 
-    logger.info("Reading %s", f"{MOUNT_PATH}/{get_cluster_name()}{tablepath}")
-    if not os.path.lexists(f"{MOUNT_PATH}/{get_cluster_name()}{tablepath}"): # table not created yet
-        ui.notify(f"Table not found: {tablepath}", type="warning")
+    logger.info("Reading %s", f"{MOUNT_PATH}/{get_cluster_name()}{table_path}")
+    if not os.path.lexists(f"{MOUNT_PATH}/{get_cluster_name()}{table_path}"): # table not created yet
+        ui.notify(f"Table not found: {table_path}", type="warning")
         return
 
-    docs = await tables.get_documents(table_path=tablepath, limit=FETCH_RECORD_NUM)
+    docs = await tables.get_documents(table_path=table_path, limit=FETCH_RECORD_NUM)
     # logger.debug(docs)
 
     with ui.dialog().props("full-width") as dialog, ui.card().classes("grow relative"):
@@ -255,32 +255,61 @@ async def peek_documents(tablepath: str):
     dialog.open()
 
 
+async def peek_deltatable(table_path: str, query: str = None):
+    """
+    Get all records from deltalake table
+
+    :param table_path str: path for the deltalake table relative to the cluster root
+    """
+
+    logger.info("Reading %s", f"{MOUNT_PATH}/{get_cluster_name()}{table_path}")
+    if not os.path.lexists(f"{MOUNT_PATH}/{get_cluster_name()}{table_path}"): # table not created yet
+        ui.notify(f"Table not found: {table_path}", type="warning")
+        return
+
+    df = await tables.delta_table_get(table_path=table_path, query=query)
+
+    with ui.dialog().props("full-width") as dialog, ui.card().classes("grow relative"):
+        ui.button(icon="close", on_click=dialog.close).props("flat round dense").classes("absolute right-2 top-2")
+
+        with ui.row():
+            ui.label(f"Fetched records: {df.shape[0]}")
+        ui.table.from_pandas(df).classes('w-full mt-6').props("dense")
+
+    dialog.on("close", lambda d=dialog: d.delete())
+    dialog.open()
+
+
 async def peek_silver_profiles():
-    await peek_documents(tablepath=f"{BASEDIR}/{VOLUME_SILVER}/{TABLE_PROFILES}")
+    await peek_documents(table_path=f"{BASEDIR}/{VOLUME_SILVER}/{TABLE_PROFILES}")
 
 
 async def peek_silver_customers():
-    await peek_documents(tablepath=f"{BASEDIR}/{VOLUME_SILVER}/{TABLE_CUSTOMERS}")
+    await peek_documents(table_path=f"{BASEDIR}/{VOLUME_SILVER}/{TABLE_CUSTOMERS}")
 
 
 async def peek_bronze_transactions():
-    await peek_documents(tablepath=f"{BASEDIR}/{VOLUME_BRONZE}/{TABLE_TRANSACTIONS}")
+    await peek_documents(table_path=f"{BASEDIR}/{VOLUME_BRONZE}/{TABLE_TRANSACTIONS}")
 
 
 async def peek_silver_transactions():
-    await peek_documents(tablepath=f"{BASEDIR}/{VOLUME_SILVER}/{TABLE_TRANSACTIONS}")
+    await peek_documents(table_path=f"{BASEDIR}/{VOLUME_SILVER}/{TABLE_TRANSACTIONS}")
 
 
 async def peek_gold_customers():
-    await tables.delta_table_get(tablepath=f"{BASEDIR}/{VOLUME_GOLD}/{TABLE_CUSTOMERS}", query=None)
+    await peek_deltatable(table_path=f"{BASEDIR}/{VOLUME_GOLD}/{TABLE_CUSTOMERS}")
 
 
 async def peek_gold_transactions():
-    await peek_documents(tablepath=f"{BASEDIR}/{VOLUME_GOLD}/{TABLE_TRANSACTIONS}", query=None)
+    await peek_deltatable(table_path=f"{BASEDIR}/{VOLUME_GOLD}/{TABLE_TRANSACTIONS}")
 
 
 async def peek_gold_fraud():
-    await peek_documents(tablepath=f"{BASEDIR}/{VOLUME_GOLD}/{TABLE_TRANSACTIONS}", query="fraud == True")
+    await peek_deltatable(table_path=f"{BASEDIR}/{VOLUME_GOLD}/{TABLE_TRANSACTIONS}")
+
+
+async def peek_gold_fraud():
+    await peek_deltatable(table_path=f"{BASEDIR}/{VOLUME_GOLD}/{TABLE_TRANSACTIONS}", query="fraud == True")
 
 
 async def create_golden():
@@ -319,8 +348,6 @@ async def create_golden():
 
     transactions_df.drop(["sender_account", "receiver_account"], axis=1, inplace=True)
 
-    ### Switching from Mysql to Deltalake
-
     if tables.delta_table_upsert(f"{BASEDIR}/{VOLUME_GOLD}/{TABLE_CUSTOMERS}", updated_customers):
         ui.notify(f"Gold tier customers are written", type='positive')
     else:
@@ -354,7 +381,7 @@ async def delete_volumes_and_streams():
                 if res['status'] == "OK":
                     ui.notify(f"Volume '{vol}' deleted", type='warning')
                 elif res['status'] == "ERROR":
-                    ui.notify(f"{vol}: {res['errors'][0]['desc']}", type='negative')
+                    ui.notify(f"{vol}: {res['errors'][0]['desc']}", type='warning')
 
     # Delete streams
     for stream in [STREAM_INCOMING, STREAM_CHANGELOG]:
@@ -371,7 +398,7 @@ async def delete_volumes_and_streams():
                 if res['status'] == "OK":
                     ui.notify(f"Stream '{stream}' deleted", type='warning')
                 elif res['status'] == "ERROR":
-                    ui.notify(f"Stream: {stream}: {res['errors'][0]['desc']}", type='negative')
+                    ui.notify(f"Stream: {stream}: {res['errors'][0]['desc']}", type='warning')
 
     # delete app folder
     try:
@@ -396,7 +423,7 @@ async def delete_volumes_and_streams():
 
             # finally delete the catalog file
             os.unlink(f"{basedir}/iceberg.db")
-        ui.notify("Iceberg tables purged", type="warning")
+            ui.notify("Iceberg tables purged", type="positive")
 
         if os.path.isdir(basedir):
             shutil.rmtree(basedir, ignore_errors=True)
@@ -404,19 +431,20 @@ async def delete_volumes_and_streams():
 
         # reset counters
         for metric in [
-            "in_txn_pushed",
-            "in_txn_pulled",
-            "brnz_customers",
-            "brnz_txns",
-            "slvr_profiles",
-            "slvr_txns",
-            "slvr_customers",
-            "gold_txns",
+            "transactions_ingested",
+            "transactions_processed",
+            "bronze_customers",
+            "bronze_transactions",
+            "silver_profiles",
+            "silver_transactions",
+            "silver_customers",
+            "gold_transactions",
             "gold_customers",
             "gold_fraud",
         ]:
             app.storage.user[metric] = 0
 
+        ui.notify("All volumes and data contained in them are removed", type="positive")
 
     except Exception as error:
         logger.warning(error)

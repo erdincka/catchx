@@ -72,7 +72,7 @@ def upsert_document(table_path: str, json_dict: dict):
     return True
 
 
-def upsert_documents(table_path: str, docs: list):
+async def upsert_documents(table_path: str, docs: list):
     """
     Update or insert a document into the OJAI store (table)
 
@@ -217,11 +217,11 @@ async def get_documents(table_path: str, limit: int = FETCH_RECORD_NUM):
 # using Spark or any other means
 # we may use REST API but I couldn't find rich REST functionality (read/write) for binary tables
 
-def binary_table_upsert(tablepath: str, row: dict):
+def binary_table_upsert(table_path: str, row: dict):
     """
     Create or return table, then push the row into the table
 
-    :param tablepath str: full path to the table
+    :param table_path str: full path to the table
 
     :param row dict: object to insert into the table
 
@@ -231,18 +231,18 @@ def binary_table_upsert(tablepath: str, row: dict):
     not_implemented()
 
 
-def binary_table_get_all(tablepath: str):
+def binary_table_get_all(table_path: str):
     """
     Returns all records from the binary table as ???
 
-    :param tablepath str: full path to the table
+    :param table_path str: full path to the table
 
     :returns ??: record as dict
     """
 
     not_implemented()
 
-def delta_table_upsert(tablepath: str, records: pd.DataFrame):
+def delta_table_upsert(table_path: str, records: pd.DataFrame):
     """
     Write list of dicts into Delta Lake table
     """
@@ -250,19 +250,31 @@ def delta_table_upsert(tablepath: str, records: pd.DataFrame):
     try:
         df = pd.DataFrame().from_records(records)
 
-        write_deltalake(f"{MOUNT_PATH}/{get_cluster_name()}{tablepath}", data=df, mode="append")
+        write_deltalake(f"{MOUNT_PATH}/{get_cluster_name()}{table_path}", data=df, mode="overwrite")
 
     except Exception as error:
-        logger.error("Failed to write: %s", tablepath)
+        logger.error("Failed to write: %s", table_path)
         logger.error(error)
         return False
 
     return True
 
 
-def delta_table_get(tablepath, query):
+async def delta_table_get(table_path, query: str = None):
     """
     Returns all records from the binary table as DataFrame
     """
 
-    return DeltaTable(f"{MOUNT_PATH}/{get_cluster_name()}{tablepath}").to_pandas()
+    fullpath = f"{MOUNT_PATH}/{get_cluster_name()}{table_path}"
+
+    try:
+        if query is None or query == "":
+            return DeltaTable(fullpath).to_pandas()
+        else:
+            fraud = "fraud" # for query string
+            return DeltaTable(fullpath).to_pandas().query(query)
+
+    except Exception as error:
+        logger.error("Failed to read: %s", fullpath)
+        logger.error(error)
+        return pd.DataFrame()

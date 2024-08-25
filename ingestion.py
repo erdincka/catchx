@@ -134,45 +134,40 @@ async def fraud_detection():
 
     input_topic = TOPIC_TRANSACTIONS
     input_stream = f"{BASEDIR}/{STREAM_INCOMING}"
-    output_table = f"{BASEDIR}/{VOLUME_SILVER}/{TABLE_PROFILES}"
 
     if not os.path.lexists(f"{MOUNT_PATH}/{get_cluster_name()}{input_stream}"): # stream not created yet
         ui.notify(f"Stream not found {input_stream}", type="warning")
         return
 
-    ### Switching from Mysql to Deltalake
+    # Gold table to update if fraud found
+    output_table = f"{BASEDIR}/{VOLUME_GOLD}/{TABLE_TRANSACTIONS}"
 
-    # # Gold table to update if fraud found
-    # mydb = get_mysql_connection_string()
+    fraud_count = 0
+    non_fraud_count = 0
 
-    # fraud_count = 0
-    # non_fraud_count = 0
+    for record in await run.io_bound(streams.consume, stream=input_stream, topic=input_topic, consumer_group="fraud"):
+        txn = json.loads(record)
 
-    # for record in await run.io_bound(streams.consume, stream=input_stream, topic=input_topic, consumer_group="fraud"):
-    #     txn = json.loads(record)
+        logger.info("Checking transaction for fraud: %s", txn["_id"])
 
-    #     logger.info("Checking transaction for fraud: %s", txn["_id"])
+        # Where the actual scoring mechanism should work
+        calculated_fraud_score = await dummy_fraud_score()
 
-    #     # Where the actual scoring mechanism should work
-    #     calculated_fraud_score = await dummy_fraud_score()
+        # randomly select a small subset as fraud
+        if int(calculated_fraud_score) > 85:
+            # TODO: should provide a widget/table to see fraud txn details
+            ui.notify(f"Possible fraud in transaction between accounts {txn['sender_account']} and {txn['receiver_account']}", type='negative')
+            # Write to gold/reporting tier
+            possible_fraud = pd.DataFrame.from_dict([txn])
+            possible_fraud["score"] = calculated_fraud_score
 
-    #     # randomly select a small subset as fraud
-    #     if int(calculated_fraud_score) > 85:
-    #         # TODO: should provide a widget/table to see fraud txn details
-    #         ui.notify(f"Possible fraud in transaction between accounts {txn['sender_account']} and {txn['receiver_account']}", type='negative')
-    #         # Write to gold/reporting tier
-    #         possible_fraud = pd.DataFrame.from_dict([txn])
-    #         possible_fraud["score"] = calculated_fraud_score
-    #         # clean up before committing to gold tier
-    #         possible_fraud.drop(['sender_account', 'receiver_account'], axis=1, inplace=True)
-    #         fraud_count += possible_fraud.to_sql(
-    #             name=TABLE_FRAUD, con=mydb, if_exists="append", index=False
-    #         )
+            if tables.delta_table_upsert(output_table, possible_fraud):
+                fraud_count += 1
 
-    #         # and update score for the profiles - not implemented
+            # and update score for the profiles table - not implemented
 
-    #     else:
-    #         non_fraud_count += 1
-    #         logger.info("Non fraudulant transaction %s", txn["_id"])
+        else:
+            non_fraud_count += 1
+            logger.info("Non fraudulant transaction %s", txn["_id"])
 
-    # ui.notify(f"Reported {fraud_count} fraud and {non_fraud_count} valid transactions", type='warning')
+    ui.notify(f"Reported {fraud_count} fraud and {non_fraud_count} valid transactions", type='warning')

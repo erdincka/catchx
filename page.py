@@ -23,7 +23,7 @@ def header(title: str):
 
         ui.switch("Go Live").props("color=accent").bind_value(app.storage.user, 'demo_mode').bind_visibility_from(app.storage.user, "clusterinfo", backward=lambda x: x and len(x) > 0)
 
-        ui.switch("Monitor", on_change=lambda x: toggle_monitoring(x.value)).bind_visibility_from(app.storage.user, 'demo_mode')
+        ui.switch("Monitor", on_change=lambda x: toggle_monitoring(x.value)).props("color=accent").bind_visibility_from(app.storage.user, 'demo_mode')
 
         ui.space()
 
@@ -306,9 +306,10 @@ def demo_steps():
                         ui.item_label("Create the golden tier").props('caption')
                     with ui.item_section().props('side'):
                         with ui.row():
-                            ui.button(icon='visibility', color="neutral", on_click=peek_gold_customers).props('flat dense round').tooltip("Sample refined customer data")
-                            ui.button(icon='code', color="info", on_click=code_create_golden).props('flat dense round').tooltip("View code for ingesting data into Iceberg table")
-                            ui.button(icon='rocket_launch', color="positive", on_click=create_golden).props('flat dense round').tooltip("Ingest customers to Iceberg table").bind_visibility_from(app.storage.user, "demo_mode")
+                            ui.button(icon='visibility', color="neutral", on_click=peek_gold_customers).props('flat dense round').tooltip("Sample consolidated customer data")
+                            ui.button(icon='visibility', color="neutral", on_click=peek_gold_transactions).props('flat dense round').tooltip("Sample consolidated transaction data")
+                            ui.button(icon='code', color="info", on_click=code_create_golden).props('flat dense round').tooltip("View code for ingesting data into Deltalake table")
+                            ui.button(icon='rocket_launch', color="positive", on_click=create_golden).props('flat dense round').tooltip("Ingest customers to Deltalake table").bind_visibility_from(app.storage.user, "demo_mode")
 
                 with ui.item():
                     with ui.item_section().props('avatar'):
@@ -318,9 +319,9 @@ def demo_steps():
                         ui.item_label("Simulate an AI inference").props('caption')
                     with ui.item_section().props('side'):
                         with ui.row():
-                            ui.button(icon='visibility', color="neutral", on_click=peek_gold_fraud).props('flat dense round').tooltip("Sample refined customer data")
-                            ui.button(icon='code', color="info", on_click=code_fraud_detection).props('flat dense round').tooltip("View code for ingesting data into Iceberg table")
-                            ui.button(icon='rocket_launch', color="positive", on_click=fraud_detection).props('flat dense round').tooltip("Ingest customers to Iceberg table").bind_visibility_from(app.storage.user, "demo_mode")
+                            ui.button(icon='visibility', color="neutral", on_click=peek_gold_fraud).props('flat dense round').tooltip("Sample fraud transactions")
+                            ui.button(icon='code', color="info", on_click=code_fraud_detection).props('flat dense round').tooltip("View code used for fraud detection")
+                            ui.button(icon='rocket_launch', color="positive", on_click=fraud_detection).props('flat dense round').tooltip("Scan and update transactions for fraud").bind_visibility_from(app.storage.user, "demo_mode")
 
     return demo_list
 
@@ -444,11 +445,11 @@ def demo_configuration_dialog():
             ui.label("External Data Lakes").classes("text-lg w-full")
             with ui.row().classes("w-full place-items-center"):
                 ui.input("Minio Host", placeholder="minio.local").bind_value(app.storage.user, "S3_SERVER")
-                ui.input("NFS Server", placeholder="nfs-server.dom").bind_value(app.storage.user, "NFS_SERVER")
+                ui.input("NFS Server", placeholder="nfs-server.dom").bind_value(app.storage.user, "NFS_PATH")
                 ui.button(
                     "Mount",
                     on_click=lambda: run_command_with_dialog(
-                        f"umount -l /mnt; mount -t nfs4 -o nolock,proto=tcp,port=2049,sec=sys {app.storage.user.get('NFS_SERVER', 'localhost')}:/ /mnt; ls -lA /mnt"
+                        f"umount -l /mnt; mount -t nfs4 -o nolock,proto=tcp,port=2049,sec=sys {app.storage.user.get('NFS_PATH', 'localhost')} /mnt; ls -lA /mnt"
                     )
                 ).props("")
 
