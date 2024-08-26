@@ -150,7 +150,10 @@ async def fraud_detection():
             # Write to gold/reporting tier
             possible_fraud = pd.DataFrame.from_dict([record])
             possible_fraud["fraud"] = True
+            # clean up transaction details before writing into gold table
+            possible_fraud.drop(["sender_account", "receiver_account"], axis=1, inplace=True)
 
+            # TODO: possibly more performant to collect all fraud transactions and update them all at once
             if tables.delta_table_upsert(output_table, possible_fraud):
                 fraud_count += 1
 

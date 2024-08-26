@@ -248,9 +248,25 @@ def delta_table_upsert(table_path: str, records: pd.DataFrame):
     """
 
     try:
+        table_uri = f"{MOUNT_PATH}/{get_cluster_name()}{table_path}"
+
         df = pd.DataFrame().from_records(records)
 
-        write_deltalake(f"{MOUNT_PATH}/{get_cluster_name()}{table_path}", data=df, mode="overwrite", schema_mode="merge")
+        dt = DeltaTable(table_uri=table_uri)
+
+        (
+            dt.merge(
+                source=df,
+                predicate="s._id = t._id",
+                source_alias="s",
+                target_alias="t",
+            )
+            .when_matched_update_all()
+            .when_not_matched_insert_all()
+            .execute()
+        )
+
+        # write_deltalake(table_or_uri=table_uri, data=df, mode="append", schema_mode="merge")
 
     except Exception as error:
         logger.error("Failed to write: %s", table_path)

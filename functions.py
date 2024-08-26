@@ -2,7 +2,7 @@ from functools import lru_cache
 import random
 import re
 import shutil
-from nicegui import run, events
+from nicegui import events
 import country_converter as coco
 import pandas as pd
 
