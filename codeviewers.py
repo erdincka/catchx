@@ -213,7 +213,7 @@ async def handle_image_action(e: events.MouseEventArguments):
     elif element == "NFS":
         ui.notify("Bringing existing data lakes into the Global Namespace.", type="info")
         # show the mounted path
-        await run_command_with_dialog(f"df -h /mnt; ls -lA /mnt; ls -lA /mnt{EXTERNAL_NFS_PATH}")
+        await run_command_with_dialog(f"df -h /mnt; ls -lA /mnt; ls -lA /mnt/")
 
     elif element == "S3":
         ui.navigate.to(f"http://{app.storage.user.get('S3_SERVER', 'http://localhost:9000')}", new_tab=True)
@@ -327,13 +327,13 @@ async def handle_image_action(e: events.MouseEventArguments):
         await fraud_detection()
 
     elif element == "CheckFraudCode":
-        await code_getscore().open()
+        code_getscore().open()
 
     elif element == "GetScoreCode":
         code_getscore().open()
 
     elif element == "GoldCustomers":
-        await peek_sqlrecords([TABLE_FRAUD, TABLE_TRANSACTIONS, TABLE_CUSTOMERS])
+        await peek_gold_all()
 
     elif element == "ReportView":
         ui.navigate.to(

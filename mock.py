@@ -248,7 +248,7 @@ async def dummy_fraud_score():
     await asyncio.sleep(0.001)
 
     # respond with a random probability, using string to avoid OJAI conversion to this \"score\": {\"$numberLong\": 46}}
-    return str(random.randint(0, 100))
+    return random.randint(0, 100)
 
 
 async def upload_to_s3(file: str):

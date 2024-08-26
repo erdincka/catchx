@@ -41,16 +41,11 @@ async def ingest_transactions():
 
     if len(transactions) > 0:
         # Write into DocumentDB for Bronze tier (raw data) - this will allow CDC for fraud detection process
-        if tables.upsert_documents(table_path=output_table_path, docs=transactions):
+        if await tables.upsert_documents(table_path=output_table_path, docs=transactions):
             ui.notify(f"Saved {len(transactions)} records in {output_table_path}", type="positive")
         else:
             ui.notify(f"Failed to update table: {TABLE_TRANSACTIONS} in {VOLUME_BRONZE}", type='negative')
-        # # Write into iceberg for Bronze tier (raw data)
-        # logger.info("Writing %d transactions with iceberg", len(transactions))
-        # if iceberger.write(VOLUME_BRONZE, TABLE_TRANSACTIONS, records=transactions):
-        #     ui.notify(f"Saved {len(transactions)} transactions in {VOLUME_BRONZE} volume with Iceberg", type="positive")
-        # else:
-        #     ui.notify(f"Failed to save table: {TABLE_TRANSACTIONS} in {VOLUME_BRONZE}", type='negative')
+
     # release when done
     app.storage.user['busy'] = False
 
@@ -127,39 +122,34 @@ async def ingest_customers_iceberg():
 async def fraud_detection():
     """
     Simulate an AI inference query to all incoming transactions.
-    Reading from "incoming" data stream.
+    Reading from bronze transactions.
 
-    The query result will be an update to the "silver" "profile" database.
+    Writing to gold tier transactions
     """
 
-    input_topic = TOPIC_TRANSACTIONS
-    input_stream = f"{BASEDIR}/{STREAM_INCOMING}"
-
-    if not os.path.lexists(f"{MOUNT_PATH}/{get_cluster_name()}{input_stream}"): # stream not created yet
-        ui.notify(f"Stream not found {input_stream}", type="warning")
-        return
-
-    # Gold table to update if fraud found
+    input_table = f"{MOUNT_PATH}/{get_cluster_name()}{BASEDIR}/{VOLUME_BRONZE}/{TABLE_TRANSACTIONS}"
     output_table = f"{BASEDIR}/{VOLUME_GOLD}/{TABLE_TRANSACTIONS}"
+
+    if not os.path.lexists(input_table):
+        ui.notify(f"No transacations found in bronze tier {input_table}", type="warning")
+        return
 
     fraud_count = 0
     non_fraud_count = 0
 
-    for record in await run.io_bound(streams.consume, stream=input_stream, topic=input_topic, consumer_group="fraud"):
-        txn = json.loads(record)
-
-        logger.info("Checking transaction for fraud: %s", txn["_id"])
+    for record in await tables.get_documents(table_path=input_table, limit=None):
+        logger.info("Checking transaction for fraud: %s", record["_id"])
 
         # Where the actual scoring mechanism should work
         calculated_fraud_score = await dummy_fraud_score()
 
         # randomly select a small subset as fraud
-        if int(calculated_fraud_score) > 85:
+        if calculated_fraud_score > 85:
             # TODO: should provide a widget/table to see fraud txn details
-            ui.notify(f"Possible fraud in transaction between accounts {txn['sender_account']} and {txn['receiver_account']}", type='negative')
+            ui.notify(f"Possible fraud in transaction between accounts {record['sender_account']} and {record['receiver_account']}", type='negative')
             # Write to gold/reporting tier
-            possible_fraud = pd.DataFrame.from_dict([txn])
-            possible_fraud["score"] = calculated_fraud_score
+            possible_fraud = pd.DataFrame.from_dict([record])
+            possible_fraud["fraud"] = True
 
             if tables.delta_table_upsert(output_table, possible_fraud):
                 fraud_count += 1
@@ -168,6 +158,6 @@ async def fraud_detection():
 
         else:
             non_fraud_count += 1
-            logger.info("Non fraudulant transaction %s", txn["_id"])
+            logger.info("Non fraudulant transaction %s", record["_id"])
 
     ui.notify(f"Reported {fraud_count} fraud and {non_fraud_count} valid transactions", type='warning')

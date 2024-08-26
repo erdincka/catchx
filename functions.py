@@ -165,7 +165,7 @@ async def refine_customers():
 
     try:
         logger.info("Loading %s documents into %s", df.shape[0], silver_customers_table)
-        if await run.io_bound(tables.upsert_documents, table_path=silver_customers_table, docs=df.to_dict("records")):
+        if await tables.upsert_documents(table_path=silver_customers_table, docs=df.to_dict("records")):
             ui.notify(f"Records are written to {silver_customers_table}", type='positive')
         else:
             ui.notify(f"Failed to save records in {silver_customers_table}", type='negative')
@@ -220,8 +220,6 @@ def iceberg_table_tail(tier: str, tablename: str):
 
         df = iceberger.tail(tier=tier, tablename=tablename)
 
-        logger.debug(df)
-
         ui.label(f"Total records: {df.shape[0]}") # shape[0] giving total rows
         ui.table.from_pandas(df.tail(100), row_key="_id", title=f"{tier}.{tablename}").classes('w-full mt-6').props("dense")
 
@@ -229,7 +227,7 @@ def iceberg_table_tail(tier: str, tablename: str):
     dialog.open()
 
 
-async def peek_documents(table_path: str):
+async def peek_document(table_path: str):
     """
     Get `FETCH_RECORD_NUM` documents from DocumentDB table
 
@@ -269,47 +267,79 @@ async def peek_deltatable(table_path: str, query: str = None):
 
     df = await tables.delta_table_get(table_path=table_path, query=query)
 
+    return df
+
+async def peek_silver_profiles():
+    await peek_document(table_path=f"{BASEDIR}/{VOLUME_SILVER}/{TABLE_PROFILES}")
+
+
+async def peek_silver_customers():
+    await peek_document(table_path=f"{BASEDIR}/{VOLUME_SILVER}/{TABLE_CUSTOMERS}")
+
+
+async def peek_bronze_transactions():
+    await peek_document(table_path=f"{BASEDIR}/{VOLUME_BRONZE}/{TABLE_TRANSACTIONS}")
+
+
+async def peek_silver_transactions():
+    await peek_document(table_path=f"{BASEDIR}/{VOLUME_SILVER}/{TABLE_TRANSACTIONS}")
+
+
+async def gold_customers_table():
+    customers = await peek_deltatable(table_path=f"{BASEDIR}/{VOLUME_GOLD}/{TABLE_CUSTOMERS}")
+    ui.label(f"Number of customers: {customers.shape[0]}")
+    ui.table.from_pandas(customers).classes('w-full mt-6').props("dense")
+
+
+async def gold_transactions_table():
+        transactions = await peek_deltatable(table_path=f"{BASEDIR}/{VOLUME_GOLD}/{TABLE_TRANSACTIONS}")
+        ui.label(f"Number of transactions: {transactions.shape[0]}")
+        ui.table.from_pandas(transactions).classes('w-full').props("dense")
+
+
+async def gold_fraud_table():
+        fraud = await peek_deltatable(table_path=f"{BASEDIR}/{VOLUME_GOLD}/{TABLE_TRANSACTIONS}", query="fraud == True")
+        ui.label(f"Number of fraud transactions: {fraud.shape[0]}")
+        ui.table.from_pandas(fraud).classes('w-full').props("dense")
+
+
+async def peek_gold_customers():
     with ui.dialog().props("full-width") as dialog, ui.card().classes("grow relative"):
         ui.button(icon="close", on_click=dialog.close).props("flat round dense").classes("absolute right-2 top-2")
-
-        with ui.row():
-            ui.label(f"Fetched records: {df.shape[0]}")
-        ui.table.from_pandas(df).classes('w-full mt-6').props("dense")
+        await gold_customers_table()
 
     dialog.on("close", lambda d=dialog: d.delete())
     dialog.open()
 
 
-async def peek_silver_profiles():
-    await peek_documents(table_path=f"{BASEDIR}/{VOLUME_SILVER}/{TABLE_PROFILES}")
-
-
-async def peek_silver_customers():
-    await peek_documents(table_path=f"{BASEDIR}/{VOLUME_SILVER}/{TABLE_CUSTOMERS}")
-
-
-async def peek_bronze_transactions():
-    await peek_documents(table_path=f"{BASEDIR}/{VOLUME_BRONZE}/{TABLE_TRANSACTIONS}")
-
-
-async def peek_silver_transactions():
-    await peek_documents(table_path=f"{BASEDIR}/{VOLUME_SILVER}/{TABLE_TRANSACTIONS}")
-
-
-async def peek_gold_customers():
-    await peek_deltatable(table_path=f"{BASEDIR}/{VOLUME_GOLD}/{TABLE_CUSTOMERS}")
-
-
 async def peek_gold_transactions():
-    await peek_deltatable(table_path=f"{BASEDIR}/{VOLUME_GOLD}/{TABLE_TRANSACTIONS}")
+    with ui.dialog().props("full-width") as dialog, ui.card().classes("grow relative"):
+        ui.button(icon="close", on_click=dialog.close).props("flat round dense").classes("absolute right-2 top-2")
+        await gold_transactions_table()
+
+    dialog.on("close", lambda d=dialog: d.delete())
+    dialog.open()
 
 
 async def peek_gold_fraud():
-    await peek_deltatable(table_path=f"{BASEDIR}/{VOLUME_GOLD}/{TABLE_TRANSACTIONS}")
+    with ui.dialog().props("full-width") as dialog, ui.card().classes("grow relative"):
+        ui.button(icon="close", on_click=dialog.close).props("flat round dense").classes("absolute right-2 top-2")
+        await gold_fraud_table()
+
+    dialog.on("close", lambda d=dialog: d.delete())
+    dialog.open()
 
 
-async def peek_gold_fraud():
-    await peek_deltatable(table_path=f"{BASEDIR}/{VOLUME_GOLD}/{TABLE_TRANSACTIONS}", query="fraud == True")
+async def peek_gold_all():
+    with ui.dialog().props("full-width") as dialog, ui.card().classes("grow relative"):
+        ui.button(icon="close", on_click=dialog.close).props("flat round dense").classes("absolute right-2 top-2")
+
+        await gold_customers_table()
+        await gold_transactions_table()
+        await gold_fraud_table()
+
+    dialog.on("close", lambda d=dialog: d.delete())
+    dialog.open()
 
 
 async def create_golden():
@@ -527,14 +557,12 @@ def nfs_upload():
     customers_file = (
         f"{MOUNT_PATH}/{get_cluster_name()}{BASEDIR}/{TABLE_CUSTOMERS}.csv"
     )
-    if os.path.lexists(customers_file) and os.path.exists(
-        f"/mnt{EXTERNAL_NFS_PATH}"
-    ):
+    if os.path.lexists(customers_file):
         ui.notify(
             f"Copying {TABLE_CUSTOMERS} to external NFS server", type="success"
         )
         logger.info(
             shutil.copyfile(
-                customers_file, f"/mnt{EXTERNAL_NFS_PATH}/{TABLE_CUSTOMERS}"
+                customers_file, f"/mnt/{TABLE_CUSTOMERS}.csv"
             )
         )

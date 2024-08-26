@@ -17,7 +17,6 @@ STORAGE_SECRET = "ezmer@1r0cks"
 DATA_PRODUCT = "fraud" # make this a single word, used for dir and database names, no spaces or fancy characters
 BASEDIR = "/app"
 MOUNT_PATH = "/mapr"
-EXTERNAL_NFS_PATH = "/users" # TODO: make this user defined
 
 VOLUME_BRONZE = "bronze"
 VOLUME_SILVER = "silver"
@@ -503,20 +502,6 @@ def gracefully_fail(exc: Exception):
 
 def not_implemented():
     ui.notify('Not implemented', type='warning')
-
-
-async def open_dialog(content_function):
-    with ui.dialog().props("full-width full-height") as dialog, ui.card().classes(
-        "relative"
-    ):
-        ui.button(icon="close", on_click=dialog.close).props(
-            "flat round dense"
-        ).classes("absolute right-2 top-2")
-        if inspect.iscoroutinefunction(content_function):
-            await content_function()
-        else: content_function()
-
-    dialog.open()
 
 
 class LogElementHandler(logging.Handler):

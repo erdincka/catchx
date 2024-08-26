@@ -163,18 +163,16 @@ async def domain_page():
 
     header(DATA_PRODUCT)
 
-    gui.domain_ii()
+    with ui.grid(columns=2).classes("w-full gap-0 flex"):
 
-    # Realtime monitoring information
-    monitoring_card().classes(
-        "flex-grow shrink absolute top-10 right-0 w-1/4 h-fit opacity-50 hover:opacity-100"
-    )
+        gui.domain_ii().classes("flex-1")
+
+        # Realtime monitoring information
+        monitoring_card().classes("flex")
 
     logging_card().classes(
         "flex-grow shrink absolute bottom-0 left-0 w-full opacity-50 hover:opacity-100"
-        # "flex-grow shrink absolute top-64 right-0 w-1/4 opacity-50 hover:opacity-100"
     )
-    # metric_badges_on_ii()
 
     footer()
 
@@ -523,6 +521,7 @@ def demo_configuration_dialog():
             ui.label("Create the Entities").classes("text-lg w-full")
             ui.label("required volumes and streams")
             with ui.row().classes("w-full place-items-center mt-4"):
+                ui.button("Remount", on_click=lambda: run_command_with_dialog(f"([ -d /mapr ] && umount -l /mapr) || mkdir /mapr; mount -t nfs4 -o nolock,soft {app.storage.user.get('MAPR_HOST', '')}:/mapr /mapr")).bind_enabled_from(app.storage.user, "busy", backward=lambda x: not x)
                 ui.button("Volumes", on_click=create_volumes).bind_enabled_from(app.storage.user, "busy", backward=lambda x: not x)
                 ui.button("Streams", on_click=create_streams).bind_enabled_from(app.storage.user, "busy", backward=lambda x: not x)
                 ui.button("Tables", on_click=create_tables).bind_enabled_from(app.storage.user, "busy", backward=lambda x: not x)

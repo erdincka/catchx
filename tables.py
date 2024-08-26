@@ -250,7 +250,7 @@ def delta_table_upsert(table_path: str, records: pd.DataFrame):
     try:
         df = pd.DataFrame().from_records(records)
 
-        write_deltalake(f"{MOUNT_PATH}/{get_cluster_name()}{table_path}", data=df, mode="overwrite")
+        write_deltalake(f"{MOUNT_PATH}/{get_cluster_name()}{table_path}", data=df, mode="overwrite", schema_mode="merge")
 
     except Exception as error:
         logger.error("Failed to write: %s", table_path)

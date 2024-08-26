@@ -428,9 +428,11 @@ async def gold_stats():
         series.append({ TABLE_TRANSACTIONS: transactions_df.shape[0] })
         app.storage.user["gold_transactions"] = transactions_df.shape[0]
 
-        fraud_transactions_df = transactions_df.query("fraud == True") or pd.DataFrame() # empty dataframe if none found
-        series.append({ TABLE_FRAUD: fraud_transactions_df.shape[0] })
-        app.storage.user["gold_fraud"] = fraud_transactions_df.shape[0]
+        logger.debug(transactions_df['fraud'])
+        fraud_transactions_df = transactions_df.query("fraud") or pd.DataFrame() # empty dataframe if none found
+
+        # series.append({ TABLE_FRAUD: fraud_transactions_df.shape[0] })
+        # app.storage.user["gold_fraud"] = fraud_transactions_df.shape[0]
 
         logger.debug("Gold stat time: %f", timeit.default_timer() - tick)
 

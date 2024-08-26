@@ -132,141 +132,26 @@ def domain_ii():
         "svg:pointerup",
         lambda e: handle_image_action(e.args),
         # ).on("svg:pointerover", lambda e: handle_image_info(e.args)
-    ).classes(
-        "relative m-0 p-0"
     ).props(
         "fit=scale-down"
-    ).bind_content_from(app.storage.user, "overlay") as domain_image:
-        # TEMPORARY - need to fix binding
-        domain_image.set_content(svg_overlay)
-
-        domain_image.client.content.classes('p-2') # remove the default gap
-
-        # ui.switch("Go Live", on_change=lambda x, i=domain_image: set_demo_mode(i, x.value)).classes("absolute top-0 left-2").bind_value(app.storage.user, 'demo_mode')
-
+    ) as domain_image:
         with ui.list().props("bordered dense").classes("w-96 absolute top-10 left-2").bind_visibility_from(app.storage.user, 'demo_mode'):
-            ui.item_label("Source data").props("header").classes("text-bold")
+            ui.item_label("Source data").props("header").classes("text-bold text-primary")
             ui.separator()
             with ui.row().classes("w-full no-wrap p-0"):
                 with ui.button_group().props("flat"):
-                    ui.button(icon="o_library_add", on_click=create_customers).classes("mx-0 px-1").props("flat")
-                    ui.button(icon="o_integration_instructions", on_click=code_create_customers).classes("mx-0 px-1").props("flat")
-                with ui.item(on_click=peek_mocked_customers).props("dense").classes("mx-0 gx-0"):
-                    with ui.item_section():
-                        ui.item_label(f"{MOUNT_PATH}/{get_cluster_name()}{BASEDIR}/{TABLE_CUSTOMERS}.csv")
+                    ui.button(icon="o_preview", on_click=peek_mocked_customers).classes("mx-0 px-1").props("flat").tooltip("Sample customer records")
+                    ui.button(icon="o_integration_instructions", on_click=code_create_customers).classes("mx-0 px-1").props("flat").tooltip("Code for create_customers")
+                    ui.button(icon="o_library_add", on_click=create_customers).classes("mx-0 px-1").props("flat").tooltip("Create new customer records")
 
             with ui.row().classes("w-full no-wrap p-0"):
                 with ui.button_group().props("flat"):
+                    ui.button(icon="o_preview", on_click=peek_mocked_transactions).classes("mx-0 px-1").props("flat").tooltip("Sample transaction records")
+                    ui.button(icon="o_integration_instructions", on_click=code_create_transactions).classes("mx-0 px-1").props("flat").tooltip("Code for create_transactions")
                     ui.button(icon="o_library_add", on_click=lambda: create_transactions(100)).classes("mx-0 px-1").props("flat").tooltip("Generate bulk transactions for NiFi")
-                    ui.button(icon="o_integration_instructions", on_click=code_create_transactions).classes("mx-0 px-1").props("flat")
-                with ui.item(on_click=peek_mocked_transactions).props("dense").classes("mx-0 gx-0"):
-                    with ui.item_section():
-                        ui.item_label(f"{MOUNT_PATH}/{get_cluster_name()}{BASEDIR}/{TABLE_TRANSACTIONS}.csv")
+
+    domain_image.bind_content_from(app.storage.user, "demo_mode", backward=lambda x: svg_overlay if x else "")
+
+    domain_image.client.content.classes('p-2') # remove the default gap
 
     return domain_image
-
-
-# NOT USED
-def add_elements_to_svg(x: int, y: int, color: str, metric: str):
-    """
-    HTML element to insert into SVG
-    # x/y placement not working for nicegui elements
-    :param x int: pixels from left
-    :param y int: pixels from top
-    :param color str: color of the badge
-    :param metric str: badge count to read from app.storage.user
-
-    """
-    return f"""
-        <foreignObject x="{x}" y="{y}">
-            {
-                ui.badge("0", color=color).bind_text_from(
-                    app.storage.user,
-                    metric,
-                    lambda x: x if x is not None else 0,
-                )
-            }
-        </foreignObject>
-    """
-
-
-### NOT USED
-def metric_badges_on_ii():
-    """
-    Place badges with counters in real-time as they are updated by monitoring_metrics()
-    """
-
-    # raw counts
-    ui.badge("0", color="teal").bind_text_from(
-        app.storage.user,
-        "raw_transactions",
-        lambda x: x if x is not None else 0,
-    ).classes("absolute top-[250px] left-[100px]")
-    ui.badge("0", color="orange").bind_text_from(
-        app.storage.user,
-        "raw_customers",
-        lambda x: x if x is not None else 0,
-    ).classes("absolute top-[420px] left-[100px]")
-
-    # ingest counts
-    ui.badge("0", color="lightteal").bind_text_from(
-        app.storage.user,
-        "transactions_ingested",
-        lambda x: x if x is not None else 0,
-    ).classes("absolute top-[250px] left-[280px]").tooltip("published transactions")
-    ui.badge("0", color="teal").bind_text_from(
-        app.storage.user,
-        "transactions_processed",
-        lambda x: x if x is not None else 0,
-    ).classes("absolute top-[280px] left-[280px]").tooltip("consumed transactions")
-    ui.badge("0", color="orange").bind_text_from(
-        app.storage.user,
-        "ingest_customers",
-        lambda x: x if x is not None else 0,
-    ).classes("absolute top-[460px] left-[280px]").tooltip("# of customers")
-
-    # bronze counts
-    ui.badge("0", color="teal").bind_text_from(
-        app.storage.user,
-        "bronze_transactions",
-        lambda x: x if x is not None else 0,
-    ).classes("absolute top-[280px] left-[450px]").tooltip("# of transactions")
-    ui.badge("0", color="orange").bind_text_from(
-        app.storage.user,
-        "bronze_customers",
-        lambda x: x if x is not None else 0,
-    ).classes("absolute top-[450px] left-[450px]").tooltip("# of customers")
-
-    # silver counts
-    ui.badge("0", color="darkturquoise").bind_text_from(
-        app.storage.user,
-        "silver_profiles",
-        lambda x: x if x is not None else 0,
-    ).classes("absolute top-[140px] left-[680px]").tooltip("# of profiles")
-    ui.badge("0", color="teal").bind_text_from(
-        app.storage.user,
-        "silver_transactions",
-        lambda x: x if x is not None else 0,
-    ).classes("absolute top-[280px] left-[680px]").tooltip("# of transactions")
-    ui.badge("0", color="orange").bind_text_from(
-        app.storage.user,
-        "silver_customers",
-        lambda x: x if x is not None else 0,
-    ).classes("absolute top-[450px] left-[680px]").tooltip("# of customers")
-
-    # gold counts
-    ui.badge("0", color="red").bind_text_from(
-        app.storage.user,
-        "gold_fraud",
-        lambda x: x if x is not None else 0,
-    ).classes("absolute top-[420px] left-[870px]").tooltip("# of fraud")
-    ui.badge("0", color="teal").bind_text_from(
-        app.storage.user,
-        "gold_transactions",
-        lambda x: x if x is not None else 0,
-    ).classes("absolute top-[440px] left-[870px]").tooltip("# of transactions")
-    ui.badge("0", color="orange").bind_text_from(
-        app.storage.user,
-        "gold_customers",
-        lambda x: x if x is not None else 0,
-    ).classes("absolute top-[460px] left-[870px]").tooltip("# of customers")
