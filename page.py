@@ -103,9 +103,10 @@ def footer():
             # ui.switch("Lights on!", on_change=lights_on).props("flat outline color=dark keep-color").bind_value(app.storage.user, "lightson")
             # ui.space()
 
-            ui.switch(on_change=toggle_log).tooltip("Debug").props(
-                "color=dark keep-color"
-            )
+            # NOT USED
+            # ui.switch(on_change=toggle_log).tooltip("Debug").props(
+            #     "color=dark keep-color"
+            # )
 
             # Github link
             with ui.link(
@@ -136,13 +137,12 @@ async def index_page():
         monitoring_card().classes("flex")
 
     logging_card().classes(
-        "flex-grow shrink absolute bottom-0 left-0 w-full opacity-50 hover:opacity-100"
+    "flex-grow shrink absolute bottom-0 left-0 w-full opacity-50 hover:opacity-100"
+    # "w-full"
     )
 
     # charts = monitoring_charts()
     # timer = ui.timer(MON_REFRESH_INTERVAL3, lambda c=chart: update_chart(c, txn_consumer_stats), active=False)
-    # charts = monitoring_charts()
-    # timers = monitoring_timers(charts)
 
     footer()
 
@@ -163,15 +163,16 @@ async def domain_page():
 
     header(DATA_PRODUCT)
 
-    with ui.grid(columns=2).classes("w-full gap-0 flex"):
+    # with ui.grid(columns=2).classes("w-full gap-0 flex"):
 
-        gui.domain_ii().classes("flex-1")
+    # Realtime monitoring information
+    monitoring_card().classes("w-full flex")
 
-        # Realtime monitoring information
-        monitoring_card().classes("flex")
+    gui.domain_ii().classes("flex-1")
 
     logging_card().classes(
-        "flex-grow shrink absolute bottom-0 left-0 w-full opacity-50 hover:opacity-100"
+        # "flex-grow shrink absolute bottom-0 left-0 w-full opacity-50 hover:opacity-100"
+        "flex-grow shrink w-full"
     )
 
     footer()

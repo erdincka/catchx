@@ -547,11 +547,11 @@ def monitoring_charts():
 
     charts = {}
 
-    with ui.card().classes("w-full flex-grow shrink no-wrap bottom-0"):
-        with ui.row().classes("w-full"):
-            ui.label("Realtime Charts").classes("uppercase")
+    # global MONITORING_TIMERS
 
-        with ui.row().classes("w-full place-content-stretch no-wrap"):
+    with ui.card().classes("w-full flex-grow shrink no-wrap bottom-0"):
+        # with ui.row().classes("w-full place-content-stretch no-wrap"):
+        with ui.grid(columns=2).classes("w-full place-content-stretch no-wrap"):
             # # monitor using /var/mapr/mapr.monitoring/metricstreams/0
             # streams_chart = get_echart()
             # streams_chart.run_chart_method(':showLoading', r'{text: "Waiting..."}',)
@@ -561,75 +561,76 @@ def monitoring_charts():
             # https://10.1.1.31:3000/d/pUfMqVUIz/demo-monitoring?orgId=1
 
             charts["consumer"] = new_echart(title="Consumers")
-            ui.timer(MON_REFRESH_INTERVAL3, lambda c=charts["consumer"]: update_chart(c, txn_consumer_stats), active=False)
+            # MONITORING_TIMERS.append(ui.timer(MON_REFRESH_INTERVAL3, lambda c=charts["consumer"]: update_chart(c, txn_consumer_stats), active=True))
 
             charts["incoming"] = new_echart(title="Incoming")
-            ui.timer(MON_REFRESH_INTERVAL3 + 1, lambda c=charts["incoming"]: update_chart(c, incoming_topic_stats), active=False)
+            # MONITORING_TIMERS.append(ui.timer(MON_REFRESH_INTERVAL3 + 1, lambda c=charts["incoming"]: update_chart(c, incoming_topic_stats), active=True))
 
             charts["bronze"] = new_echart(title="Bronze tier")
-            ui.timer(MON_REFRESH_INTERVAL3 + 2, lambda c=charts["bronze"]: update_chart(c, bronze_stats), active=False)
+            # MONITORING_TIMERS.append(ui.timer(MON_REFRESH_INTERVAL3 + 2, lambda c=charts["bronze"]: update_chart(c, bronze_stats), active=True))
 
             charts["silver"] = new_echart(title="Silver tier")
-            ui.timer(MON_REFRESH_INTERVAL3 + 3, lambda c=charts["silver"]: update_chart(c, silver_stats), active=False)
+            # MONITORING_TIMERS.append(ui.timer(MON_REFRESH_INTERVAL3 + 3, lambda c=charts["silver"]: update_chart(c, silver_stats), active=True))
 
             charts["gold"] = new_echart(title="Gold tier")
-            ui.timer(MON_REFRESH_INTERVAL3 + 4, lambda c=charts["gold"]: update_chart(c, gold_stats), active=False)
+            # MONITORING_TIMERS.append(ui.timer(MON_REFRESH_INTERVAL3 + 4, lambda c=charts["gold"]: update_chart(c, gold_stats), active=True))
 
     return charts
 
 
-async def update_metrics(chart: ui.chart):
+# NOT USED
+# async def update_metrics(chart: ui.chart):
 
-    # # monitor using /var/mapr/mapr.monitoring/metricstreams/0
-    # streams_chart = get_echart()
-    # streams_chart.run_chart_method(':showLoading', r'{text: "Waiting..."}',)
-    # ui.timer(MON_REFRESH_INTERVAL, lambda c=streams_chart, s=mapr_monitoring: chart_listener(c, s), once=True)
+#     # # monitor using /var/mapr/mapr.monitoring/metricstreams/0
+#     # streams_chart = get_echart()
+#     # streams_chart.run_chart_method(':showLoading', r'{text: "Waiting..."}',)
+#     # ui.timer(MON_REFRESH_INTERVAL, lambda c=streams_chart, s=mapr_monitoring: chart_listener(c, s), once=True)
 
-    tick = timeit.default_timer()
+#     tick = timeit.default_timer()
 
-    values = []
-    # transform multiple series to single one replacing key with metric_key
-    metrics = await incoming_topic_stats()
-    if metrics is not None:
-        metric_time = metrics["time"]
-        # definitely not readable and confusing. TODO: extract to a extract and flatten function
-        values += [item for row in [ [ { metrics["name"] + "_" + k: v } for k,v in m.items() ] for m in metrics["values"] ] for item in row]
+#     values = []
+#     # transform multiple series to single one replacing key with metric_key
+#     metrics = await incoming_topic_stats()
+#     if metrics is not None:
+#         metric_time = metrics["time"]
+#         # definitely not readable and confusing. TODO: extract to a extract and flatten function
+#         values += [item for row in [ [ { metrics["name"] + "_" + k: v } for k,v in m.items() ] for m in metrics["values"] ] for item in row]
 
-    metrics = await bronze_stats()
-    if metrics is not None:
-        metric_time = metrics["time"]
-        values += [item for row in [ [ { metrics["name"] + "_" + k: v } for k,v in m.items() ] for m in metrics["values"] ] for item in row]
+#     metrics = await bronze_stats()
+#     if metrics is not None:
+#         metric_time = metrics["time"]
+#         values += [item for row in [ [ { metrics["name"] + "_" + k: v } for k,v in m.items() ] for m in metrics["values"] ] for item in row]
 
-    metrics = await silver_stats()
-    if metrics is not None:
-        metric_time = metrics["time"]
-        values += [item for row in [ [ { metrics["name"] + "_" + k: v } for k,v in m.items() ] for m in metrics["values"] ] for item in row]
+#     metrics = await silver_stats()
+#     if metrics is not None:
+#         metric_time = metrics["time"]
+#         values += [item for row in [ [ { metrics["name"] + "_" + k: v } for k,v in m.items() ] for m in metrics["values"] ] for item in row]
 
-    metrics = await gold_stats()
-    if metrics is not None:
-        metric_time = metrics["time"]
-        values += [item for row in [ [ { metrics["name"] + "_" + k: v } for k,v in m.items() ] for m in metrics["values"] ] for item in row]
+#     metrics = await gold_stats()
+#     if metrics is not None:
+#         metric_time = metrics["time"]
+#         values += [item for row in [ [ { metrics["name"] + "_" + k: v } for k,v in m.items() ] for m in metrics["values"] ] for item in row]
 
-    logger.debug(values)
+#     logger.debug(values)
 
-    if len(values) > 0:
-        chart.options["xAxis"]["data"].append(metric_time)  # taking the time from the last (gold) metric
-        for idx, serie in enumerate(values):
-            # add missing series
-            if idx not in chart.options["series"]:
-                chart.options["series"].append(new_series())
+#     if len(values) > 0:
+#         chart.options["xAxis"]["data"].append(metric_time)  # taking the time from the last (gold) metric
+#         for idx, serie in enumerate(values):
+#             # add missing series
+#             if idx not in chart.options["series"]:
+#                 chart.options["series"].append(new_series())
 
-            chart_series = chart.options["series"][idx]
-            for key in serie.keys():
-                if not chart_series.get("name", None):
-                    chart_series["name"] = key
+#             chart_series = chart.options["series"][idx]
+#             for key in serie.keys():
+#                 if not chart_series.get("name", None):
+#                     chart_series["name"] = key
 
-                chart_series["data"].append(int(serie[key]))
+#                 chart_series["data"].append(int(serie[key]))
 
-        chart.update()
-        chart.run_chart_method('hideLoading')
+#         chart.update()
+#         chart.run_chart_method('hideLoading')
 
-    logger.info("Finished in: %ss", timeit.default_timer() - tick)
+#     logger.info("Finished in: %ss", timeit.default_timer() - tick)
 
 
 def monitoring_card():
@@ -663,11 +664,12 @@ def monitoring_card():
 def logging_card():
     # Realtime logging
     with ui.card().bind_visibility_from(app.storage.user, 'demo_mode').props("flat") as logging_card:
-        ui.label("App log").classes("uppercase")
-        log = ui.log().classes("h-40")
+        # ui.label("App log").classes("uppercase")
+        log = ui.log().classes("h-24")
         handler = LogElementHandler(log, logging.INFO)
         rootLogger = logging.getLogger()
         rootLogger.addHandler(handler)
         ui.context.client.on_disconnect(lambda: rootLogger.removeHandler(handler))
+        rootLogger.info("Logging started")
 
     return logging_card

@@ -2,7 +2,6 @@ import asyncio
 import datetime
 import logging
 import os
-import inspect
 
 import httpx
 from nicegui import ui, app, binding
@@ -485,12 +484,13 @@ def configure_logging():
     binding.MAX_PROPAGATION_TIME = 0.05
 
 
-def toggle_log(arg: ValueChangeEventArguments):
-    print(f"debug set to {arg.value}")
-    if arg.value:
-        logger.setLevel(logging.DEBUG)
-    else:
-        logger.setLevel(logging.INFO)
+# NOT USED
+# def toggle_log(arg: ValueChangeEventArguments):
+#     print(f"debug set to {arg.value}")
+#     if arg.value:
+#         logging.getLogger().setLevel(logging.DEBUG)
+#     else:
+#         logging.getLogger().setLevel(logging.INFO)
 
 
 # Handle exceptions without UI failure
