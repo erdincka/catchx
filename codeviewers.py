@@ -235,7 +235,18 @@ async def handle_image_action(e: events.MouseEventArguments):
             "Integrate with an external catalogue manager to classify, document and serve various data sources.",
             type="info",
         )
-        ui.navigate.to(app.storage.user.get('CATALOGUE_URL', ''), new_tab=True)
+        # ask for url if not set
+        if app.storage.user.get("CATALOGUE_URL", "") == "":
+            with ui.dialog().props("full-width") as dialog, ui.card().classes("grow relative"):
+                ui.label("Link to the catalogue page").classes("text-sm text-italic")
+                ui.input("Catalogue URL").bind_value(app.storage.user, "CATALOGUE_URL").classes("w-full")
+                ui.button("Go", on_click=lambda: dialog.close())
+            dialog.on("close", lambda d=dialog: d.delete())
+            dialog.open()
+
+        if app.storage.user.get("CATALOGUE_URL") != "":
+            ui.navigate.to(app.storage.user.get('CATALOGUE_URL', ''), new_tab=True)
+
     elif element == "Edge":
         ui.notify(
             "Enable non-data products to become a part of the global namespace, enabling them to access data across the enterprise.",
