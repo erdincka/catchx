@@ -390,29 +390,6 @@ async def create_streams():
     return True
 
 
-# def show_mysql_tables():
-#     mydb = get_mysql_connection_string()
-
-#     engine = create_engine(mydb)
-
-#     with engine.connect() as conn:
-#         tables = conn.execute(text("SHOW TABLES"))
-#         peek_tables = {}
-#         for table in tables:
-#             # peek_tables[table[0]] = pd.read_sql(f"SELECT * FROM {table[0]} LIMIT 5", con=mydb)
-#             peek_tables[table[0]] = pd.read_sql(f"SELECT * FROM {table[0]} LIMIT 10", con=mydb)
-#             logger.debug("%s: %s", table[0], peek_tables[table[0]])
-
-#         with ui.dialog().props("full-width") as mysql_tables, ui.card().classes("grow relative"):
-#             ui.button(icon="close", on_click=mysql_tables.close).props("flat round dense").classes("absolute right-2 top-2")
-
-#             with ui.row().classes("w-full mt-6"):
-#                 ui.label("Tables from MySQL DB")
-#             for table in peek_tables.keys():
-#                 ui.table.from_pandas(peek_tables[table], title=table).classes('w-full mt-6').props("dense")
-
-#         mysql_tables.open()
-
 # This is not used due to complexity of its setup
 # requires gateway node configuration and DNS modification
 async def enable_cdc(source_table_path: str, destination_stream_topic: str):

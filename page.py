@@ -470,45 +470,6 @@ def demo_configuration_dialog():
                 ui.input("Access Key").bind_value(app.storage.user, "S3_ACCESS_KEY")
                 ui.input("Secret Key", password=True, password_toggle_button=True).bind_value(app.storage.user, "S3_SECRET_KEY")
 
-            # ui.space()
-            # with ui.dialog() as mysql_user_dialog, ui.card():
-            #     mysql_user_script = f"""
-            #     Using MySQL admin user, run these commands to create the database and the user:
-            #     ```
-            #     CREATE DATABASE {DATA_PRODUCT};
-            #     USE {DATA_PRODUCT};
-            #     CREATE USER 'your_user'@'%' IDENTIFIED BY 'your_password';
-            #     GRANT ALL ON {DATA_PRODUCT}.* TO 'your_user'@'%' WITH GRANT OPTION;
-            #     FLUSH PRIVILEGES;
-            #     ```
-            #     """
-            #     ui.code(content=mysql_user_script, language="shell")
-
-            # with ui.row().classes("w-full place-items-center mt-4"):
-            #     ui.label("MySQL Credentials").classes("text-lg")
-            #     ui.button(icon="info", on_click=mysql_user_dialog.open).props("flat round")
-            # ui.label("for gold tier RDBMS").classes("text-sm text-italic")
-            # with ui.row().classes("w-full place-items-center mt-4"):
-            #     ui.input("Username").bind_value(app.storage.user, "MYSQL_USER")
-            #     ui.input("Password", password=True, password_toggle_button=True).bind_value(app.storage.user, "MYSQL_PASS")
-
-        # ui.separator()
-        # Cluster configuration
-        # with ui.card_section():
-        #     ui.label("Configure and Login").classes("text-lg w-full")
-        #     ui.label("login if not using JWT").classes("text-sm text-italic")
-        #     if "MAPR_USER" in app.storage.user.keys() and "cluster" in app.storage.user.keys():
-        #         cluster = app.storage.user.get("cluster", "127.0.0.1")
-        #         os.environ["CLUSTER_NAME"] = get_cluster_name()
-        #         os.environ["CLUSTER_IP"] = cluster if cluster is not None else "127.0.0.1"
-        #         os.environ["MAPR_USER"] = app.storage.user.get("MAPR_USER", "")
-        #         os.environ["MAPR_PASS"] = app.storage.user.get("MAPR_PASS", "")
-        #         with ui.row().classes("w-full place-items-center mt-4"):
-        #                 # ui.button("Reconfigure", on_click=lambda: run_command_with_dialog("bash ./reconfigure.sh"))
-        #                 ui.button("maprlogin", on_click=lambda: run_command_with_dialog(f"echo {app.storage.user['MAPR_PASS']} | maprlogin password -user {app.storage.user['MAPR_USER']}"))
-        #         with ui.row().classes("w-full place-items-center mt-4"):
-        #             ui.button(f"remount {MOUNT_PATH}", on_click=lambda: run_command_with_dialog(f"[ -d {MOUNT_PATH} ] && umount -l {MOUNT_PATH}; [ -d {MOUNT_PATH} ] || mkdir -p {MOUNT_PATH}; mount -t nfs -o nolock,soft {app.storage.user['MAPR_HOST']}:/mapr {MOUNT_PATH}"))
-        #             ui.button("List Cluster /", on_click=lambda: run_command_with_dialog(f"ls -la {MOUNT_PATH}/{get_cluster_name()}")).props('outline')
 
         ui.separator()
         with ui.card_section():

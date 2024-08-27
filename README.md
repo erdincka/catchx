@@ -91,6 +91,8 @@ maprcli node services -name airflow-webserver  -action restart -nodes `hostname 
 
 --- or airflow configures mapr/mapr as default user/password ---
 
+**NOTE: NiFi template is configured to use Mysql/MariaDB for Hive tables, though it is removed from the demo setup. TODO: update NiFi processor to use Deltalake in Gold tier, instead of the RDBMS (mysql).**
+
 
 ## Setting up NFSv4 (optional)
 
@@ -146,6 +148,10 @@ You can use the settings cog to add features:
 - Create entities in the given sequence. Note and fix if there are any errors.
 
 If the data/tables have gone too large or you would like to start from clear state, you can use "Delete All!" to delete the created tables, volumes and streams, and re-create them all again using "Create the Entities" section.
+
+## Additional Steps for the Dashboard
+
+If you plan to use Superset dashboard for visualisation, follow the steps in [Hive for Deltalake setup in UA](./HiveForDelta.md) to create the Hive tables that uses the data in the Gold tier Delta Lake.
 
 # Demo Flow
 
