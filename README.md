@@ -47,71 +47,12 @@ Setup Data Fabric cluster following the instructions below, and optionally creat
 
 Data Fabric should have following packages installed and configured:
 
-Shared MariaDB (for Hive metastore and the demo database `fraud`).
-
 ```bash
 mapr-hivemetastore
 mapr-kafka
 mapr-nfs4server
 mapr-data-access-gateway
 mapr-hbase
-```
-
-## Install MariaDB (if not already installed)
-
-Follow the documentation for MariaDB for your platform (Rocky, RHEL, Ubuntu etc).
-
-The following commands assume that you are running your Data Fabric on RHEL-based Linux environment (Rocky, Centos, RHEL etc). Refer to your OS package manager for other options (ie, Ubuntu).
-
-## Install Hive metastore
-
-Install hive and hive metastore
-
-`yum install mapr-hive mapr-hiveserver2 mapr-hivemetastore`
-
-### Download MariaDB packages:
-
-<!-- Not sure why Hive uses 2.5.4 version and NiFi below uses 3.4.1 version -->
-`wget https://downloads.mariadb.com/Connectors/java/connector-java-2.5.4/mariadb-java-client-2.5.4.jar`
-`wget https://downloads.mariadb.com/Connectors/java/connector-java-2.5.4/mariadb-java-client-2.5.4-sources.jar`
-`wget https://downloads.mariadb.com/Connectors/java/connector-java-2.5.4/mariadb-java-client-2.5.4-javadoc.jar`
-
-Copy files to /opt/mapr/hive/hive-3.1.3/lib/
-
-Install MariaDB connector for NiFi
-`wget https://dlm.mariadb.com/3852266/Connectors/java/connector-java-3.4.1/mariadb-java-client-3.4.1.jar -O /mapr/fraud/user/root/mariadb-java-client-3.4.1.jar`
-
-
-### Initialize Hive database
-
-Reconfigure cluster:
-
-`/opt/mapr/server/configure.sh -R`
-
-Follow the doc to set up database: https://docs.ezmeral.hpe.com/datafabric-customer-managed/78/Hive/Config-MariaDBForHiveMetastore.html
-
-
-Edit `/opt/mapr/hive/hive-3.1.3/conf/hive-site.xml`
-
-Initialize: `/opt/mapr/hive/hive-3.1.3/bin/schematool -dbType mysql -initSchema`
-
-
-## Create Dashboard DBs
-
-```shell
-
-mysql -u root -p
-
-CREATE DATABASE fraud;
-
-CREATE USER 'catchx'@'%' IDENTIFIED BY 'catchx';
-
-GRANT ALL ON fraud.* TO 'catchx'@'%' WITH GRANT OPTION;
-
-FLUSH PRIVILEGES;
-
-exit
-
 ```
 
 
@@ -138,10 +79,10 @@ As root:
 `$SPARK_HOME/sbin/start-workers.sh`
 
 
-`/opt/mapr/nifi/nifi-1.19.1/bin/nifi.sh set-single-user-credentials admin myAdminP@ssword`
+`/opt/mapr/nifi/nifi-1.19.1/bin/nifi.sh set-single-user-credentials admin <your password>`
 
 
-`airflow users  create --role Admin --username admin --email admin --firstname admin --lastname admin --password admin`
+`airflow users  create --role Admin --username admin --email admin --firstname admin --lastname admin --password <your password>`
 
 
 ```bash
@@ -186,58 +127,40 @@ And test it:
 `mount -t nfs4 -o proto=tcp,nolock,sec=sys 10.1.1.18:/ /mnt/`
 
 
-## Container configuration for Spark (Not used)
-<!-- No longer used, pyspark is not used -->
-
-In `/opt/mapr/conf/ssl-server.xml`
-
-```xml
-<property>
-  <name>hadoop.security.credential.provider.path</name>
-  <value>localjceks://file/opt/mapr/conf/maprkeycreds.jceks,localjceks://file/opt/mapr/conf/maprtrustcreds.jceks</value>
-  <description>File-based key and trust store credential provider.</description>
-</property>
-```
-
-`scp mapr@10.1.1.35:/opt/mapr/conf/maprkeycreds.* /opt/mapr/conf/`
-`scp mapr@10.1.1.35:/opt/mapr/conf/maprtrustcreds.* /opt/mapr/conf/`
-`scp mapr@10.1.1.35:/opt/mapr/conf/maprhsm.conf /opt/mapr/conf/`
-
-
 # Running Demo
 
 ## Initial configuration
 
-Click the settings cog icon at top right of the page. You need to provide config.tar taken from the Data Fabric client libraries. Follow steps 2 to 6 on this page: https://docs.ezmeral.hpe.com/datafabric/78/clients/installing_client_libraries.html (jwt_tokens.tar.gz will not be used for this demo).
+Use the disconnected link icon to complete initial setup. This will require you to provide the host to connect to (any Data Fabric node) and then the credentials. It will update the settings and reconfigure the Data Fabric cluster with required settings.
 
-- Using the "Upload Client Files" in the settings drawer, select config.tar file and upload it. Then reload the page and re-open the settings drawer.
+You can use the settings cog to add features:
 
-- Select the cluster from "Select Data Domain" section.
-
-- (Optional) Provide S3 and NFS server endpoints. Tip: Empty input fields with show correct format as placeholder.
-
-- Provide user credentials from Data Fabric with the rights to create/delete volumes, streams, tables...
+- (Optional) Provide S3 and NFS server endpoints. Use FQDN format to avoid certificate errors (though they are ignored in the demo).
 
 - Provide S3 credentials taken from Object Store Access Keys page: https://docs.ezmeral.hpe.com/datafabric/78/administration/generating_s3_access_key.html
-
-- Provide Mysql/MariaDB credentials that you created earlier for dashboard tables.
-
-- Run tasks in "Configure and login" section sequentially. Please pay attention to the outputs for each command and fix errors before proceeding. If you don't see list of folders when you click "List Cluster /" button, something is not working. Fix before going further.
 
 - (Optional) If you created the dashboard, enter its link (taken from Superset -> Dashboards -> Your Dashboard -> get permanent link from the dashboard's action button).
 
 - (Optional) If you installed/configured Metadata Catalogue, provide its link in "Catalogue" text box.
 
-- Create entities in that sequence. Note and fix if there are any errors.
+- Create entities in the given sequence. Note and fix if there are any errors.
 
 If the data/tables have gone too large or you would like to start from clear state, you can use "Delete All!" to delete the created tables, volumes and streams, and re-create them all again using "Create the Entities" section.
 
 # Demo Flow
 
-Read and follow the steps. Process should be followed from top to bottom, and left to right.
+By default, you should see only "view" options for code and data. Turn on the "Go Live" switch to see action buttons.
 
-- Filled buttons are required actions.
+Sample data for customers and transactions are already created by the initialisation step, but you can always add new records by using "Add" buttons.
 
-- Outlined buttons are optional actions.
+- "Rocket" actions should be used to proceed for each step.
 
-- Light outlined buttons are informational.
+- "Preview" buttons for looking at the sample data at that specific tier,
+
+- "Code" buttons are used for checking the actual python code that runs that action,
+
+- "Secondary" buttons (teal colored) are used for optional/alternative steps.
+
+In "live demo" mode, you would see the metrics and logs at the right and bottom of the page, respectively.
+
+Monitoring metric collection is not enabled by default to preserve resources and app responsiveness. Once enabled (using the "Monitor" switch, it will query the data every few seconds and update the UI with the latest values.
