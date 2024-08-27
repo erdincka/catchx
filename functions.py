@@ -460,18 +460,7 @@ async def delete_volumes_and_streams():
             ui.notify(f"{basedir} removed from {get_cluster_name()}", type="warning")
 
         # reset counters
-        for metric in [
-            "transactions_ingested",
-            "transactions_processed",
-            "bronze_customers",
-            "bronze_transactions",
-            "silver_profiles",
-            "silver_transactions",
-            "silver_customers",
-            "gold_transactions",
-            "gold_customers",
-            "gold_fraud",
-        ]:
+        for metric in MONITORING_METRICS:
             app.storage.user[metric] = 0
 
         ui.notify("All volumes and data contained in them are removed", type="positive")

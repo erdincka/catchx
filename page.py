@@ -134,7 +134,9 @@ async def index_page():
 
         demo_steps().classes("flex-1")
 
+        # Realtime monitoring information
         monitoring_card().classes("flex")
+
 
     logging_card().classes(
     "flex-grow shrink absolute bottom-0 left-0 w-full opacity-50 hover:opacity-100"
@@ -166,7 +168,7 @@ async def domain_page():
     # with ui.grid(columns=2).classes("w-full gap-0 flex"):
 
     # Realtime monitoring information
-    monitoring_card().classes("w-full flex")
+    monitoring_ticker().classes("flex w-full place-items-center") # overflow-x-auto no-wrap
 
     gui.domain_ii().classes("flex-1")
 

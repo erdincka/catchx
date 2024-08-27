@@ -67,33 +67,6 @@ def new_echart(title: str):
     return chart
 
 
-# async def chart_listener(chart: ui.echart, metric_generator, *args):
-#     for metric in metric_generator(*args):
-#         if metric:
-
-#             chart.options["xAxis"]["data"].append(metric["time"])
-#             chart.options["title"]["text"] = metric["name"].title()
-
-#             for idx, serie in enumerate(metric["values"]):
-#                 # add missing series
-#                 if idx not in chart.options["series"]:
-#                     chart.options["series"].append(new_series())
-
-#                 chart_series = chart.options["series"][idx]
-
-#                 for key in serie.keys():
-#                     if not chart_series.get("name", None):
-#                         chart_series["name"] = key
-#                     # if name ends with (s), place it onto second yAxis
-#                     if "(s)" in key:
-#                         chart_series["yAxisIndex"] = 1
-
-#                     chart_series["data"].append(int(serie[key]))
-
-#             chart.run_chart_method('hideLoading')
-#             chart.update()
-
-
 async def update_chart(chart: ui.echart, metric_caller, *args):
     """
     Update the chart by running the caller function
@@ -634,31 +607,30 @@ def monitoring_charts():
 
 
 def monitoring_card():
-    # Realtime monitoring information
     with ui.card().bind_visibility_from(app.storage.user, 'demo_mode').props("flat") as monitoring_card:
         ui.label("Realtime Visibility").classes("uppercase")
-        with ui.grid(columns=2).classes("w-full"):
-            for metric in [
-                "transactions_ingested",
-                "transactions_processed",
-                "bronze_customers",
-                "bronze_transactions",
-                "silver_profiles",
-                "silver_transactions",
-                "silver_customers",
-                "gold_transactions",
-                "gold_customers",
-                "gold_fraud",
-            ]:
+        with ui.grid(columns=1).classes("w-full"):
+            for metric in MONITORING_METRICS:
                 with ui.row().classes("w-full place-content-between"):
                     ui.label(metric).classes("text-xs m-0 p-0")
-                    ui.badge().bind_text_from(
-                        app.storage.user, metric
+                    ui.badge().bind_text_from(app.storage.user, metric
                     ).props("color=red align=middle").classes(
                         "size-xs self-end"
                     )
 
     return monitoring_card
+
+
+def monitoring_ticker():
+    with ui.row().bind_visibility_from(app.storage.user, 'demo_mode').props("flat") as monitoring_ticker:
+        for metric in MONITORING_METRICS:
+                ui.label(metric).classes("text-xs m-0 p-0")
+                ui.badge().bind_text_from(app.storage.user, metric
+                ).props("color=red align=middle").classes(
+                    "size-xs self-end"
+                )
+
+    return monitoring_ticker
 
 
 def logging_card():

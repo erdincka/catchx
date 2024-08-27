@@ -59,6 +59,18 @@ TRANSACTION_CATEGORIES = [
     "Other"
 ]
 
+MONITORING_METRICS = [
+    "transactions_ingested",
+    "transactions_processed",
+    "bronze_customers",
+    "bronze_transactions",
+    "silver_profiles",
+    "silver_transactions",
+    "silver_customers",
+    "gold_transactions",
+    "gold_customers",
+    "gold_fraud",
+]
 
 HPE_COLORS = {
     "green": "#01A982",
@@ -482,15 +494,6 @@ def configure_logging():
 
     # https://sam.hooke.me/note/2023/10/nicegui-binding-propagation-warning/
     binding.MAX_PROPAGATION_TIME = 0.05
-
-
-# NOT USED
-# def toggle_log(arg: ValueChangeEventArguments):
-#     print(f"debug set to {arg.value}")
-#     if arg.value:
-#         logging.getLogger().setLevel(logging.DEBUG)
-#     else:
-#         logging.getLogger().setLevel(logging.INFO)
 
 
 # Handle exceptions without UI failure

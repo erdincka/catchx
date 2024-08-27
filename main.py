@@ -5,25 +5,10 @@ from functions import *
 from page import *
 
 def app_init():
+    pass
     # ui.add_head_html('<link href="https://api.iconify.design/grommet-icons?icons=apps,home,connect,add,user-settings,download-option,upload-option,circle-information" rel="stylesheet" />')
 
-    return
-    # # Reset metrics
-    # for metric in [
-    #             "transactions_ingested",
-    #             "transactions_processed",
-    #             "bronze_customers",
-    #             "bronze_transactions",
-    #             "silver_profiles",
-    #             "silver_transactions",
-    #             "silver_customers",
-    #             "gold_transactions",
-    #             "gold_customers",
-    #             "gold_fraud",
-    #         ]:
-    #     app.storage.user[metric] = 0
-
-    # # and previous run state if it was hang
+    # Reset previous run state if it was hang
     # app.storage.user["busy"] = False
 
     # # reset the cluster info
