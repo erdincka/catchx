@@ -502,15 +502,15 @@ def monitoring_timers():
     # Singleton
     if len(MONITORING_TIMERS) == 0:
 
-        MONITORING_TIMERS.append(ui.timer(MON_REFRESH_INTERVAL3, txn_consumer_stats, active=False))
+        MONITORING_TIMERS.append(ui.timer(MON_REFRESH_INTERVAL3, txn_consumer_stats, active=True))
 
-        MONITORING_TIMERS.append(ui.timer(MON_REFRESH_INTERVAL3 + 1, incoming_topic_stats, active=False))
+        MONITORING_TIMERS.append(ui.timer(MON_REFRESH_INTERVAL3 + 1, incoming_topic_stats, active=True))
 
-        MONITORING_TIMERS.append(ui.timer(MON_REFRESH_INTERVAL3 + 2, bronze_stats, active=False))
+        MONITORING_TIMERS.append(ui.timer(MON_REFRESH_INTERVAL3 + 2, bronze_stats, active=True))
 
-        MONITORING_TIMERS.append(ui.timer(MON_REFRESH_INTERVAL3 + 3, silver_stats, active=False))
+        MONITORING_TIMERS.append(ui.timer(MON_REFRESH_INTERVAL3 + 3, silver_stats, active=True))
 
-        MONITORING_TIMERS.append(ui.timer(MON_REFRESH_INTERVAL3 + 4, gold_stats, active=False))
+        MONITORING_TIMERS.append(ui.timer(MON_REFRESH_INTERVAL3 + 4, gold_stats, active=True))
 
     return MONITORING_TIMERS
 
