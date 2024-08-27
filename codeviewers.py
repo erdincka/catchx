@@ -347,10 +347,20 @@ async def handle_image_action(e: events.MouseEventArguments):
         await peek_gold_all()
 
     elif element == "ReportView":
-        ui.navigate.to(
-            app.storage.user.get("DASHBOARD_URL", "about:blank"),
-            new_tab=True,
-        )
+        # ask for url if not set
+        if app.storage.user.get("DASHBOARD_URL", "") == "":
+            with ui.dialog().props("full-width") as dialog, ui.card().classes("grow relative"):
+                ui.label("Link to the reporting page").classes("text-sm text-italic")
+                ui.input("Dashboard URL").bind_value(app.storage.user, "DASHBOARD_URL").classes("w-full")
+                ui.button("Go", on_click=lambda: dialog.close())
+            dialog.on("close", lambda d=dialog: d.delete())
+            dialog.open()
+
+        if app.storage.user.get("DASHBOARD_URL") != "":
+            ui.navigate.to(
+                app.storage.user.get("DASHBOARD_URL", "about:blank"),
+                new_tab=True,
+            )
 
     elif element == "legend":
         pass
