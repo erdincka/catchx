@@ -18,13 +18,12 @@ A lot, but start with these first.
 
     - add silver tables for data scientists/analysts
 
-- complete ~~NiFi~~ / Airflow for continious flow
+- complete NiFi / Airflow for continious flow
 
-- move gold table to delta -> connect to superset
+    - fix NiFi to use delta tables in Gold tier
 
 - apply cdc logs for fraud detection
 
-- integrate with Open Metadata
+- better integration with Open Metadata
 
 - integrate with MS EntraID
-

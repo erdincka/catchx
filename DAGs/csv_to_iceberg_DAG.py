@@ -24,6 +24,13 @@ dag = DAG(
     default_args=default_args,
     description="Read from local CSV and write to Apache Iceberg table",
     schedule_interval=timedelta(days=1),
+    access_control={
+        'role_All': {
+            'can_read',
+            'can_edit',
+            'can_delete'
+        }
+    }
 )
 
 
@@ -62,43 +69,7 @@ def get_catalog():
 # Function to upload data to Iceberg table
 def upload_to_iceberg(**context):
     records = context["task_instance"].xcom_pull(task_ids="read_csv")
-    tier = "bronze"
-    tablename = "customers"
-    warehouse_path = f"/mapr/fraud/app/{tier}/{tablename}"
-
-    # catalog = get_catalog()
-
-    # if catalog is not None:
-    #     # create namespace if missing
-    #     if (tier,) not in catalog.list_namespaces():
-    #         catalog.create_namespace(tier)
-
-    #     table = None
-
-    #     # Create table if missing
-    #     try:
-    #         table = catalog.create_table(
-    #             f"{tier}.{tablename}",
-    #             schema=pa.Table.from_pylist(records).schema,
-    #             location=warehouse_path,
-    #         )
-
-    #     except:
-    #         print("Table exists, appending to: " + tablename)
-    #         table = catalog.load_table(f"{tier}.{tablename}")
-
-    #     existing = table.scan().to_pandas()
-
-    #     incoming = pd.DataFrame.from_dict(records)
-
-    #     merged = pd.concat([existing, incoming]).drop_duplicates(subset="_id", keep="last")
-
-    #     table.append(pa.Table.from_pandas(merged, preserve_index=False))
-
-    #     return True
-
-    # catalog not found
-    # return False
+    warehouse_path = "/mapr/fraud/app/bronze/customers"
 
     df = pd.DataFrame(records)
 
@@ -112,7 +83,7 @@ def upload_to_iceberg(**context):
     )
 
     # Load or create the Iceberg table
-    table_identifier = f"{tier}.{tablename}"
+    table_identifier = f"bronzer.customers"
     if not catalog.table_exists(table_identifier):
         catalog.create_table(
             identifier=table_identifier,
@@ -121,11 +92,6 @@ def upload_to_iceberg(**context):
         )
 
     table = catalog.load_table(table_identifier)
-
-    # Write data to the table
-    # with table.new_append() as append:
-    #     append.append_records(records)
-    #     append.commit()
 
     existing = table.scan().to_pandas()
 
