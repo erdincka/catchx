@@ -291,7 +291,7 @@ def demo_steps():
                         with ui.row():
                             ui.button(icon='visibility', color="neutral", on_click=peek_silver_transactions).props('flat dense round').tooltip("Sample refined transaction data")
                             ui.button(icon='code', color="info", on_click=code_enrich_transactions).props('flat dense round').tooltip("View code for ingesting data into Iceberg table")
-                            ui.button(icon='rocket_launch', color="positive", on_click=refine_transactions).props('flat dense round').tooltip("Ingest customers to Iceberg table").bind_visibility_from(app.storage.user, "demo_mode")
+                            ui.button(icon='rocket_launch', color="positive", on_click=refine_transactions).props('flat dense round').tooltip("Ingest transactions to Iceberg table").bind_visibility_from(app.storage.user, "demo_mode")
 
         with ui.expansion("Consolidate (Gold)", caption="Create data lake for gold tier", group="flow"):
             ui.markdown(DOCUMENTATION["Data Consolidation"])
@@ -362,7 +362,7 @@ async def run_configuration_steps():
                 async with httpx.AsyncClient(verify=False) as client:
                     response = await client.get(URL, auth=auth)
 
-                    logger.debug(response.text)
+                    # logger.debug(response.text)
 
                     if response is None or response.status_code != 200:
                         logger.warning("Response: %s", response.text)
@@ -370,7 +370,7 @@ async def run_configuration_steps():
 
                     else:
                         res = response.json()
-                        logger.debug("Got dashboard data: %s", json.dumps(res))
+                        # logger.debug("Got dashboard data: %s", json.dumps(res))
                         # Set cluster information
                         app.storage.user["clusterinfo"] = res["data"][0]["cluster"]
                         step["status"] = "check"
@@ -390,7 +390,7 @@ async def run_configuration_steps():
             os.environ["MAPR_USER"] = app.storage.user["MAPR_USER"]
             os.environ["MAPR_PASS"] = app.storage.user["MAPR_PASS"]
             async for out in run_command("/bin/bash ./cluster_configure_and_attach.sh"):
-                logger.info(out)
+                logger.info(out.strip())
 
             step["status"] = "check"
 
@@ -424,23 +424,6 @@ def demo_configuration_dialog():
             ui.button(icon="download", on_click=config_show().open)
             ui.button(icon="upload", on_click=config_load().open)
 
-        # provide cluster conf (mapr-clusters.conf)
-        # with ui.card_section().classes("w-full mt-6"):
-        #     ui.label("Upload Client Files").classes("text-lg w-full")
-        #     ui.label("config.tar and/or jwt_tokens.tar.gz").classes("text-sm text-italic")
-        #     ui.upload(label="Upload", on_upload=upload_client_files, multiple=True, auto_upload=True, max_files=2).props("accept='application/x-tar,application/x-gzip' hide-upload-btn").classes("w-full")
-
-        # ui.separator()
-
-        # Change cluster to work on
-        # with ui.card_section():
-        #     with ui.row().classes("w-full place-items-center mt-4"):
-        #         ui.label("Select Data Domain").classes("text-lg")
-        #         ui.button(icon="refresh", on_click=update_clusters).props("flat round")
-        #     ui.toggle(app.storage.user.get("clusters", [])).bind_value(app.storage.user, "clusterinfo")
-
-        # ui.separator()
-
         # Configure External Data Lakes
         with ui.card_section():
             ui.label("External Data Lakes").classes("text-lg w-full")
@@ -456,13 +439,6 @@ def demo_configuration_dialog():
 
         ui.separator()
         with ui.card_section():
-            # ui.label("User Credentials").classes("text-lg w-full")
-            # ui.label("User to create volumes and operate all demo steps").classes("text-sm text-italic")
-            # with ui.row().classes("w-full place-items-center"):
-            #     ui.input("Username").bind_value(app.storage.user, "MAPR_USER")
-            #     ui.input("Password", password=True, password_toggle_button=True).bind_value(app.storage.user, "MAPR_PASS")
-
-            # ui.space()
 
             ui.label("S3 Credentials").classes("text-lg w-full mt-4")
             ui.label("for iceberg and spark").classes("text-sm text-italic")
@@ -485,10 +461,11 @@ def demo_configuration_dialog():
             ui.label("Create the Entities").classes("text-lg w-full")
             ui.label("required volumes and streams")
             with ui.row().classes("w-full place-items-center mt-4"):
+                ui.button("List cluster root", on_click=lambda: run_command_with_dialog(f"ls -lA /mapr")).bind_enabled_from(app.storage.user, "busy", backward=lambda x: not x)
                 ui.button("Remount", on_click=lambda: run_command_with_dialog(f"([ -d /mapr ] && umount -l /mapr) || mkdir /mapr; mount -t nfs4 -o nolock,soft {app.storage.user.get('MAPR_HOST', '')}:/mapr /mapr")).bind_enabled_from(app.storage.user, "busy", backward=lambda x: not x)
-                ui.button("Volumes", on_click=create_volumes).bind_enabled_from(app.storage.user, "busy", backward=lambda x: not x)
-                ui.button("Streams", on_click=create_streams).bind_enabled_from(app.storage.user, "busy", backward=lambda x: not x)
-                ui.button("Tables", on_click=create_tables).bind_enabled_from(app.storage.user, "busy", backward=lambda x: not x)
+                # ui.button("Volumes", on_click=create_volumes).bind_enabled_from(app.storage.user, "busy", backward=lambda x: not x)
+                # ui.button("Streams", on_click=create_streams).bind_enabled_from(app.storage.user, "busy", backward=lambda x: not x)
+                # ui.button("Tables", on_click=create_tables).bind_enabled_from(app.storage.user, "busy", backward=lambda x: not x)
 
         ui.separator()
         with ui.card_section():

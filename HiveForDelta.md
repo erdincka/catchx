@@ -42,8 +42,8 @@ CREATE TABLE hiveview.default.transactions (
     amount bigint,
     category varchar,
     transaction_date double,
-    sender_account varchar,
-    receiver_account varchar,
+    -- sender_account varchar,
+    -- receiver_account varchar,
     fraud boolean
   )
   WITH (

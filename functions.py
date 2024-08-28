@@ -377,13 +377,15 @@ async def create_golden():
     updated_customers['score'] = pd.to_numeric(updated_customers['score'], errors='coerce').convert_dtypes()
 
     transactions_df.drop(["sender_account", "receiver_account"], axis=1, inplace=True)
+    # Add fraud column
+    transactions_df['fraud'] = False
 
-    if tables.delta_table_upsert(f"{BASEDIR}/{VOLUME_GOLD}/{TABLE_CUSTOMERS}", updated_customers):
+    if await tables.delta_table_upsert(f"{BASEDIR}/{VOLUME_GOLD}/{TABLE_CUSTOMERS}", updated_customers):
         ui.notify(f"Gold tier customers are written", type='positive')
     else:
         ui.notify("Failed to write gold customers", type='negative')
 
-    if tables.delta_table_upsert(f"{BASEDIR}/{VOLUME_GOLD}/{TABLE_TRANSACTIONS}", transactions_df):
+    if await tables.delta_table_upsert(f"{BASEDIR}/{VOLUME_GOLD}/{TABLE_TRANSACTIONS}", transactions_df):
         ui.notify(f"Gold tier transactions are written", type='positive')
     else:
         ui.notify("Failed to write gold customers", type='negative')

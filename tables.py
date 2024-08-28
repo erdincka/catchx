@@ -242,7 +242,7 @@ def binary_table_get_all(table_path: str):
 
     not_implemented()
 
-def delta_table_upsert(table_path: str, records: pd.DataFrame):
+async def delta_table_upsert(table_path: str, records: pd.DataFrame):
     """
     Write list of dicts into Delta Lake table
     """
@@ -252,21 +252,25 @@ def delta_table_upsert(table_path: str, records: pd.DataFrame):
 
         df = pd.DataFrame().from_records(records)
 
-        dt = DeltaTable(table_uri=table_uri)
+        if not os.path.exists(table_uri):
+            write_deltalake(table_or_uri=table_uri, data=df, mode="append", schema_mode="merge")
+            logger.debug("Created new Delta table in %s", table_uri)
+        else:
+            dt = DeltaTable(table_uri=table_uri)
 
-        (
-            dt.merge(
-                source=df,
-                predicate="s._id = t._id",
-                source_alias="s",
-                target_alias="t",
+            merge_result = (
+                dt.merge(
+                    source=df,
+                    predicate="s._id = t._id",
+                    source_alias="s",
+                    target_alias="t",
+                )
+                .when_matched_update_all()
+                .when_not_matched_insert_all()
+                .execute()
             )
-            .when_matched_update_all()
-            .when_not_matched_insert_all()
-            .execute()
-        )
 
-        # write_deltalake(table_or_uri=table_uri, data=df, mode="append", schema_mode="merge")
+            logger.debug(merge_result)
 
     except Exception as error:
         logger.error("Failed to write: %s", table_path)
@@ -282,6 +286,10 @@ async def delta_table_get(table_path, query: str = None):
     """
 
     fullpath = f"{MOUNT_PATH}/{get_cluster_name()}{table_path}"
+
+    if not os.path.exists(fullpath):
+        logger.warning("%s not created yet", fullpath)
+        return pd.DataFrame()
 
     try:
         if query is None or query == "":

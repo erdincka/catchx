@@ -154,7 +154,7 @@ async def fraud_detection():
             possible_fraud.drop(["sender_account", "receiver_account"], axis=1, inplace=True)
 
             # TODO: possibly more performant to collect all fraud transactions and update them all at once
-            if tables.delta_table_upsert(output_table, possible_fraud):
+            if await tables.delta_table_upsert(output_table, possible_fraud):
                 fraud_count += 1
 
             # and update score for the profiles table - not implemented
