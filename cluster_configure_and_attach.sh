@@ -4,6 +4,7 @@ set -euo pipefail
 
 [ -f /root/.ssh/id_rsa ] || ssh-keygen -t rsa -b 2048 -f /root/.ssh/id_rsa -q -N ""
 
+# remove old entries
 ssh-keygen -f "/root/.ssh/known_hosts" -R ${CLUSTER_IP} || true # ignore errors/not-found
 sshpass -p "${MAPR_PASS}" ssh-copy-id -o StrictHostKeyChecking=no "${MAPR_USER}@${CLUSTER_IP}"
 
