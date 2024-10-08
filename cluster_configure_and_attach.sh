@@ -8,7 +8,7 @@ set -euo pipefail
 ssh-keygen -f "/root/.ssh/known_hosts" -R ${CLUSTER_IP} || true # ignore errors/not-found
 sshpass -p "${MAPR_PASS}" ssh-copy-id -o StrictHostKeyChecking=no "${MAPR_USER}@${CLUSTER_IP}"
 
-scp -o StrictHostKeyChecking=no $MAPR_USER@$CLUSTER_IP:/opt/mapr/conf/ssl_truststore.* /opt/mapr/conf/
+scp -o StrictHostKeyChecking=no $MAPR_USER@$CLUSTER_IP:/opt/mapr/conf/ssl_truststore* /opt/mapr/conf/
 
 /opt/mapr/server/configure.sh -c -secure -N ${CLUSTER_NAME} -C ${CLUSTER_IP}
 
@@ -47,6 +47,6 @@ echo ${MAPR_PASS} | maprlogin password -user ${MAPR_USER}
 # Mount /mapr
 ([ -d /mapr ] && umount -l /mapr) || mkdir /mapr
 
-mount -t nfs4 -o nolock,soft ${CLUSTER_IP}:/mapr /mapr
+mount -t nfs -o nolock,soft ${CLUSTER_IP}:/mapr /mapr
 
 echo "Cluster configuration is complete"
