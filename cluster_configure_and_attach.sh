@@ -44,8 +44,9 @@ fi
 # create user ticket
 echo ${MAPR_PASS} | maprlogin password -user ${MAPR_USER}
 
-# Mount /mapr
-([ -d /mapr ] && umount -l /mapr) || mkdir /mapr
+# (Re-)Mount /mapr
+[ -d /mapr ] && umount -l /mapr
+[ -d /mapr ] || mkdir /mapr
 
 mount -t nfs -o nolock,soft ${CLUSTER_IP}:/mapr /mapr
 
