@@ -24,19 +24,19 @@ Just follow the instructions from [Ezmeral documentation](https://docs.ezmeral.h
 
 This is not an accurate representation of a real fraud detection process, but rather an end-to-end demonstration of how a pipeline can be built using some of Ezmeral Data Fabric capabilities for a real-life scenario. We aim to highlight the flexibility and openness of Ezmeral Data Fabric as a converged data platform for various data types and choices of open-source ecosystem tools/frameworks.
 
-The tools and frameworks used in the demo is selected with simplicity of their implementation in mind, but they are not meant to limit user's choice when it comes to real life implementation. Users are free to choose included or third-party tools, as Data Fabric supports various industry-standard protocols to read, process and store data.
+The tools and frameworks used in the demo are selected with simplicity of their implementation in mind, but they are not meant to limit user's choice when it comes to real life implementation. Users are free to choose included or third-party tools, as Data Fabric supports various industry-standard protocols to read, process and store data.
 
-The app shows the ingestion of transaction data (json) via Event Streams and batch customer data (csv files) into the fabric, and then sotring and processing them through their lifecycle inside the Fabric, using technologies such as NoSQL Document DBs or Iceberg tables. Then at the final stage we both simulate a fraud detection ML model inferencing on incoming messages as well as providing consolidated information as a Data Product that can be shared within the organisation either for Business Intelligence & Analytics or for other consumption methods through JSON/OJAI APIs.
+The app shows the ingestion of transaction data (json) via Event Streams and batch customer data (csv files) into the fabric, and then storing and processing them through their lifecycle inside the Fabric, using technologies such as NoSQL Document DBs or Iceberg tables. Then at the final stage we both simulate a fraud detection ML model inferencing on incoming messages as well as providing consolidated information as a Data Product that can be shared within the organisation either for Business Intelligence & Analytics or for other consumption methods through query APIs.
 
 Before running the demo, you have to configure the app to access the cluster that you will run the steps.
 
-App uses `/app/*` volumes on the connected cluster, so do not run this app on a cluster which already has this path/volume configured.
+App uses `/app/*` volumes on the connected cluster, so do not run this app on a cluster which already has this path/volume in use.
 
 Follow the steps to walk through the demo.
 
 You can run all steps as many times as you like, especially "produce" and "process" steps can be run multiple times.
 
-Once completed, you can delete the stream and the volume to get rid of all app-created artifacts on the Data Fabric cluster.
+Once completed, you can delete the streams and the volumes to get rid of all app-created artifacts on the Data Fabric cluster.
 
 You can also delete the stream, and then re-start from Step 2, so you can have clear metrics/monitoring on the monitoring charts.
 
@@ -50,90 +50,19 @@ Data Fabric should have following packages installed and configured:
 ```bash
 mapr-hivemetastore
 mapr-kafka
-mapr-nfs4server
+# mapr-nfs4server
+mapr-nfs
 mapr-data-access-gateway
 mapr-hbase
 ```
 
-
-## Nifi, Airflow and Spark (optional)
-
-Setup Airflow and Spark packages if you plan to use Airflow
-
-`dnf install mapr-spark mapr-spark-master mapr-spark-historyserver mapr-spark-thriftserver`
-
-`dnf install mapr-airflow-webserver mapr-airflow-scheduler mapr-airflow mapr-nifi`
-
-`cp /opt/mapr/spark/spark-3.3.3/conf/workers.template /opt/mapr/spark/spark-3.3.3/conf/workers`
-
-`/opt/mapr/server/configure.sh -R`
-
-`export SPARK_HOME=/opt/mapr/spark/spark-3.3.3`
-
-### Run these as mapr user
-`ssh-keygen -t rsa -P '' -f ~/.ssh/id_rsa`
-`ssh-copy-id <worker_host>`
-
-As root:
-
-`$SPARK_HOME/sbin/start-workers.sh`
-
-
-`/opt/mapr/nifi/nifi-1.19.1/bin/nifi.sh set-single-user-credentials admin <your password>`
-
-
-`airflow users  create --role Admin --username admin --email admin --firstname admin --lastname admin --password <your password>`
-
-
-```bash
-maprcli node services -name airflow-webserver  -action restart -nodes `hostname -f`
-```
-
---- or airflow configures mapr/mapr as default user/password ---
-
-**NOTE: NiFi template is configured to use Mysql/MariaDB for Hive tables, though it is removed from the demo setup. TODO: update NiFi processor to use Deltalake in Gold tier, instead of the RDBMS (mysql).**
-
-
-## Setting up NFSv4 (optional)
-
-Change sectype to sys if not using Kerberos
-
-https://docs.ezmeral.hpe.com/datafabric/77/get_started/known_issues.html?#concept_kg5_cxs_zwb__section_w2t_ntm_n1c
-
-
-### External NFS Server
-
-Not using Kerberos and ID Mapping
-
-`no_root_squash` allows root user in client to act like root user in server (do not use in production).
-`insecure` enables use of port numbers above 1024 for clients - otherwise you'll get 'operation not permitted' errors.
-
-`/etc/exports` file content:
-
-```bash
-/export	*(rw,fsid=0,sec=sys,insecure_locks,insecure,no_subtree_check,sync,no_root_squash)
-
-/export/users *(rw,sec=sys,nohide,insecure_locks,insecure,no_subtree_check,sync,no_root_squash)
-/export/server *(rw,sec=sys,nohide,insecure_locks,insecure,no_subtree_check,sync,no_root_squash)
-```
-
-You should create bind mounts for users & server psudo paths:
-
-```bash
-mount --bind /home /export/users/
-mount --bind /srv /export/server/
-```
-
-And test it:
-
-`mount -t nfs4 -o proto=tcp,nolock,sec=sys 10.1.1.18:/ /mnt/`
-
+For additional features/functions, see [Extras](./EXTRAS.md).
 
 # Running Demo
 
 ## Initial configuration
 
-Use the disconnected link icon to complete initial setup. This will require you to provide the host to connect to (any Data Fabric node) and then the credentials. It will update the settings and reconfigure the Data Fabric cluster with required settings.
+Use the disconnected link icon to complete initial setup. This will require you to provide the host details to connect to the Data Fabric node where Data Access Gateway service is running. It will update the app configuration, and create the /app volumes and streams on the Data Fabric cluster.
 
 You can use the settings cog to add features:
 
@@ -147,7 +76,7 @@ You can use the settings cog to add features:
 
 - Create entities in the given sequence. Note and fix if there are any errors.
 
-If the data/tables have gone too large or you would like to start from clear state, you can use "Delete All!" to delete the created tables, volumes and streams, and re-create them all again using "Create the Entities" section.
+If the data/tables have gone too large or you would like to start from clear state, you can use "Delete All!" to delete the created tables, volumes and streams, and re-create them from the initial connection page (connect/disconnect button).
 
 ## Additional Steps for the Dashboard
 
@@ -169,4 +98,4 @@ Sample data for customers and transactions are already created by the initialisa
 
 In "live demo" mode, you would see the metrics and logs at the right and bottom of the page, respectively.
 
-Monitoring metric collection is not enabled by default to preserve resources and app responsiveness. Once enabled (using the "Monitor" switch, it will query the data every few seconds and update the UI with the latest values.
+Monitoring metric collection is not enabled by default to preserve resources and app responsiveness. Once enabled (using the "Monitor" switch), it will query the data every few seconds and update the UI with the latest values.
