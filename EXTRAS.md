@@ -68,4 +68,4 @@ mount --bind /srv /export/server/
 
 And test it:
 
-`mount -t nfs4 -o proto=tcp,nolock,sec=sys 10.1.1.18:/ /mnt/`
+`mount -t nfs4 -o proto=tcp,nolock,sec=sys <nfs-server-ip>:/ /mnt/`

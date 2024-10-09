@@ -533,7 +533,7 @@ def monitoring_charts():
             # ui.timer(MON_REFRESH_INTERVAL, lambda c=streams_chart, s=mapr_monitoring: chart_listener(c, s), once=True)
 
             # TODO: embed grafana dashboard
-            # https://10.1.1.31:3000/d/pUfMqVUIz/demo-monitoring?orgId=1
+            # https://<df-host-ip>:3000/d/pUfMqVUIz/demo-monitoring?orgId=1
 
             charts["consumer"] = new_echart(title="Consumers")
             # MONITORING_TIMERS.append(ui.timer(MON_REFRESH_INTERVAL3, lambda c=charts["consumer"]: update_chart(c, txn_consumer_stats), active=True))

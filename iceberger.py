@@ -20,7 +20,7 @@ catalog = None
         #     "uri": f"thrift://{app.storage.user.get('MAPR_HOST', '')}:9083",
         #     "ssl": True,
         #     "sslTrustStore": "/opt/mapr/conf/ssl_truststore",
-        #     "trustStorePassword": "tI6zs4Kz8QmUqCzjLHQlEavWEdHzvLSF",
+        #     "trustStorePassword": "",
         #     "s3.endpoint": f"https://{app.storage.user.get('MAPR_HOST', '')}:9000",
         #     "s3.access-key-id": f"{app.storage.user.get('S3_ACCESSKEY', '')}",
         #     "s3.secret-access-key": f"{app.storage.user.get('S3_SECRETKEY', '')}",
