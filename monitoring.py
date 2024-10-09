@@ -5,7 +5,6 @@ import timeit
 import httpx
 from nicegui import ui, app
 import pandas as pd
-import sqlalchemy
 
 from common import *
 import iceberger
