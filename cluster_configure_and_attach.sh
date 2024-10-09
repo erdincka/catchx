@@ -4,7 +4,7 @@ set -euo pipefail
 
 ## Ensure user
 export MAPR_GROUP=mapr \
-    MAPR_HOME=/opt/mapr \
+    MAPR_HOME=/home/mapr \
     MAPR_UID=5000
 useradd -u ${MAPR_UID} -U -m -d ${MAPR_HOME} -s /bin/bash -G sudo ${MAPR_USER}
 echo "${MAPR_USER}:${MAPR_PASS}" | chpasswd
