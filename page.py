@@ -458,8 +458,8 @@ def demo_configuration_dialog():
 
         ui.separator()
         with ui.card_section():
-            ui.label("Create the Entities").classes("text-lg w-full")
-            ui.label("required volumes and streams")
+            ui.label("Mount Path").classes("text-lg w-full")
+            ui.label("to Global Namespace")
             with ui.row().classes("w-full place-items-center mt-4"):
                 ui.button("List cluster root", on_click=lambda: run_command_with_dialog(f"ls -lA /mapr")).bind_enabled_from(app.storage.user, "busy", backward=lambda x: not x)
                 ui.button("Remount", on_click=lambda: run_command_with_dialog(f"([ -d /mapr ] && umount -l /mapr) || mkdir /mapr; mount -t nfs4 -o nolock,soft {app.storage.user.get('MAPR_HOST', '')}:/mapr /mapr")).bind_enabled_from(app.storage.user, "busy", backward=lambda x: not x)
