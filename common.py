@@ -455,10 +455,11 @@ def configure_logging():
     import urllib3
     urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
-    # logging.getLogger("urllib3").setLevel(logging.WARNING)
-    # logging.getLogger("httpcore").setLevel(logging.WARNING)
-    # logging.getLogger("httpx").setLevel(logging.WARNING)
-    # logging.getLogger("requests").setLevel(logging.WARNING)
+    # reduce logs from these
+    logging.getLogger("urllib3").setLevel(logging.WARNING)
+    logging.getLogger("httpcore").setLevel(logging.WARNING)
+    logging.getLogger("httpx").setLevel(logging.WARNING)
+    logging.getLogger("requests").setLevel(logging.WARNING)
 
     logging.getLogger("watchfiles").setLevel(logging.FATAL)
 
