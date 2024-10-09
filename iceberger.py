@@ -2,6 +2,7 @@ import logging
 import pandas as pd
 import pyarrow as pa
 from pyiceberg.expressions import EqualTo
+import sqlalchemy
 
 from common import *
 from nicegui import ui
