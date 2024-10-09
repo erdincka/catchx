@@ -1,23 +1,11 @@
 
-# Data Fabric demo app
+# Data Fabric Demo
 
+This demo is created to showcase the feature-rich data pipeline capabilities of Ezmeral Data Fabric. Instead of copy/pasting commands on the cluster, you can use the web-based interface with provided steps and visual representation of data flow.
 
-Standalone app can be run using following Docker command:
+You can install the app on Ezmeral Unified Analytics platform with "Import Framework" option by using [provided helm chart](./helm-package/catchx-0.0.3.tgz) and [provided image](./helm-package/fraud-detection-app.jpg) as its icon.
 
-`docker run -d -t --name catchx -p 3000:3000 --cap-add SYS_ADMIN erdincka/catchx`
-
-It should clone the app and start it right away, you can monitor the logs `docker logs -f catchx`, or get into the container and kill/restart the app if you want.
-
-`docker exec -it catchx bash`
-
-```shell
-cd app
-python3 main.py
-```
-
-You can also install the app itself on Ezmeral Unified Analytics platform as a third-party using [provided helm chart](./helm-package/catchx-0.0.3.tgz) and you can use [provided image](./helm-package/fraud-detection-app.jpg) as its icon.
-
-Just follow the instructions from [Ezmeral documentation](https://docs.ezmeral.hpe.com/unified-analytics/15/ManageClusters/importing-applications.html).
+If needed, follow the instructions from [Ezmeral documentation](https://docs.ezmeral.hpe.com/unified-analytics/15/ManageClusters/importing-applications.html).
 
 
 ## Fraud Detection pipeline demo with Ezmeral Data Fabric
@@ -30,7 +18,7 @@ The app shows the ingestion of transaction data (json) via Event Streams and bat
 
 Before running the demo, you have to configure the app to access the cluster that you will run the steps.
 
-App uses `/app/*` volumes on the connected cluster, so do not run this app on a cluster which already has this path/volume in use.
+App uses `/app/*` volumes on the connected cluster, do not run this app on a cluster which already has this path/volume in use.
 
 Follow the steps to walk through the demo.
 
@@ -41,7 +29,7 @@ Once completed, you can delete the streams and the volumes to get rid of all app
 You can also delete the stream, and then re-start from Step 2, so you can have clear metrics/monitoring on the monitoring charts.
 
 
-# REQUIREMENTS
+## Requirements
 
 Setup Data Fabric cluster following the instructions below, and optionally create a user with volume, table and stream creation rights. For isolated/standalone demo environments, you can simply use the cluster admin `mapr` user.
 
@@ -50,19 +38,18 @@ Data Fabric should have following packages installed and configured:
 ```bash
 mapr-hivemetastore
 mapr-kafka
-# mapr-nfs4server
-mapr-nfs
+mapr-nfs4server or mapr-nfs ### Global Namespace with external NFS mount will work only with mapr-nfs4server
 mapr-data-access-gateway
 mapr-hbase
 ```
 
 For additional features/functions, see [Extras](./EXTRAS.md).
 
-# Running Demo
+## Running Demo
 
-## Initial configuration
+### Initial configuration
 
-Use the disconnected link icon to complete initial setup. This will require you to provide the host details to connect to the Data Fabric node where Data Access Gateway service is running. It will update the app configuration, and create the /app volumes and streams on the Data Fabric cluster.
+Use the disconnected link icon to complete initial setup. This will require you to provide the host details to connect to the Data Fabric node where Data Access Gateway service is running. It will update the app configuration, and create the required (/app/[bronze|silver|gold]/) volumes and streams on the Data Fabric cluster.
 
 You can use the settings cog to add features:
 
@@ -78,11 +65,11 @@ You can use the settings cog to add features:
 
 If the data/tables have gone too large or you would like to start from clear state, you can use "Delete All!" to delete the created tables, volumes and streams, and re-create them from the initial connection page (connect/disconnect button).
 
-## Additional Steps for the Dashboard
+### Additional Steps for the Dashboard
 
 If you plan to use Superset dashboard for visualisation, follow the steps in [Hive for Deltalake setup in UA](./HiveForDelta.md) to create the Hive tables that uses the data in the Gold tier Delta Lake.
 
-# Demo Flow
+### Demo Flow
 
 By default, you should see only "view" options for code and data. Turn on the "Go Live" switch to see action buttons.
 
@@ -92,10 +79,13 @@ Sample data for customers and transactions are already created by the initialisa
 
 - "Preview" buttons for looking at the sample data at that specific tier,
 
-- "Code" buttons are used for checking the actual python code that runs that action,
+- "Code" buttons are used for checking the actual code that runs that action,
 
 - "Secondary" buttons (teal colored) are used for optional/alternative steps.
 
 In "live demo" mode, you would see the metrics and logs at the right and bottom of the page, respectively.
 
-Monitoring metric collection is not enabled by default to preserve resources and app responsiveness. Once enabled (using the "Monitor" switch), it will query the data every few seconds and update the UI with the latest values.
+Monitoring metric collection is not enabled by default to preserve resources and app responsiveness. Once enabled (using the "Monitor" switch), it will query the data every few seconds and update the metrics with the latest values.
+
+#### TIP: add `/mesh` to the end of the URL for interactive visual representation (story mode).
+
