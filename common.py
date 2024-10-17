@@ -370,7 +370,7 @@ async def create_streams():
 
                 if response is None or response.status_code != 200:
                     # possibly not an issue if stream already exists
-                    logger.warning(f"REST failed for create stream: %s", stream)
+                    logger.warning("REST failed for create stream: %s", stream)
                     logger.warning("Response: %s", response.text)
 
                 else:
