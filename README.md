@@ -3,7 +3,7 @@
 
 This demo is created to showcase the feature-rich data pipeline capabilities of Ezmeral Data Fabric. Instead of copy/pasting commands on the cluster, you can use the web-based interface with provided steps and visual representation of data flow.
 
-You can install the app on Ezmeral Unified Analytics platform with "Import Framework" option by using [provided helm chart](./helm-package/catchx-0.0.3.tgz) and [provided image](./helm-package/fraud-detection-app.jpg) as its icon. Don't forget to change the "demo" name to catchx (and probably the "endpoint" hostname from demoapp to something you want, ie, catchx) in the values.yaml while importing the app.
+You can install the app on Ezmeral Unified Analytics platform with "Import Framework" option by using [provided helm chart](./helm-package/demoapp-0.0.5.tgz) and [provided image](./helm-package/fraud-detection-app.jpg) as its icon. Don't forget to change the "demo" name to catchx (and probably the "endpoint" hostname from demoapp to something you want, ie, catchx) in the values.yaml while importing the app.
 
 If needed, follow the instructions from [Ezmeral documentation](https://docs.ezmeral.hpe.com/unified-analytics/15/ManageClusters/importing-applications.html).
 
