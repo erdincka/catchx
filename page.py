@@ -48,14 +48,6 @@ def header(title: str):
                 app.storage.user, "clusterinfo", lambda x: not x or len(x) == 0
             ).tooltip("Requires configuration!")
 
-            with ui.element("div").bind_visibility_from(app.storage.user, "demo_mode"):
-                ui.icon("check_circle", size="2em", color="green").bind_visibility_from(
-                    app.storage.user, "busy", lambda x: not x
-                ).tooltip("Ready")
-                ui.spinner("ios", size="2em", color="red").bind_visibility_from(
-                    app.storage.user, "busy"
-                ).tooltip("Busy")
-
     return header
 
 
