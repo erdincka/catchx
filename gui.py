@@ -101,7 +101,7 @@ def mesh_ii():
     ).classes(
         "relative m-0 p-0"
     ).props(
-        "fit=scale-down"
+        "fit=scale-down ratio=1"
     ) as mesh_image:
 
         mesh_image.client.content.classes('p-2') # reduce default gap
