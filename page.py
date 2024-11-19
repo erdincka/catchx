@@ -146,7 +146,7 @@ async def mesh_page():
 
     header("Data Fabric")
 
-    gui.mesh_ii().classes("h-lvh w-fit")
+    gui.mesh_ii().classes("flex-1")
 
     footer()
 
