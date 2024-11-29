@@ -92,6 +92,7 @@ async def upsert_documents(table_path: str, docs: list):
 
         tick = timeit.default_timer()
 
+        # logger.debug(docs)
         store.insert_or_replace(doc_stream=docs)
 
         logger.debug("doc insert took %fs", timeit.default_timer() - tick)

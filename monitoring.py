@@ -4,7 +4,7 @@ import socket
 import timeit
 import httpx
 from nicegui import ui, app
-import pandas as pd
+# import pandas as pd
 
 from common import *
 import iceberger

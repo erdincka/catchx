@@ -455,7 +455,7 @@ async def delete_volumes_and_streams():
 
             # finally delete the catalog file
             os.unlink(f"{basedir}/iceberg.db")
-            ui.notify("Iceberg tables purged", type="positive")
+            ui.notify("Iceberg tables purged", type="warning")
 
         if os.path.isdir(basedir):
             shutil.rmtree(basedir, ignore_errors=True)
@@ -531,7 +531,7 @@ def handle_image_info(e: events.MouseEventArguments):
 
 async def s3_upload():
     transactions_file = (
-        f"{MOUNT_PATH}/{get_cluster_name()}{BASEDIR}/{TABLE_TRANSACTIONS}.json"
+        f"{MOUNT_PATH}/{get_cluster_name()}{BASEDIR}/{TABLE_TRANSACTIONS}.csv"
     )
     if (
         os.path.lexists(transactions_file)
@@ -541,7 +541,8 @@ async def s3_upload():
             f"Copying {TABLE_TRANSACTIONS} to external S3 bucket", type="success"
         )
         await upload_to_s3(transactions_file)
-
+    else:
+        ui.notify(f"Missing path {transactions_file} or key {app.storage.user.get('S3_SECRET_KEY')}")
 
 def nfs_upload():
     # Copy customers if NFS is mounted and customers csv exist
