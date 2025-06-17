@@ -1,0 +1,10 @@
+services:
+  mesh:
+    platform: linux/amd64
+    image: erdincka/mesh
+    container_name: mesh
+    ports:
+      - "3000:3000"
+      - "2222:22"
+    restart: always
+    privileged: true
