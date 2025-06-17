@@ -45,6 +45,10 @@ mapr-hbase
 
 For additional features/functions, see [Extras](./EXTRAS.md).
 
+## Deploy with Docker
+
+`docker run -d -t --privileged --name catchx -p 3000:3000 erdincka/mesh:latest`
+
 ## Running Demo
 
 ### Initial configuration

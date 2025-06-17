@@ -751,7 +751,7 @@ requires-dist = [
     { name = "importlib-resources", specifier = ">=6.5.2" },
     { name = "minio", specifier = ">=7.2.15" },
     { name = "nicegui", specifier = ">=2.20.0" },
-    { name = "protobuf", specifier = "==3.20" },
+    { name = "protobuf", specifier = "==3.20.*" },
     { name = "pycountry", specifier = ">=24.6.1" },
     { name = "pyiceberg", extras = ["hive", "pandas", "s3fs"], specifier = ">=0.9.1" },
     { name = "pymysql", specifier = ">=1.1.1" },

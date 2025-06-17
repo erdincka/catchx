@@ -15,7 +15,7 @@ dependencies = [
     "importlib-resources>=6.5.2",
     "minio>=7.2.15",
     "nicegui>=2.20.0",
-    "protobuf==3.20",
+    "protobuf==3.20.*",
     "pycountry>=24.6.1",
     "pyiceberg[hive,pandas,s3fs]>=0.9.1",
     "pymysql>=1.1.1",
