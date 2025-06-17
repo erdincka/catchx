@@ -2,7 +2,7 @@ from functools import lru_cache
 import random
 import re
 import shutil
-from nicegui import events
+from nicegui import events, background_tasks, run
 import country_converter as coco
 import pandas as pd
 
@@ -165,6 +165,7 @@ async def refine_customers():
 
     try:
         logger.info("Loading %s documents into %s", df.shape[0], silver_customers_table)
+        # if await background_tasks.create(run.io_bound(tables.upsert_documents, table_path=silver_customers_table, docs=df.to_dict("records"))):
         if await tables.upsert_documents(table_path=silver_customers_table, docs=df.to_dict("records")):
             ui.notify(f"Records are written to {silver_customers_table}", type='positive')
         else:

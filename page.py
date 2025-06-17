@@ -268,10 +268,10 @@ def demo_steps():
                         ui.item_label("Add country_name and iso3166_2 county code, hide birthday and current_location").props('caption')
                     with ui.item_section().props('side'):
                         with ui.row():
-                            ui.button(icon='visibility', color="neutral", on_click=peek_silver_profiles).props('flat dense round').tooltip("Sample refined profile data")
-                            ui.button(icon='visibility', color="neutral", on_click=peek_silver_customers).props('flat dense round').tooltip("Sample refined customer data")
-                            ui.button(icon='code', color="info", on_click=code_enrich_customers).props('flat dense round').tooltip("View code for ingesting data into Iceberg table")
-                            ui.button(icon='rocket_launch', color="positive", on_click=refine_customers).props('flat dense round').tooltip("Ingest customers to Iceberg table").bind_visibility_from(app.storage.user, "demo_mode")
+                            ui.button(icon='visibility', color="neutral", on_click=lambda: background_tasks.create(peek_silver_profiles)).props('flat dense round').tooltip("Sample refined profile data")
+                            ui.button(icon='visibility', color="neutral", on_click=lambda: background_tasks.create(peek_silver_customers)).props('flat dense round').tooltip("Sample refined customer data")
+                            ui.button(icon='code', color="info", on_click=lambda: background_tasks.create(code_enrich_customers)).props('flat dense round').tooltip("View code for ingesting data into Iceberg table")
+                            ui.button(icon='rocket_launch', color="positive", on_click=lambda: background_tasks.create(refine_customers)).props('flat dense round').tooltip("Ingest customers to Iceberg table").bind_visibility_from(app.storage.user, "demo_mode")
 
                 with ui.item():
                     with ui.item_section().props('avatar'):
