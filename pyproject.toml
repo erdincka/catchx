@@ -1,0 +1,23 @@
+[project]
+name = "mesh"
+version = "0.1.0"
+description = "Data Mesh with Data Fabric"
+readme = "README.md"
+authors = [
+    { name = "Erdinc Kaya", email = "erdincka@msn.com" }
+]
+requires-python = ">=3.12"
+dependencies = [
+    "country-converter>=1.3",
+    "deltalake>=1.0.2",
+    "faker>=37.4.0",
+    "geopy>=2.4.1",
+    "importlib-resources>=6.5.2",
+    "minio>=7.2.15",
+    "nicegui>=2.20.0",
+    "pycountry>=24.6.1",
+    "pyiceberg[hive,pandas,s3fs]>=0.9.1",
+    "pymysql>=1.1.1",
+    "requests>=2.32.4",
+    "sqlalchemy>=2.0.41",
+]
