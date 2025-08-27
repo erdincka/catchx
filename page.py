@@ -425,7 +425,8 @@ def demo_configuration_dialog():
                 ui.button(
                     "Mount",
                     on_click=lambda: run_command_with_dialog(
-                        f"umount -l /mnt; mount -t nfs4 -o proto=tcp,nolock,sec=sys {app.storage.user.get('NFS_PATH', 'localhost')} /mnt; ls -lA /mnt"
+                        # f"umount -l /mnt; mount -t nfs4 -o proto=tcp,nolock,sec=sys {app.storage.user.get('NFS_PATH', 'localhost')} /mnt; ls -lA /mnt"
+                        f"umount -l /mnt; mount -t nfs -o nolock,soft {app.storage.user.get('NFS_PATH', 'localhost')} /mnt; ls -lA /mnt"
                     )
                 ).props("")
 
@@ -454,7 +455,8 @@ def demo_configuration_dialog():
             ui.label("to Global Namespace")
             with ui.row().classes("w-full place-items-center mt-4"):
                 ui.button("List cluster root", on_click=lambda: run_command_with_dialog(f"ls -lA /mapr")).bind_enabled_from(app.storage.user, "busy", backward=lambda x: not x)
-                ui.button("Remount", on_click=lambda: run_command_with_dialog(f"([ -d /mapr ] && umount -l /mapr) || mkdir /mapr; mount -t nfs4 -o proto=tcp,nolock,sec=sys {app.storage.user.get('MAPR_HOST', '')}:/mapr /mapr")).bind_enabled_from(app.storage.user, "busy", backward=lambda x: not x)
+                # ui.button("Remount", on_click=lambda: run_command_with_dialog(f"([ -d /mapr ] && umount -l /mapr) || mkdir /mapr; mount -t nfs4 -o proto=tcp,nolock,sec=sys {app.storage.user.get('MAPR_HOST', '')}:/mapr /mapr")).bind_enabled_from(app.storage.user, "busy", backward=lambda x: not x)
+                ui.button("Remount", on_click=lambda: run_command_with_dialog(f"([ -d /mapr ] && umount -l /mapr) || mkdir /mapr; mount -t nfs -o nolock,soft {app.storage.user.get('MAPR_HOST', '')}:/mapr /mapr")).bind_enabled_from(app.storage.user, "busy", backward=lambda x: not x)
                 # ui.button("Volumes", on_click=create_volumes).bind_enabled_from(app.storage.user, "busy", backward=lambda x: not x)
                 # ui.button("Streams", on_click=create_streams).bind_enabled_from(app.storage.user, "busy", backward=lambda x: not x)
                 # ui.button("Tables", on_click=create_tables).bind_enabled_from(app.storage.user, "busy", backward=lambda x: not x)
