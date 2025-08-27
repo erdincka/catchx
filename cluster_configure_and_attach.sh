@@ -57,7 +57,7 @@ echo ${MAPR_PASS} | maprlogin password -user ${MAPR_USER}
 # [ -d /mapr ] && umount -l /mapr || true # ignore errors (no dir or not mounted)
 # [ -d /mapr ] || mkdir /mapr
 
-# mount -t nfs -o nolock,soft ${CLUSTER_IP}:/mapr /mapr
-mount -t nfs4 -o proto=tcp,nolock,sec=sys ${CLUSTER_IP}:/mapr /mapr
+mount -t nfs -o nolock,soft ${CLUSTER_IP}:/mapr /mapr
+# mount -t nfs4 -o proto=tcp,nolock,sec=sys ${CLUSTER_IP}:/mapr /mapr
 
 echo "Cluster configuration is complete"

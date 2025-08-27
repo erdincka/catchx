@@ -14,7 +14,7 @@ TITLE = "Building a Hybrid Data Mesh"
 STORAGE_SECRET = "ezmer@1r0cks"
 
 DATA_PRODUCT = "fraud" # make this a single word, used for dir and database names, no spaces or fancy characters
-BASEDIR = "/app"
+BASEDIR = "/demovol"
 MOUNT_PATH = "/mapr"
 
 VOLUME_BRONZE = "bronze"
