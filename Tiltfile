@@ -27,7 +27,7 @@ dc_resource(
 # then restart so uvicorn picks up any newly installed packages.
 local_resource(
     "backend-deps",
-    cmd="docker exec catchx-backend /app/backend/.venv/bin/pip install -q -r /app/backend/requirements.txt",
+    cmd="docker exec catchx-backend pip install -q -r /app/backend/requirements.txt",
     deps=["backend/requirements.txt"],
     resource_deps=["backend"],
     labels=["deps"],
@@ -44,7 +44,7 @@ dc_resource(
 
 local_resource(
     "frontend-deps",
-    cmd="docker exec catchx-frontend /app/frontend/.venv/bin/pip install -q -r /app/frontend/requirements.txt",
+    cmd="docker exec catchx-frontend pip install -q -r /app/frontend/requirements.txt",
     deps=["frontend/requirements.txt"],
     resource_deps=["frontend"],
     labels=["deps"],
