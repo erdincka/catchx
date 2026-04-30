@@ -1,10 +1,39 @@
 services:
-  mesh:
+  backend:
     platform: linux/amd64
-    image: erdincka/mesh
-    container_name: mesh
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    image: erdincka/catchx-backend
+    container_name: catchx-backend
     ports:
-      - "3000:3000"
+      - "8000:8000"
       - "2222:22"
     restart: always
     privileged: true
+    environment:
+      - LD_LIBRARY_PATH=/opt/mapr/lib
+    volumes:
+      - /mapr:/mapr
+    networks:
+      - catchx-net
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    image: erdincka/catchx-frontend
+    container_name: catchx-frontend
+    ports:
+      - "3000:3000"
+    restart: always
+    environment:
+      - BACKEND_URL=http://backend:8000
+    depends_on:
+      - backend
+    networks:
+      - catchx-net
+
+networks:
+  catchx-net:
+    name: catchx-net
