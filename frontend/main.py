@@ -27,6 +27,6 @@ if __name__ in {"__main__", "__mp_main__"}:
     ui.run(
         title=TITLE,
         storage_secret=STORAGE_SECRET,
-        reload=False,
+        reload=os.environ.get("NICEGUI_RELOAD", "false").lower() == "true",
         port=3000,
     )
