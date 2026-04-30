@@ -34,16 +34,18 @@ def header(title: str):
 
         # Right: cluster name + buttons
         with ui.row().classes("items-center gap-1"):
-            cluster_link = ui.link("", new_tab=True).classes(
-                "text-white text-sm hover:text-teal-300 no-underline"
+            def _open_mcs():
+                host = app.storage.user.get("MAPR_HOST", "")
+                user = app.storage.user.get("MAPR_USER", "")
+                pwd = app.storage.user.get("MAPR_PASS", "")
+                ui.navigate.to(f"https://{user}:{pwd}@{host}:8443/app/mcs/", new_tab=True)
+
+            ui.button(on_click=_open_mcs).props("flat no-caps").style("color: white").classes(
+                "text-sm hover:text-teal-300 px-1"
             ).bind_text_from(
                 app.storage.user, "clusterinfo", backward=lambda x: x["name"] if x else ""
             ).bind_visibility_from(
                 app.storage.user, "clusterinfo", backward=lambda x: bool(x)
-            )
-            cluster_link.bind_href_from(
-                app.storage.user, "MAPR_HOST",
-                backward=lambda h: f"https://{app.storage.user.get('MAPR_USER','')}:{app.storage.user.get('MAPR_PASS','')}@{h}:8443/app/mcs/"
             )
 
             ui.icon("error", size="sm").style("color: #ff6b6b").bind_visibility_from(
