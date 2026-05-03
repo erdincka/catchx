@@ -63,7 +63,7 @@ HPE_COLORS = {
 DATA_DOMAIN = {
     "description": "What, why and how?",
     "diagram": "/images/frauddomain.png",
-    "link": "https://github.com/erdincka/catchx",
+    "link": "https://github.com/erdincka/nexmesh",
 }
 
 DOCUMENTATION = {
@@ -118,7 +118,7 @@ Data consolidation is done by taking customer and transaction data and clean the
 
 def configure_logging():
     logging.basicConfig(
-        level=logging.DEBUG,
+        level=logging.INFO,
         format="%(asctime)s:%(levelname)s:%(name)s (%(funcName)s:%(lineno)d): %(message)s",
         datefmt="%H:%M:%S",
     )

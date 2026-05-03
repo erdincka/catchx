@@ -48,6 +48,20 @@ async def cluster_info(config: ClusterConfig = Depends(get_cluster_config)):
     return await connect(host=config.host, user=config.user, password=config.password)
 
 
+def _classify_httpx_error(e: Exception, host: str) -> str:
+    """Return a human-readable message for common httpx/network errors."""
+    err = str(e)
+    if isinstance(e, httpx.ConnectError):
+        return f"Cannot reach {host} — check hostname/IP and network connectivity"
+    if isinstance(e, httpx.TimeoutException):
+        return f"Connection to {host} timed out — host may be unreachable or overloaded"
+    if isinstance(e, httpx.ConnectTimeout):
+        return f"Connection to {host} timed out"
+    if "SSL" in err or "certificate" in err.lower():
+        return f"TLS/SSL error connecting to {host}: {err}"
+    return err
+
+
 async def _setup_step_stream(host: str, user: str, password: str) -> AsyncGenerator[str, None]:
     import json
     from services.mock import create_customers, create_transactions
@@ -57,21 +71,40 @@ async def _setup_step_stream(host: str, user: str, password: str) -> AsyncGenera
     auth = (user, password)
 
     def event(name: str, status: str, message: str = ""):
-        return f"data: {json.dumps({'name': name, 'status': status, 'message': message})}\n\n"
+        payload = json.dumps({"name": name, "status": status, "message": message})
+        logger.debug("SSE event: %s", payload)
+        return f"data: {payload}\n\n"
 
     # Step 1: Get cluster info
+    logger.info("Setup step 1 — connecting to cluster at %s", host)
+    yield event("clusterinfo", "running", f"Connecting to {host}…")
     try:
-        async with httpx.AsyncClient(verify=False, timeout=10) as client:
+        async with httpx.AsyncClient(verify=False, timeout=15) as client:
             resp = await client.get(f"https://{host}:8443/rest/dashboard/info", auth=auth)
+
+        if resp.status_code == 401:
+            logger.warning("Setup: authentication failed for user at %s", host)
+            yield event("clusterinfo", "error", "Authentication failed — check username and password")
+            return
+        if resp.status_code != 200:
+            logger.warning("Setup: cluster info returned HTTP %s from %s", resp.status_code, host)
+            yield event("clusterinfo", "error", f"Cluster returned HTTP {resp.status_code}")
+            return
+
         data = resp.json()
         cluster = data["data"][0]["cluster"]
         cache_cluster_info(host, cluster)
+        logger.info("Setup: connected to cluster '%s' (%s)", cluster.get("name"), host)
         yield event("clusterinfo", "check", f"Connected to {cluster['name']}")
     except Exception as e:
-        yield event("clusterinfo", "error", str(e))
+        msg = _classify_httpx_error(e, host)
+        logger.error("Setup: cluster connect failed: %s", msg)
+        yield event("clusterinfo", "error", msg)
         return
 
     # Step 2: Configure cluster
+    logger.info("Setup step 2 — configuring cluster")
+    yield event("reconfigure", "running", "Configuring cluster…")
     try:
         os.environ["CLUSTER_IP"] = cluster["ip"]
         os.environ["CLUSTER_NAME"] = cluster["name"]
@@ -82,27 +115,54 @@ async def _setup_step_stream(host: str, user: str, password: str) -> AsyncGenera
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.STDOUT,
         )
-        await process.wait()
-        yield event("reconfigure", "check", "Cluster configured")
+        stdout, _ = await process.communicate()
+        rc = process.returncode
+        if rc != 0:
+            output = stdout.decode().strip()
+            logger.warning("Setup: configure script exited %s: %s", rc, output)
+            yield event("reconfigure", "error", f"Configure script failed (exit {rc}): {output[:200]}")
+        else:
+            logger.info("Setup: cluster configured successfully")
+            yield event("reconfigure", "check", "Cluster configured")
     except Exception as e:
-        yield event("reconfigure", "error", str(e))
+        logger.error("Setup: configure step failed: %s", e)
+        yield event("reconfigure", "error", f"Configure failed: {e}")
 
     # Step 3: Create volumes, tables, streams
+    logger.info("Setup step 3 — creating volumes, tables and streams")
+    yield event("createvolumes", "running", "Creating volumes and streams…")
     try:
         from routes.cluster import _create_volumes, _create_tables, _create_streams
         ok = await _create_volumes(config) and await _create_tables(config) and await _create_streams(config)
-        yield event("createvolumes", "check" if ok else "error", "Volumes and streams ready" if ok else "Failed")
+        if ok:
+            logger.info("Setup: volumes, tables and streams created")
+            yield event("createvolumes", "check", "Volumes and streams ready")
+        else:
+            logger.warning("Setup: volume/stream creation reported failure")
+            yield event("createvolumes", "error", "Failed to create one or more volumes or streams — check backend logs")
     except Exception as e:
-        yield event("createvolumes", "error", str(e))
+        logger.error("Setup: volume/stream creation exception: %s", e)
+        yield event("createvolumes", "error", f"Volume/stream setup failed: {e}")
 
     # Step 4: Mock data
+    logger.info("Setup step 4 — generating mock data")
+    yield event("mockdata", "running", "Generating mock data…")
     try:
         r1 = await create_customers(config)
         r2 = await create_transactions(config)
-        ok = r1["status"] == "ok" and r2["status"] == "ok"
-        yield event("mockdata", "check" if ok else "error", "Mock data created" if ok else "Failed")
+        ok = r1.get("status") == "ok" and r2.get("status") == "ok"
+        if ok:
+            logger.info("Setup: mock data created")
+            yield event("mockdata", "check", "Mock data created")
+        else:
+            err1 = r1.get("message", "")
+            err2 = r2.get("message", "")
+            detail = " / ".join(filter(None, [err1, err2])) or "unknown error"
+            logger.warning("Setup: mock data creation failed: %s", detail)
+            yield event("mockdata", "error", f"Mock data failed: {detail}")
     except Exception as e:
-        yield event("mockdata", "error", str(e))
+        logger.error("Setup: mock data exception: %s", e)
+        yield event("mockdata", "error", f"Mock data failed: {e}")
 
 
 @router.post("/setup")

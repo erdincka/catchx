@@ -1,0 +1,104 @@
+@import "highlight.js/styles/github-dark.css";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── Nexus brand tokens ──────────────────────────────────────────────────────── */
+:root {
+  --brand-vivid:    #F2561D;
+  --brand-soft:     #D9704A;
+  --brand-contrast: #008A8C;
+  --surface-card:   #121212;
+  --neutrals-dark:  #474747;
+  --neutrals-medium:#8C8C8C;
+  --neutrals-light: #BFBFBF;
+}
+
+/* ── Base ────────────────────────────────────────────────────────────────────── */
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: #000000;
+  color: #ffffff;
+  font-family: var(--font-poppins, var(--font-sans, Arial, sans-serif));
+}
+
+/* ── Scrollbars ──────────────────────────────────────────────────────────────── */
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+::-webkit-scrollbar-track {
+  background: #000000;
+}
+::-webkit-scrollbar-thumb {
+  background: #474747;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #F2561D;
+}
+
+/* ── Dialog backdrop ─────────────────────────────────────────────────────────── */
+.dialog-backdrop {
+  @apply fixed inset-0 z-50 flex items-center justify-center;
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+/* ── Code highlight overrides ────────────────────────────────────────────────── */
+.hljs {
+  background: #0a0a0a !important;
+  border-radius: 6px;
+  font-size: 0.78rem;
+  max-height: 70vh;
+  overflow: auto;
+  border: 1px solid #474747;
+}
+
+/* ── Toast notifications ─────────────────────────────────────────────────────── */
+.toast-container {
+  @apply fixed bottom-4 right-4 z-[100] flex flex-col gap-2;
+}
+
+.toast {
+  @apply px-4 py-3 rounded-lg text-white text-sm flex items-center gap-2 min-w-64 max-w-96 font-sans;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.toast-positive { background: rgba(0, 140, 72, 0.92); }
+.toast-negative { background: rgba(191, 3, 0, 0.92); }
+.toast-warning  { background: rgba(242, 125, 0, 0.92); }
+.toast-info     { background: rgba(0, 138, 140, 0.92); }
+
+/* ── Animated pipeline flow arrows ──────────────────────────────────────────── */
+@keyframes flow-pulse {
+  0%, 100% { opacity: 0.3; }
+  50%       { opacity: 1; }
+}
+
+@keyframes ticker-slide {
+  from { transform: translateY(4px); opacity: 0; }
+  to   { transform: translateY(0);   opacity: 1; }
+}
+
+/* ── Status pulse dot ────────────────────────────────────────────────────────── */
+@keyframes status-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(0, 140, 72, 0.6); }
+  50%       { box-shadow: 0 0 0 4px rgba(0, 140, 72, 0); }
+}
+
+.status-pulse-dot {
+  animation: status-pulse 2s ease-in-out infinite;
+}
+
+/* ── Metric ticker entrance ───────────────────────────────────────────────────── */
+.metric-tick {
+  animation: ticker-slide 0.3s ease-out both;
+}

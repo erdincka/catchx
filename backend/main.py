@@ -7,7 +7,7 @@ from routes import cluster, data, monitoring, code
 
 configure_logging()
 
-app = FastAPI(title="CatchX Data Fabric API", version="1.0.0")
+app = FastAPI(title="NexMesh Data Fabric API", version="1.0.0")
 
 app.add_middleware(
     CORSMiddleware,

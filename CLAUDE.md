@@ -1,4 +1,4 @@
-# CatchX — HPE Data Fabric Demo App
+# NexMesh — HPE Data Fabric Demo App
 
 ## Overview
 
@@ -6,10 +6,10 @@ End-to-end fraud detection demo showcasing HPE Ezmeral Data Fabric capabilities:
 
 ## Architecture
 
-Two containers communicating over a Docker network (`catchx-net`):
+Two containers communicating over a Docker network (`nexmesh-net`):
 
 ```
-frontend (NiceGUI, port 3000)  ←→  backend (FastAPI, port 8000)
+frontend (Next.js, port 3000)  ←→  backend (FastAPI, port 8000)
          ↑                                    ↓
     Browser UI                    HPE Data Fabric (MapR)
 ```
@@ -21,15 +21,16 @@ frontend (NiceGUI, port 3000)  ←→  backend (FastAPI, port 8000)
 - Must run `privileged: true` for NFS mount operations
 
 ### Frontend (`./frontend/`)
-- **NiceGUI** on port 3000
+- **Next.js 15 (App Router) + TypeScript + Tailwind CSS** on port 3000
 - Pure UI — no Data Fabric libraries
-- Calls backend via HTTP (credentials passed as headers per request)
-- Uses `python:3.12-slim` base image
+- All `/api/*` calls proxied to backend via `next.config.ts` rewrites
+- Credentials stored in `sessionStorage` via `ClusterContext`
+- Uses `node:22-alpine` base image
 
 ## Key Design Decisions
 
 ### Credential Flow
-Credentials (host/user/password) are collected in the frontend connect dialog and stored in NiceGUI's **server-side** `app.storage.user` dict (not browser localStorage). Every API call sends them as HTTP headers:
+Credentials (host/user/password) are collected in the frontend connect dialog and stored in browser `sessionStorage` via `ClusterContext`. Every API call sends them as HTTP headers:
 ```
 X-Mapr-Host: <cluster-ip>
 X-Mapr-User: <username>
@@ -53,7 +54,7 @@ Backend exposes `GET /api/code/{function_name}` — uses `inspect.getsource()` s
 ## Directory Structure
 
 ```
-catchx/
+nexmesh/
 ├── backend/
 │   ├── main.py              # FastAPI entry point
 │   ├── config.py            # All constants (shared via API)
@@ -77,24 +78,32 @@ catchx/
 │   ├── Dockerfile
 │   └── requirements.txt
 ├── frontend/
-│   ├── main.py              # NiceGUI entry point
-│   ├── config.py            # Frontend constants + BACKEND_URL
-│   ├── client.py            # httpx wrapper (api_get, api_post, api_delete)
-│   ├── theme.py             # HPE color palette + UI helpers
-│   ├── pages/
-│   │   ├── mesh.py          # / route
-│   │   ├── domain.py        # /fraud route
-│   │   └── old.py           # /old route
-│   ├── components/
-│   │   ├── header.py        # Top bar with toggles and cluster link
-│   │   ├── footer.py        # Volume navigation buttons
-│   │   ├── gui.py           # SVG interactive images + action handlers
-│   │   ├── monitoring.py    # Metric cards, ticker, ECharts, log card
-│   │   ├── demo_steps.py    # Step-by-step expansion list
-│   │   └── dialogs.py       # Connect dialog, settings, code viewer, table viewer
-│   ├── images/              # Static images for local serving
+│   ├── src/
+│   │   ├── app/
+│   │   │   ├── layout.tsx        # Root layout + providers
+│   │   │   ├── page.tsx          # / route (mesh)
+│   │   │   ├── fraud/page.tsx    # /fraud route (domain pipeline)
+│   │   │   └── old/page.tsx      # /old route (step-by-step)
+│   │   ├── components/
+│   │   │   ├── Header.tsx        # Top bar with toggles and cluster link
+│   │   │   ├── Footer.tsx        # Volume navigation buttons
+│   │   │   ├── InteractiveImage.tsx  # SVG overlay on image
+│   │   │   ├── ConnectDialog.tsx # SSE cluster setup dialog
+│   │   │   ├── SettingsDialog.tsx
+│   │   │   ├── CodeViewer.tsx    # highlight.js code display
+│   │   │   ├── DataTable.tsx     # Record preview table
+│   │   │   └── MonitoringPanel.tsx  # Metric badges + ECharts panels
+│   │   ├── contexts/
+│   │   │   ├── ClusterContext.tsx   # Credentials + state (sessionStorage)
+│   │   │   └── ToastContext.tsx     # Toast notifications
+│   │   └── lib/
+│   │       ├── api.ts            # fetch wrappers with header injection
+│   │       └── constants.ts      # Colors, metric keys, setup steps
+│   ├── public/               # Static images (hubspoke.png, frauddomain.png)
+│   ├── next.config.ts        # /api/* proxy to backend
+│   ├── tailwind.config.ts
 │   ├── Dockerfile
-│   └── requirements.txt
+│   └── package.json
 ├── docker-compose.yaml      # Two-service deployment
 └── CLAUDE.md                # This file
 ```
@@ -123,7 +132,8 @@ uv run uvicorn main:app --reload --port 8000
 **Frontend:**
 ```bash
 cd frontend
-BACKEND_URL=http://localhost:8000 uv run python main.py
+npm install
+BACKEND_URL=http://localhost:8000 npm run dev
 ```
 
 ## Building Containers

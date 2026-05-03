@@ -1,63 +1,40 @@
-# CatchX — Tilt dev workflow
-# Run:  tilt up
-# Stop: tilt down
-#
-# Both containers start via docker-compose. Source directories are mounted as
-# volumes (docker-compose.dev.yaml) so edits are visible immediately:
-#   - backend/  → uvicorn --reload picks up Python changes
-#   - frontend/ → NiceGUI reload=true picks up Python changes
-#
-# Full image rebuilds only happen when requirements.txt changes.
+# -*- mode: Python -*-
+# PCAI Demo Baseline Tiltfile
 
-docker_compose(
-    ["docker-compose.yaml", "docker-compose.dev.yaml"],
-    project_name="catchx",
+# Load .env file
+load('ext://dotenv', 'dotenv')
+dotenv()
+
+allow_k8s_contexts(os.environ['KUBE_CONTEXT'])
+default_registry('registry.' + os.environ['DOMAIN'])
+
+# Backend Service
+docker_build(
+    'erdincka/nexmesh-backend',
+    './backend',
+    live_update=[
+        fall_back_on('backend/Dockerfile'),
+        sync('./backend', '/app'),
+        run('/app/.venv/bin/pip install -r /app/requirements.txt', trigger='./backend/requirements.txt'),
+    ]
 )
 
-# ── Backend ──────────────────────────────────────────────────────────────────
-
-dc_resource(
-    "backend",
-    labels=["services"],
-    # Trigger a full rebuild only when dependencies change
-    trigger_mode=TRIGGER_MODE_AUTO,
+# Frontend (Next.js)
+docker_build(
+    'erdincka/nexmesh-frontend',
+    './frontend',
+    live_update=[
+        fall_back_on('frontend/Dockerfile'),
+        sync('./frontend/src', '/app/src'),
+        sync('./frontend/public', '/app/public'),
+    ],
 )
 
-# Reinstall deps inside the running container when requirements.txt changes,
-# then restart so uvicorn picks up any newly installed packages.
-local_resource(
-    "backend-deps",
-    cmd="docker exec catchx-backend pip install -q -r /app/backend/requirements.txt",
-    deps=["backend/requirements.txt"],
-    resource_deps=["backend"],
-    labels=["deps"],
-)
-
-# ── Frontend ─────────────────────────────────────────────────────────────────
-
-dc_resource(
-    "frontend",
-    labels=["services"],
-    resource_deps=["backend"],
-    trigger_mode=TRIGGER_MODE_AUTO,
-)
-
-local_resource(
-    "frontend-deps",
-    cmd="docker exec catchx-frontend pip install -q -r /app/frontend/requirements.txt",
-    deps=["frontend/requirements.txt"],
-    resource_deps=["frontend"],
-    labels=["deps"],
-)
-
-# ── Links shown in the Tilt UI ───────────────────────────────────────────────
-
-dc_resource("frontend", links=[
-    link("http://localhost:4000", "Frontend (NiceGUI)"),
-    link("http://localhost:4000/old", "Frontend /old"),
-])
-
-dc_resource("backend", links=[
-    link("http://localhost:8000/docs", "Backend API docs"),
-    link("http://localhost:8000/health", "Health check"),
-])
+k8s_yaml(helm(
+    './helm/',
+    name="nexmesh",
+    namespace=os.environ['NAMESPACE'],
+    set=[
+        'ezua.virtualService.endpoint=nexmesh.' + os.environ["DOMAIN"]
+    ],
+))

@@ -1,3 +1,0 @@
-nicegui>=2.20.0
-httpx>=0.28.0
-pandas>=2.0.0

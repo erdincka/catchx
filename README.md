@@ -1,9 +1,8 @@
-
 # Data Fabric Mesh Demo
 
 This demo is created to showcase the feature-rich data pipeline capabilities of Ezmeral Data Fabric. Instead of copy/pasting commands on the cluster, you can use the web-based interface with provided steps and visual representation of data flow.
 
-You can install the app on K8s cluster by using [the provided helm chart](./helm-package/demoapp-0.0.6.tgz) and [provided image](./helm-package/fraud-detection-app.jpg) as its icon. Or by using the [provided docker image](https://hub.docker.com/r/erdincka/mesh) and the [provided docker-compose file](./docker-compose.yml).
+You can install the app on K8s cluster by using [the provided helm chart](./helm-package/nexmesh-0.0.1.tgz) and [provided image](./helm-package/fraud-detection-app.jpg) as its icon. Or by using the provided docker images (`erdincka/nexmesh-frontend` and `erdincka/nexmesh-backend`) and the provided docker-compose file.
 
 The main page is available at http://localhost:3000 and it will guide with step by step instructions on how to run the demo.
 Instead, you can switch to http://localhost:3000/mesh to see the visual and interactive demo flow. [First page](./mesh_image.png) shows how you can build the mesh architecture using Data Fabric and you may explain the components and capabilities, such as, individual **Data Domains** that build up the mesh, where the central **Data Domain** holding shared services, monitoring and data catalogue. Then select one of the Data Domains (fraud) to get into [actual demo flow](./datadomain_image.png), where you can provide step by step flow of both batch (customers) and streaming (transactions) data flows, and see the results of the pipeline along the way, build using the **Medallion Architecture**.
@@ -47,7 +46,7 @@ For additional features/functions, see [Extras](./EXTRAS.md).
 
 ## Deploy with Docker
 
-`docker run -d -t --privileged --name catchx -p 3000:3000 erdincka/mesh:latest`
+`docker run -d -t --privileged --name nexmesh -p 3000:3000 erdincka/nexmesh-frontend:latest`
 
 ## Running Demo
 

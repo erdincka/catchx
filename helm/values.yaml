@@ -1,0 +1,11 @@
+ezua:
+  domainName: "${DOMAIN_NAME}"
+  virtualService:
+    endpoint: "nexmesh.${DOMAIN_NAME}"
+    istioGateway: "istio-system/ezaf-gateway"
+
+backend:
+  image: erdincka/nexmesh-backend:latest
+
+frontend:
+  image: erdincka/nexmesh-frontend:latest
