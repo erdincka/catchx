@@ -1,5 +1,7 @@
-.nicegui
-.venv
-.vscode
-*.egg-info
+.git
+.env
+node_modules
 __pycache__
+.venv
+.next
+*.log
