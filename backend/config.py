@@ -4,12 +4,19 @@ APP_NAME = "Data Fabric"
 TITLE = "Building a Hybrid Data Mesh"
 DATA_PRODUCT = "fraud"
 
-BASEDIR = "/demovol"
+BASEDIR = "/nexmesh-demo"
 MOUNT_PATH = "/mapr"
 
+# Volume MOUNT-PATH suffixes (used in file/table paths inside the volumes)
 VOLUME_BRONZE = "bronze"
 VOLUME_SILVER = "silver"
-VOLUME_GOLD = "gold"
+VOLUME_GOLD   = "gold"
+
+# Volume NAMES on the cluster (qualified to avoid collisions with other deployments)
+NEXMESH_VOL_PARENT = "nexmesh-demo"    # mounted at /nexmesh-demo
+NEXMESH_VOL_BRONZE = "nexmesh-bronze"  # mounted at /nexmesh-demo/bronze
+NEXMESH_VOL_SILVER = "nexmesh-silver"  # mounted at /nexmesh-demo/silver
+NEXMESH_VOL_GOLD   = "nexmesh-gold"    # mounted at /nexmesh-demo/gold
 
 STREAM_INCOMING = "incoming"
 STREAM_CHANGELOG = "changelog"

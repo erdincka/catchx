@@ -6,21 +6,23 @@ End-to-end fraud detection demo showcasing HPE Ezmeral Data Fabric capabilities:
 
 ## Architecture
 
-Two containers communicating over a Docker network (`nexmesh-net`):
+Two containers communicating over a common network:
 
-```
+```bash
 frontend (Next.js, port 3000)  ←→  backend (FastAPI, port 8000)
          ↑                                    ↓
     Browser UI                    HPE Data Fabric (MapR)
 ```
 
 ### Backend (`./backend/`)
+
 - **FastAPI** on port 8000
 - All HPE Data Fabric operations: MapR OJAI, Iceberg, Delta Lake, Kafka Streams
 - Requires `erdincka/dfclient` base image (MapR client libs at `/opt/mapr/lib`)
 - Must run `privileged: true` for NFS mount operations
 
 ### Frontend (`./frontend/`)
+
 - **Next.js 15 (App Router) + TypeScript + Tailwind CSS** on port 3000
 - Pure UI — no Data Fabric libraries
 - All `/api/*` calls proxied to backend via `next.config.ts` rewrites
@@ -30,21 +32,27 @@ frontend (Next.js, port 3000)  ←→  backend (FastAPI, port 8000)
 ## Key Design Decisions
 
 ### Credential Flow
+
 Credentials (host/user/password) are collected in the frontend connect dialog and stored in browser `sessionStorage` via `ClusterContext`. Every API call sends them as HTTP headers:
-```
+
+```yaml
 X-Mapr-Host: <cluster-ip>
 X-Mapr-User: <username>
 X-Mapr-Pass: <password>
 ```
+
 The backend is stateless — it derives `ClusterConfig` from headers via FastAPI dependency injection. Cluster info (name, IP) is cached in-memory per host in `backend/store.py`.
 
 ### Monitoring
+
 Frontend polls `GET /api/monitoring/metrics` every 3 seconds via `ui.timer`. The backend also exposes `GET /api/monitoring/stream` (SSE) for external consumers. Monitoring activates when the "Monitor" toggle is on in the header.
 
 ### Code Viewer
+
 Backend exposes `GET /api/code/{function_name}` — uses `inspect.getsource()` server-side. Frontend fetches and renders in a dialog with `ui.code()`. Special cases: `airflow_dag` reads a file, `nifi_template` renders a Jinja2 template.
 
 ### Routes
+
 | URL | Description |
 |-----|-------------|
 | `/` | Mesh architecture interactive image (was `/mesh`) |
@@ -53,7 +61,7 @@ Backend exposes `GET /api/code/{function_name}` — uses `inspect.getsource()` s
 
 ## Directory Structure
 
-```
+```bash
 nexmesh/
 ├── backend/
 │   ├── main.py              # FastAPI entry point
@@ -110,7 +118,7 @@ nexmesh/
 
 ## Data Pipeline
 
-```
+```txt
 CSV (customers) ──[batch]──► Iceberg (bronze) ──► DocumentDB (silver) ──► Delta Lake (gold)
                                                                               ↑
 Kafka (transactions) ──[stream]──► DocumentDB (bronze) ──► DocumentDB (silver) ─┘
@@ -118,11 +126,12 @@ Kafka (transactions) ──[stream]──► DocumentDB (bronze) ──► Docum
                                Profiles (silver)  ──────────────────────────────┘
 ```
 
-All data lives under `/mapr/<cluster_name>/demovol/{bronze,silver,gold}/`.
+All data lives under `/mapr/<cluster_name>/nexmesh-demo/{bronze,silver,gold}/`.
 
 ## Running Locally (without Docker)
 
 **Backend:**
+
 ```bash
 cd backend
 uv pip install -r requirements.txt
@@ -130,6 +139,7 @@ uv run uvicorn main:app --reload --port 8000
 ```
 
 **Frontend:**
+
 ```bash
 cd frontend
 npm install

@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from config import configure_logging
-from routes import cluster, data, monitoring, code
+from routes import cluster, data, monitoring, code, settings as settings_routes
 
 configure_logging()
 
@@ -22,6 +22,7 @@ app.include_router(cluster.router, prefix="/api/cluster", tags=["cluster"])
 app.include_router(data.router, prefix="/api/data", tags=["data"])
 app.include_router(monitoring.router, prefix="/api/monitoring", tags=["monitoring"])
 app.include_router(code.router, prefix="/api/code", tags=["code"])
+app.include_router(settings_routes.router, prefix="/api/settings", tags=["settings"])
 
 
 @app.get("/health")

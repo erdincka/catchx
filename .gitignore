@@ -43,6 +43,10 @@ tsconfig.tsbuildinfo
 .env.*.local
 *-key*
 
+# Persisted demo settings (PVC mount in k8s, ./data locally)
+backend/data/
+data/settings.json
+
 # NiceGUI leftover
 .nicegui/
 

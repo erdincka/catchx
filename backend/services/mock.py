@@ -7,9 +7,10 @@ import random
 import uuid
 
 from faker import Faker
+from fastapi import HTTPException
 
 from config import BASEDIR, MOUNT_PATH, TABLE_CUSTOMERS, TABLE_TRANSACTIONS, TOPIC_TRANSACTIONS, STREAM_INCOMING
-from store import ClusterConfig, get_cluster_name
+from store import ClusterConfig, get_cluster_name, ensure_cluster_name
 from services import streams
 
 logger = logging.getLogger("mock")
@@ -51,9 +52,9 @@ def _transactions_path(cluster_name: str) -> str:
 
 
 async def create_customers(config: ClusterConfig, count: int = 200) -> dict:
-    cluster_name = get_cluster_name(config)
+    cluster_name = await ensure_cluster_name(config)
     if not cluster_name:
-        return {"status": "error", "message": "Cluster not connected"}
+        raise HTTPException(status_code=400, detail="Cluster not connected — connect first")
 
     csvfile = _customers_path(cluster_name)
     customers = []
@@ -79,9 +80,9 @@ async def create_customers(config: ClusterConfig, count: int = 200) -> dict:
 
 
 async def create_transactions(config: ClusterConfig, count: int = 100) -> dict:
-    cluster_name = get_cluster_name(config)
+    cluster_name = await ensure_cluster_name(config)
     if not cluster_name:
-        return {"status": "error", "message": "Cluster not connected"}
+        raise HTTPException(status_code=400, detail="Cluster not connected — connect first")
 
     customers_path = _customers_path(cluster_name)
     if not os.path.isfile(customers_path):
@@ -135,9 +136,9 @@ async def get_new_transactions(config: ClusterConfig, count: int = 10) -> list:
 
 
 async def publish_transactions(config: ClusterConfig, count: int = 10) -> dict:
-    cluster_name = get_cluster_name(config)
+    cluster_name = await ensure_cluster_name(config)
     if not cluster_name:
-        return {"status": "error", "message": "Cluster not connected"}
+        raise HTTPException(status_code=400, detail="Cluster not connected — connect first")
 
     stream_path = f"{BASEDIR}/{STREAM_INCOMING}"
     full_stream = f"{MOUNT_PATH}/{cluster_name}{stream_path}"

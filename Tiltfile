@@ -12,9 +12,10 @@ default_registry('registry.' + os.environ['DOMAIN'])
 docker_build(
     'erdincka/nexmesh-backend',
     './backend',
+    build_args={'MAPR_REPO': os.environ['MAPR_REPO']},
     live_update=[
-        fall_back_on('backend/Dockerfile'),
-        sync('./backend', '/app'),
+        fall_back_on(['backend/Dockerfile', 'backend/requirements.txt']),
+        sync('./backend/', '/app/'),
         run('/app/.venv/bin/pip install -r /app/requirements.txt', trigger='./backend/requirements.txt'),
     ]
 )
@@ -25,8 +26,7 @@ docker_build(
     './frontend',
     live_update=[
         fall_back_on('frontend/Dockerfile'),
-        sync('./frontend/src', '/app/src'),
-        sync('./frontend/public', '/app/public'),
+        sync('./frontend/', '/app/'),
     ],
 )
 

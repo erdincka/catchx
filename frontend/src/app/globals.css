@@ -1,22 +1,36 @@
 @import "highlight.js/styles/github-dark.css";
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
 
-/* ── Nexus brand tokens ──────────────────────────────────────────────────────── */
-:root {
-  --brand-vivid:    #F2561D;
-  --brand-soft:     #D9704A;
-  --brand-contrast: #008A8C;
-  --surface-card:   #121212;
-  --neutrals-dark:  #474747;
-  --neutrals-medium:#8C8C8C;
-  --neutrals-light: #BFBFBF;
+@theme inline {
+  --color-brand-vivid:       #F2561D;
+  --color-brand-soft:        #D9704A;
+  --color-brand-contrast:    #008A8C;
+  --color-neutrals-light:    #BFBFBF;
+  --color-neutrals-medium:   #8C8C8C;
+  --color-neutrals-dark:     #474747;
+  --color-neutrals-deep:     #000000;
+  --color-neutrals-slate:    #64748B;
+  --color-status-good:       #008C48;
+  --color-status-failed:     #BF0300;
+  --color-status-degraded:   #F27D00;
+  --font-sans:  var(--font-poppins);
+  --font-serif: var(--font-instrument-serif);
+  --font-mono:  var(--font-jetbrains-mono);
 }
 
-/* ── Base ────────────────────────────────────────────────────────────────────── */
-* {
+/* ── Base ─────────────────────────────────────────────────────────────────── */
+
+*,
+*::before,
+*::after {
   box-sizing: border-box;
+}
+
+html {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  scroll-behavior: smooth;
 }
 
 body {
@@ -24,33 +38,84 @@ body {
   background: #000000;
   color: #ffffff;
   font-family: var(--font-poppins, var(--font-sans, Arial, sans-serif));
+  min-height: 100dvh;
 }
 
-/* ── Scrollbars ──────────────────────────────────────────────────────────────── */
-::-webkit-scrollbar {
-  width: 5px;
-  height: 5px;
-}
-::-webkit-scrollbar-track {
-  background: #000000;
-}
-::-webkit-scrollbar-thumb {
-  background: #474747;
-  border-radius: 3px;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: #F2561D;
+/* ── CSS Custom Properties (semantic aliases & design tokens) ─────────────── */
+
+:root {
+  --surface-card:         #121212;
+  --glass-nav:            rgba(0, 0, 0, 0.35);
+  --glass-dark:           rgba(18, 18, 18, 0.92);
+  --glass-subnav:         rgba(0, 0, 0, 0.30);
+
+  --radius-card:          10px;
+  --radius-ai:            22px;
+  --radius-status:        24px;
+  --radius-full:          9999px;
+  --radius-login:         80px;
 }
 
-/* ── Dialog backdrop ─────────────────────────────────────────────────────────── */
+/* ── Focus ring ───────────────────────────────────────────────────────────── */
+
+:focus-visible {
+  outline: 2px solid #F2561D;
+  outline-offset: 2px;
+  border-radius: 8px;
+}
+
+/* ── Scrollbars ───────────────────────────────────────────────────────────── */
+
+::-webkit-scrollbar        { width: 5px; height: 5px; }
+::-webkit-scrollbar-track  { background: #000000; }
+::-webkit-scrollbar-thumb  { background: #474747; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #F2561D; }
+
+/* ── Brand gradient (signature element) ──────────────────────────────────── */
+
+.nexus-gradient-h {
+  background: linear-gradient(90deg,
+    transparent 0%, #D9704A 20%, #F2561D 80%, transparent 100%
+  );
+}
+
+.nexus-gradient-v {
+  background: linear-gradient(180deg,
+    transparent 0%, #D9704A 20%, #F2561D 80%, transparent 100%
+  );
+}
+
+/* ── Glassmorphic containers ──────────────────────────────────────────────── */
+
+.nexus-glass {
+  background: var(--glass-dark);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.nexus-glass-nav {
+  background: var(--glass-nav);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+
+/* ── Dialog backdrop ──────────────────────────────────────────────────────── */
+
 .dialog-backdrop {
-  @apply fixed inset-0 z-50 flex items-center justify-center;
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   background: rgba(0, 0, 0, 0.75);
   backdrop-filter: blur(6px);
   -webkit-backdrop-filter: blur(6px);
 }
 
-/* ── Code highlight overrides ────────────────────────────────────────────────── */
+/* ── Code highlight overrides ─────────────────────────────────────────────── */
+
 .hljs {
   background: #0a0a0a !important;
   border-radius: 6px;
@@ -60,13 +125,29 @@ body {
   border: 1px solid #474747;
 }
 
-/* ── Toast notifications ─────────────────────────────────────────────────────── */
+/* ── Toast notifications ──────────────────────────────────────────────────── */
+
 .toast-container {
-  @apply fixed bottom-4 right-4 z-[100] flex flex-col gap-2;
+  position: fixed;
+  bottom: 1rem;
+  right: 1rem;
+  z-index: 200;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
 }
 
 .toast {
-  @apply px-4 py-3 rounded-lg text-white text-sm flex items-center gap-2 min-w-64 max-w-96 font-sans;
+  padding: 0.75rem 1rem;
+  border-radius: 0.5rem;
+  color: white;
+  font-size: 0.875rem;
+  font-family: var(--font-sans);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 16rem;
+  max-width: 24rem;
   border: 1px solid rgba(255, 255, 255, 0.12);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
@@ -77,18 +158,24 @@ body {
 .toast-warning  { background: rgba(242, 125, 0, 0.92); }
 .toast-info     { background: rgba(0, 138, 140, 0.92); }
 
-/* ── Animated pipeline flow arrows ──────────────────────────────────────────── */
-@keyframes flow-pulse {
-  0%, 100% { opacity: 0.3; }
-  50%       { opacity: 1; }
+/* ── Skeleton loader ──────────────────────────────────────────────────────── */
+
+@keyframes nexus-shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position:  200% 0; }
 }
 
-@keyframes ticker-slide {
-  from { transform: translateY(4px); opacity: 0; }
-  to   { transform: translateY(0);   opacity: 1; }
+.nexus-skeleton {
+  background: linear-gradient(
+    90deg,
+    #121212 25%, #1e1e1e 50%, #121212 75%
+  );
+  background-size: 200% 100%;
+  animation: nexus-shimmer 1.5s ease-in-out infinite;
 }
 
-/* ── Status pulse dot ────────────────────────────────────────────────────────── */
+/* ── Status pulse dot ─────────────────────────────────────────────────────── */
+
 @keyframes status-pulse {
   0%, 100% { box-shadow: 0 0 0 0 rgba(0, 140, 72, 0.6); }
   50%       { box-shadow: 0 0 0 4px rgba(0, 140, 72, 0); }
@@ -98,7 +185,31 @@ body {
   animation: status-pulse 2s ease-in-out infinite;
 }
 
-/* ── Metric ticker entrance ───────────────────────────────────────────────────── */
+/* ── Metric ticker entrance ───────────────────────────────────────────────── */
+
+@keyframes ticker-slide {
+  from { transform: translateY(4px); opacity: 0; }
+  to   { transform: translateY(0);   opacity: 1; }
+}
+
 .metric-tick {
   animation: ticker-slide 0.3s ease-out both;
+}
+
+/* ── Flow pulse ───────────────────────────────────────────────────────────── */
+
+@keyframes flow-pulse {
+  0%, 100% { opacity: 0.3; }
+  50%       { opacity: 1; }
+}
+
+/* ── Reduced motion ───────────────────────────────────────────────────────── */
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+  .nexus-skeleton { animation: none; background: #121212; }
 }

@@ -9,7 +9,7 @@ from config import (
     BASEDIR, MOUNT_PATH, VOLUME_BRONZE, TABLE_CUSTOMERS, TABLE_TRANSACTIONS,
     STREAM_INCOMING, TOPIC_TRANSACTIONS,
 )
-from store import ClusterConfig, get_cluster_name
+from store import ClusterConfig, ensure_cluster_name
 from services import streams, tables, iceberger
 from services.functions import upsert_profile
 
@@ -17,7 +17,7 @@ logger = logging.getLogger("ingestion")
 
 
 async def ingest_transactions(config: ClusterConfig) -> dict:
-    cluster_name = get_cluster_name(config)
+    cluster_name = await ensure_cluster_name(config)
     if not cluster_name:
         return {"status": "error", "message": "Cluster not connected"}
 
@@ -43,7 +43,7 @@ async def ingest_transactions(config: ClusterConfig) -> dict:
 
 
 async def ingest_customers_iceberg(config: ClusterConfig) -> dict:
-    cluster_name = get_cluster_name(config)
+    cluster_name = await ensure_cluster_name(config)
     if not cluster_name:
         return {"status": "error", "message": "Cluster not connected"}
 

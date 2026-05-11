@@ -2,11 +2,11 @@ import asyncio
 import json
 import logging
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Depends, Query
 from fastapi.responses import StreamingResponse
 
 from config import MON_REFRESH_INTERVAL
-from store import ClusterConfig
+from store import ClusterConfig, get_cluster_config
 from services.monitoring import collect_all_metrics
 
 logger = logging.getLogger("routes.monitoring")
@@ -15,12 +15,7 @@ router = APIRouter()
 
 
 @router.get("/metrics")
-async def get_metrics(
-    mapr_host: str = Query(...),
-    mapr_user: str = Query(...),
-    mapr_pass: str = Query(...),
-):
-    config = ClusterConfig(host=mapr_host, user=mapr_user, password=mapr_pass)
+async def get_metrics(config: ClusterConfig = Depends(get_cluster_config)):
     metrics = await collect_all_metrics(config)
     return metrics
 
@@ -37,12 +32,7 @@ async def _sse_generator(config: ClusterConfig):
 
 
 @router.get("/stream")
-async def monitoring_stream(
-    mapr_host: str = Query(...),
-    mapr_user: str = Query(...),
-    mapr_pass: str = Query(...),
-):
-    config = ClusterConfig(host=mapr_host, user=mapr_user, password=mapr_pass)
+async def monitoring_stream(config: ClusterConfig = Depends(get_cluster_config)):
     return StreamingResponse(
         _sse_generator(config),
         media_type="text/event-stream",

@@ -1,5 +1,6 @@
 import inspect
 import logging
+from typing import Optional
 
 from fastapi import APIRouter, HTTPException
 
@@ -8,7 +9,7 @@ logger = logging.getLogger("routes.code")
 router = APIRouter()
 
 # Registry is built lazily to avoid import-time failures if MapR libs aren't present
-_registry: dict | None = None
+_registry: Optional[dict] = None
 
 
 def _get_registry() -> dict:
@@ -50,61 +51,14 @@ def _get_registry() -> dict:
     return _registry
 
 
-def _read_file(path: str) -> str | None:
-    try:
-        with open(path, "r") as f:
-            return f.read()
-    except Exception:
-        return None
-
 
 @router.get("/")
 def list_functions():
-    names = list(_get_registry().keys()) + ["airflow_dag", "nifi_template"]
-    return {"available": names}
+    return {"available": list(_get_registry().keys())}
 
 
 @router.get("/{function_name}")
-def get_source(function_name: str, cluster: str = "", mapr_user: str = "", mapr_pass: str = ""):
-    if function_name == "airflow_dag":
-        source = _read_file("DAGs/csv_to_iceberg_DAG.py")
-        if source is None:
-            raise HTTPException(status_code=404, detail="DAG file not found")
-        return {"function_name": "airflow_dag", "module": "DAGs/csv_to_iceberg_DAG.py", "source": source}
-
-    if function_name == "nifi_template":
-        from jinja2 import Environment, FileSystemLoader
-        from config import BASEDIR, VOLUME_BRONZE, VOLUME_SILVER, VOLUME_GOLD, TABLE_TRANSACTIONS, DATA_PRODUCT, STREAM_INCOMING, TOPIC_TRANSACTIONS, MOUNT_PATH
-
-        env = Environment(loader=FileSystemLoader("templates/"))
-        try:
-            template = env.get_template("TransactionFlow.xml.j2")
-            content = template.render(
-                hive_db_connect_url="jdbc:hive2://localhost:10000/default;auth=maprsasl;ssl=true",
-                database_connection_url=f"jdbc:mariadb://{cluster}:3306/{DATA_PRODUCT}",
-                database_driver_location=f"{MOUNT_PATH}/{DATA_PRODUCT}/user/root/mariadb-java-client-3.4.1.jar",
-                database_user=mapr_user,
-                database_password=mapr_pass,
-                hive3_table_name=TABLE_TRANSACTIONS,
-                hive3_external_table_location=f"{BASEDIR}/{VOLUME_SILVER}/hive{TABLE_TRANSACTIONS}",
-                app_dir=BASEDIR,
-                incoming_bulk_file=f"{TABLE_TRANSACTIONS}.csv",
-                app_logs_failed=f"{BASEDIR}/logs/failed",
-                app_logs=f"{BASEDIR}/logs",
-                dir_app_logs_failed=f"{MOUNT_PATH}/{DATA_PRODUCT}{BASEDIR}/logs/failed",
-                hive3_external_table_location_gold=f"{BASEDIR}/{VOLUME_GOLD}",
-                put_db_record_table_name=TABLE_TRANSACTIONS,
-                hbase_table_name_silver=f"{BASEDIR}/{VOLUME_SILVER}/{TABLE_TRANSACTIONS}-binary",
-                hbase_table_name_bronze=f"{BASEDIR}/{VOLUME_BRONZE}/{TABLE_TRANSACTIONS}-binary",
-                incoming_topic=f"{BASEDIR}/{STREAM_INCOMING}:{TOPIC_TRANSACTIONS}",
-                sasl_username=mapr_user,
-                sasl_password=mapr_pass,
-                bronze_transactions_dir=f"{BASEDIR}/{VOLUME_BRONZE}/{TABLE_TRANSACTIONS}",
-            )
-            return {"function_name": "nifi_template", "module": "templates/TransactionFlow.xml.j2", "source": content}
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=str(e))
-
+def get_source(function_name: str):
     fn = _get_registry().get(function_name)
     if fn is None:
         raise HTTPException(status_code=404, detail=f"Function '{function_name}' not found")

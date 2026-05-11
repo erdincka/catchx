@@ -3,13 +3,13 @@
 set -euo pipefail
 
 ## Ensure user
-# export MAPR_GROUP=mapr \
-#     MAPR_HOME=/opt/mapr \
-#     MAPR_UID=5000
-# id mapr || useradd -u ${MAPR_UID} -U -m -d /home/${MAPR_USER} -s /bin/bash -G sudo ${MAPR_USER}
-# echo "${MAPR_USER}:${MAPR_PASS}" | chpasswd
-# echo "root:${MAPR_PASS}" | chpasswd
-# [ -f /etc/sudoers.d/${MAPR_USER} ] || echo "${MAPR_USER} ALL=(ALL) NOPASSWD: ALL" | tee /etc/sudoers.d/${MAPR_USER}
+export MAPR_GROUP=mapr \
+    MAPR_HOME=/opt/mapr \
+    MAPR_UID=5000
+id mapr || useradd -u ${MAPR_UID} -U -m -d /home/${MAPR_USER} -s /bin/bash -G sudo ${MAPR_USER}
+echo "${MAPR_USER}:${MAPR_PASS}" | chpasswd
+echo "root:${MAPR_PASS}" | chpasswd
+[ -f /etc/sudoers.d/${MAPR_USER} ] || echo "${MAPR_USER} ALL=(ALL) NOPASSWD: ALL" | tee /etc/sudoers.d/${MAPR_USER}
 
 [ -f ~/.ssh/id_rsa ] || ssh-keygen -t rsa -b 2048 -f ~/.ssh/id_rsa -q -N ""
 
@@ -54,10 +54,10 @@ fi
 echo ${MAPR_PASS} | maprlogin password -user ${MAPR_USER}
 
 # (Re-)Mount /mapr
-# [ -d /mapr ] && umount -l /mapr || true # ignore errors (no dir or not mounted)
-# [ -d /mapr ] || mkdir /mapr
+[ -d /mapr ] && umount -l /mapr || true # ignore errors (no dir or not mounted)
+[ -d /mapr ] || mkdir /mapr
 
-mount -t nfs -o nolock,soft ${CLUSTER_IP}:/mapr /mapr
-# mount -t nfs4 -o proto=tcp,nolock,sec=sys ${CLUSTER_IP}:/mapr /mapr
+# mount -t nfs -o nolock,soft ${CLUSTER_IP}:/mapr /mapr
+mount -t nfs4 -o proto=tcp,nolock,sec=sys ${CLUSTER_IP}:/mapr /mapr
 
 echo "Cluster configuration is complete"

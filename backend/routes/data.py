@@ -8,7 +8,7 @@ from config import (
     TABLE_CUSTOMERS, TABLE_TRANSACTIONS, TABLE_PROFILES, TABLE_FRAUD,
     FETCH_RECORD_NUM,
 )
-from store import ClusterConfig, get_cluster_config, get_cluster_name
+from store import ClusterConfig, get_cluster_config, get_cluster_name, ensure_cluster_name
 from services import tables, iceberger
 from services import mock as mock_svc
 from services import functions, ingestion
@@ -91,7 +91,7 @@ async def peek_data(
     limit: int = Query(default=FETCH_RECORD_NUM),
     config: ClusterConfig = Depends(get_cluster_config),
 ):
-    cluster_name = get_cluster_name(config)
+    cluster_name = await ensure_cluster_name(config)
     if not cluster_name:
         return {"status": "error", "message": "Cluster not connected"}
 
@@ -122,7 +122,7 @@ async def iceberg_history(
     table: str,
     config: ClusterConfig = Depends(get_cluster_config),
 ):
-    cluster_name = get_cluster_name(config)
+    cluster_name = await ensure_cluster_name(config)
     if not cluster_name:
         return {"status": "error", "message": "Cluster not connected"}
 
@@ -140,7 +140,7 @@ async def iceberg_tail(
     table: str,
     config: ClusterConfig = Depends(get_cluster_config),
 ):
-    cluster_name = get_cluster_name(config)
+    cluster_name = await ensure_cluster_name(config)
     if not cluster_name:
         return {"status": "error", "message": "Cluster not connected"}
 
@@ -157,7 +157,7 @@ async def s3_upload(
     config: ClusterConfig = Depends(get_cluster_config),
 ):
     from config import DATA_PRODUCT
-    cluster_name = get_cluster_name(config)
+    cluster_name = await ensure_cluster_name(config)
     if not cluster_name:
         return {"status": "error", "message": "Cluster not connected"}
 
@@ -174,11 +174,9 @@ async def fs_list(
     config: ClusterConfig = Depends(get_cluster_config),
 ):
     import asyncio
-    cluster_name = get_cluster_name(config)
-    full = f"{MOUNT_PATH}/{cluster_name}{path}" if cluster_name else path
-
+    # path is an absolute filesystem path already — do not prepend mount/cluster prefix
     process = await asyncio.create_subprocess_shell(
-        f"ls -lAR {full}",
+        f"ls -lA {path}",
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.STDOUT,
     )

@@ -1,8 +1,12 @@
 "use client";
 
+import { useCallback, useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { NexusSectionDivider } from "@/components/nexus-core-components";
 import { RiCloseLine } from "@remixicon/react";
+
+const MIN_WIDTH = 320;
+const DEFAULT_WIDTH = 480;
 
 interface DataExplorerProps {
   title: string;
@@ -12,6 +16,40 @@ interface DataExplorerProps {
 }
 
 export default function DataExplorer({ title, isOpen, onClose, children }: DataExplorerProps) {
+  const [width, setWidth] = useState(DEFAULT_WIDTH);
+  const dragging = useRef(false);
+  const startX = useRef(0);
+  const startWidth = useRef(DEFAULT_WIDTH);
+  // Track current width in a ref so event handlers always see the latest value
+  const widthRef = useRef(DEFAULT_WIDTH);
+
+  const onDragHandleMouseDown = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    dragging.current = true;
+    startX.current = e.clientX;
+    startWidth.current = widthRef.current;
+  }, []);
+
+  useEffect(() => {
+    function onMouseMove(e: MouseEvent) {
+      if (!dragging.current) return;
+      const delta = startX.current - e.clientX;
+      const maxWidth = typeof window !== "undefined" ? window.innerWidth - 60 : 1400;
+      const next = Math.min(maxWidth, Math.max(MIN_WIDTH, startWidth.current + delta));
+      widthRef.current = next;
+      setWidth(next);
+    }
+    function onMouseUp() {
+      dragging.current = false;
+    }
+    document.addEventListener("mousemove", onMouseMove);
+    document.addEventListener("mouseup", onMouseUp);
+    return () => {
+      document.removeEventListener("mousemove", onMouseMove);
+      document.removeEventListener("mouseup", onMouseUp);
+    };
+  }, []);
+
   return (
     <AnimatePresence>
       {isOpen && (
@@ -31,17 +69,40 @@ export default function DataExplorer({ title, isOpen, onClose, children }: DataE
           <motion.div
             className="fixed top-[80px] right-0 bottom-0 z-50 flex flex-col"
             style={{
-              width: 420,
+              width,
               background: "rgba(12,12,12,0.98)",
               backdropFilter: "blur(24px)",
               WebkitBackdropFilter: "blur(24px)",
               borderLeft: "1px solid rgba(255,255,255,0.10)",
             }}
-            initial={{ x: 440 }}
+            initial={{ x: width + 20 }}
             animate={{ x: 0 }}
-            exit={{ x: 440 }}
+            exit={{ x: width + 20 }}
             transition={{ duration: 0.38, ease: [0.22, 1, 0.36, 1] }}
           >
+            {/* Drag handle — extends slightly outside panel left edge for easy grabbing */}
+            <div
+              onMouseDown={onDragHandleMouseDown}
+              className="absolute top-0 bottom-0 z-10 flex items-center justify-center group"
+              style={{
+                left: -6,
+                width: 14,
+                cursor: "col-resize",
+                userSelect: "none",
+              }}
+            >
+              {/* Visual pill indicator, appears on hover */}
+              <div
+                className="rounded-full transition-all duration-200 opacity-0 group-hover:opacity-100"
+                style={{
+                  width: 4,
+                  height: 48,
+                  background: "rgba(242,86,29,0.65)",
+                  boxShadow: "0 0 8px rgba(242,86,29,0.4)",
+                }}
+              />
+            </div>
+
             {/* Panel header */}
             <div
               className="flex items-center justify-between px-5 py-4 shrink-0"
@@ -111,7 +172,7 @@ export function ExplorerTable({ records }: { records: Record<string, unknown>[] 
                 return (
                   <td
                     key={col}
-                    className="px-3 py-1.5 text-neutrals-light font-light whitespace-nowrap max-w-[180px] overflow-hidden text-ellipsis"
+                    className="px-3 py-1.5 text-neutrals-light font-light whitespace-nowrap max-w-[220px] overflow-hidden text-ellipsis"
                     title={val}
                   >
                     {val}

@@ -11,14 +11,14 @@ interface FooterProps {
 export default function Footer({ onVolumeExplore }: FooterProps) {
   const { clusterInfo } = useCluster();
   const name = clusterInfo?.name ?? "";
-  const base = `/mapr/${name}/demovol`;
+  const base = `/mapr/${name}/nexmesh-demo`;
 
   const volumes = [
-    { label: "GNS",    path: "/mapr",          always: true },
-    { label: "Domain", path: base,              always: false },
+    { label: "GNS", path: "/mapr", always: true },
+    { label: "Domain", path: base, always: false },
     { label: "Bronze", path: `${base}/${VOLUME_BRONZE}`, always: false },
     { label: "Silver", path: `${base}/${VOLUME_SILVER}`, always: false },
-    { label: "Gold",   path: `${base}/${VOLUME_GOLD}`,   always: false },
+    { label: "Gold", path: `${base}/${VOLUME_GOLD}`, always: false },
   ];
 
   return (

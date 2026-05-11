@@ -2,27 +2,29 @@ import datetime
 import logging
 import os
 import timeit
+from typing import Optional
 
 import httpx
 
+import settings as settings_module
 from config import (
     BASEDIR, MOUNT_PATH, VOLUME_BRONZE, VOLUME_SILVER, VOLUME_GOLD,
     TABLE_CUSTOMERS, TABLE_TRANSACTIONS, TABLE_PROFILES, TABLE_FRAUD,
     STREAM_INCOMING, TOPIC_TRANSACTIONS, MONITORING_METRICS,
 )
-from store import ClusterConfig, get_cluster_name
+from store import ClusterConfig, ensure_cluster_name
 from services import tables, iceberger
 
 logger = logging.getLogger("monitoring")
 
 
-async def incoming_topic_stats(config: ClusterConfig) -> dict | None:
+async def incoming_topic_stats(config: ClusterConfig) -> Optional[dict]:
     stream_path = f"{BASEDIR}/{STREAM_INCOMING}"
     auth = (config.user, config.password)
 
     try:
         URL = f"https://{config.host}:8443/rest/stream/topic/info?path={stream_path}&topic={TOPIC_TRANSACTIONS}"
-        async with httpx.AsyncClient(verify=False) as client:
+        async with httpx.AsyncClient(verify=settings_module.ssl_verify()) as client:
             response = await client.get(URL, auth=auth, timeout=2.0)
 
         if response.status_code != 200:
@@ -56,13 +58,13 @@ async def incoming_topic_stats(config: ClusterConfig) -> dict | None:
         return None
 
 
-async def txn_consumer_stats(config: ClusterConfig) -> dict | None:
+async def txn_consumer_stats(config: ClusterConfig) -> Optional[dict]:
     stream_path = f"{BASEDIR}/{STREAM_INCOMING}"
     auth = (config.user, config.password)
 
     try:
         URL = f"https://{config.host}:8443/rest/stream/cursor/list?path={stream_path}&topic={TOPIC_TRANSACTIONS}"
-        async with httpx.AsyncClient(verify=False) as client:
+        async with httpx.AsyncClient(verify=settings_module.ssl_verify()) as client:
             response = await client.get(URL, auth=auth, timeout=2.0)
 
         if response.status_code != 200:
@@ -88,8 +90,8 @@ async def txn_consumer_stats(config: ClusterConfig) -> dict | None:
         return None
 
 
-async def bronze_stats(config: ClusterConfig) -> dict | None:
-    cluster_name = get_cluster_name(config)
+async def bronze_stats(config: ClusterConfig) -> Optional[dict]:
+    cluster_name = await ensure_cluster_name(config)
     if not cluster_name:
         return None
 
@@ -99,15 +101,15 @@ async def bronze_stats(config: ClusterConfig) -> dict | None:
     try:
         tick = timeit.default_timer()
         ttable = f"{BASEDIR}/{VOLUME_BRONZE}/{TABLE_TRANSACTIONS}"
-        ctable = f"{BASEDIR}/{VOLUME_BRONZE}/{TABLE_CUSTOMERS}"
 
         if os.path.lexists(f"{MOUNT_PATH}/{cluster_name}{ttable}"):
             n = len(await tables.get_documents(config, ttable, limit=None))
             series.append({"transactions": n})
             result["bronze_transactions"] = n
 
-        if os.path.isdir(f"{MOUNT_PATH}/{cluster_name}{ctable}"):
-            n = len(iceberger.find_all(cluster_name, VOLUME_BRONZE, TABLE_CUSTOMERS))
+        iceberg_df = iceberger.find_all(cluster_name, VOLUME_BRONZE, TABLE_CUSTOMERS)
+        if not iceberg_df.empty:
+            n = len(iceberg_df)
             series.append({"customers": n})
             result["bronze_customers"] = n
 
@@ -128,8 +130,8 @@ async def bronze_stats(config: ClusterConfig) -> dict | None:
     }
 
 
-async def silver_stats(config: ClusterConfig) -> dict | None:
-    cluster_name = get_cluster_name(config)
+async def silver_stats(config: ClusterConfig) -> Optional[dict]:
+    cluster_name = await ensure_cluster_name(config)
     if not cluster_name:
         return None
 
@@ -167,8 +169,8 @@ async def silver_stats(config: ClusterConfig) -> dict | None:
     }
 
 
-async def gold_stats(config: ClusterConfig) -> dict | None:
-    cluster_name = get_cluster_name(config)
+async def gold_stats(config: ClusterConfig) -> Optional[dict]:
+    cluster_name = await ensure_cluster_name(config)
     if not cluster_name:
         return None
 

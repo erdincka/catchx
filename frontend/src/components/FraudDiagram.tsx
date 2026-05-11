@@ -28,13 +28,14 @@ function Badge({ value }: { value: number }) {
 
 // ── Action / Code buttons ─────────────────────────────────────────────────────
 
-function ActionBtn({ label, onClick }: { label: string; onClick: (e: React.MouseEvent) => void }) {
+function ActionBtn({ label, onClick, disabled }: { label: string; onClick: (e: React.MouseEvent) => void; disabled?: boolean }) {
   return (
     <button
       onClick={(e) => { e.stopPropagation(); onClick(e); }}
-      className="text-[9px] text-white rounded px-1.5 py-0.5 font-sans font-semibold leading-tight transition-colors duration-200"
+      disabled={disabled}
+      className="text-[9px] text-white rounded px-1.5 py-0.5 font-sans font-semibold leading-tight transition-colors duration-200 disabled:opacity-40 disabled:cursor-not-allowed"
       style={{ background: "#F2561D" }}
-      onMouseEnter={(e) => (e.currentTarget.style.background = "#D9704A")}
+      onMouseEnter={(e) => { if (!disabled) (e.currentTarget.style.background = "#D9704A"); }}
       onMouseLeave={(e) => (e.currentTarget.style.background = "#F2561D")}
     >
       {label}
@@ -72,19 +73,20 @@ function DataNode({
   onAction: (id: string) => void;
   interactive: boolean;
 }) {
+  const canPeek = !!(peekId && interactive && badge && badge > 0);
   return (
     <div
       className={[
-        "relative rounded-lg p-1.5 flex flex-col items-center gap-0.5 w-full transition-all duration-200",
-        peekId && interactive ? "cursor-pointer" : "",
+        "relative flex-1 rounded-lg p-1.5 flex flex-col items-center justify-center gap-0.5 w-full transition-all duration-200",
+        canPeek ? "cursor-pointer" : "",
       ].join(" ")}
       style={{
         background: "#121212",
-        border: peekId && interactive ? "1px solid #F2561D" : "1px solid #474747",
+        border: canPeek ? "1px solid #F2561D" : "1px solid #474747",
       }}
-      onClick={() => peekId && interactive && onAction(peekId)}
+      onClick={() => canPeek && onAction(peekId!)}
       onMouseEnter={(e) => {
-        if (peekId && interactive)
+        if (canPeek)
           (e.currentTarget as HTMLElement).style.boxShadow = "0 0 10px rgba(242,86,29,0.25)";
       }}
       onMouseLeave={(e) => {
@@ -97,7 +99,7 @@ function DataNode({
       {(actionId || codeId) && interactive && (
         <div className="flex gap-1 mt-0.5 flex-wrap justify-center">
           {actionId && <ActionBtn label={actionLabel ?? "Run"} onClick={() => onAction(actionId)} />}
-          {codeId   && <CodeBtn onClick={() => onAction(codeId)} />}
+          {codeId && <CodeBtn onClick={() => onAction(codeId)} />}
         </div>
       )}
     </div>
@@ -130,7 +132,7 @@ function TierColumn({
       >
         {header}
       </div>
-      <div className="flex-1 flex flex-col gap-2 p-2 justify-around">{children}</div>
+      <div className="flex-1 flex flex-col gap-2 p-2">{children}</div>
       <div
         className="text-center py-1 font-sans text-[9px] font-medium uppercase tracking-widest"
         style={{ color: "#474747", borderTop: "1px solid #1a1a1a" }}
@@ -205,7 +207,7 @@ function DocDbIcon({ color = "#F2561D" }: { color?: string }) {
         return (
           <g key={xOff}>
             <rect x={xOff + 1} y={ry + 1} width={16} height={18} rx={1} fill={color} />
-            <ellipse cx={xOff + 9} cy={ry + 1}  rx={rx} ry={ry} fill={color} />
+            <ellipse cx={xOff + 9} cy={ry + 1} rx={rx} ry={ry} fill={color} />
             <ellipse cx={xOff + 9} cy={19 + 1} rx={rx} ry={ry} fill={color} fillOpacity={0.7} />
           </g>
         );
@@ -242,19 +244,21 @@ export interface FraudDiagramProps {
   onAction: (id: string) => void;
   interactive: boolean;
   metrics: Record<MetricKey, number>;
+  customersCreated?: boolean;
+  transactionsCreated?: boolean;
 }
 
-export default function FraudDiagram({ onAction, interactive, metrics }: FraudDiagramProps) {
+export default function FraudDiagram({ onAction, interactive, metrics, customersCreated, transactionsCreated }: FraudDiagramProps) {
   return (
     <div className="w-full h-full flex flex-col gap-1 overflow-hidden">
 
-      {/* Informatica metadata bar */}
+      {/* Central Governance metadata bar */}
       <div
         className="flex items-center justify-center gap-4 py-1 px-4 rounded-lg shrink-0"
         style={{ background: "#121212", border: "1px solid #474747", borderLeft: "3px solid #D9704A" }}
       >
-        <span className="font-sans font-bold text-xs text-brand-soft uppercase tracking-wider">Informatica</span>
-        {["Discovery", "Catalogue", "Rules"].map((t, i) => (
+        <span className="font-sans font-bold text-xs text-brand-soft uppercase tracking-wider">Central Governance</span>
+        {["Discovery", "Policy", "Lineage"].map((t, i) => (
           <span key={t} className="flex items-center gap-2 font-sans text-xs text-neutrals-medium">
             {i > 0 && <span style={{ color: "#474747" }}>|</span>}
             {t}
@@ -276,7 +280,7 @@ export default function FraudDiagram({ onAction, interactive, metrics }: FraudDi
           style={{ background: "#0d0d0d", border: "1px solid #474747", borderTop: "2px solid #8C8C8C" }}
         >
           <div className="font-sans text-[10px] text-neutrals-medium font-semibold text-center uppercase tracking-wider">
-            Messaging &amp; Batch
+            Batch and Streaming
           </div>
 
           {/* Streaming / Transactions */}
@@ -286,11 +290,7 @@ export default function FraudDiagram({ onAction, interactive, metrics }: FraudDi
           >
             <div className="font-sans text-[10px] text-neutrals-light font-medium">Transactions</div>
             <div className="flex gap-1.5 items-center justify-around">
-              <div
-                className="text-neutrals-medium flex flex-col items-center gap-0.5 cursor-pointer hover:text-brand-vivid transition-colors duration-200"
-                title="NiFi Streams"
-                onClick={() => interactive && onAction("NifiStreams")}
-              >
+              <div className="text-neutrals-medium flex flex-col items-center gap-0.5" title="Apache NiFi">
                 <SiApachenifi size={16} />
                 <span className="font-sans text-[8px]">NiFi</span>
               </div>
@@ -304,14 +304,24 @@ export default function FraudDiagram({ onAction, interactive, metrics }: FraudDi
               </div>
             </div>
             {interactive && (
-              <div className="flex gap-1 justify-center mt-0.5">
-                <ActionBtn label="Publish" onClick={() => onAction("PublishTransactions")} />
-                <CodeBtn onClick={() => onAction("PublishTransactionsCode")} />
+              <div className="flex gap-1 justify-center flex-wrap mt-0.5">
+                <ActionBtn label="Create" onClick={() => onAction("CreateTransactions")} />
+                <ActionBtn label="Publish" onClick={() => onAction("PublishTransactions")} disabled={!transactionsCreated} />
+                <CodeBtn onClick={() => onAction("CodeTransactions")} />
               </div>
             )}
             {interactive && (
-              <div className="flex justify-center mt-0.5">
-                <CodeBtn onClick={() => onAction("NifiStreamsCode")} />
+              <div className="flex gap-1 justify-center mt-0.5">
+                <button
+                  onClick={(e) => { e.stopPropagation(); if (transactionsCreated) onAction("PreviewTransactions"); }}
+                  disabled={!transactionsCreated}
+                  className="text-[9px] text-neutrals-medium rounded px-1.5 py-0.5 font-sans leading-tight transition-colors duration-200 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed"
+                  style={{ border: "1px solid #474747" }}
+                  onMouseEnter={(e) => { if (transactionsCreated) (e.currentTarget.style.borderColor = "#F2561D"); }}
+                  onMouseLeave={(e) => (e.currentTarget.style.borderColor = "#474747")}
+                >
+                  Preview
+                </button>
               </div>
             )}
           </div>
@@ -327,18 +337,29 @@ export default function FraudDiagram({ onAction, interactive, metrics }: FraudDi
                 <FaFileAlt size={14} />
                 <span className="font-sans text-[8px]">CSV</span>
               </div>
-              <div
-                className="text-neutrals-medium flex flex-col items-center gap-0.5 cursor-pointer hover:text-brand-vivid transition-colors duration-200"
-                title="Airflow DAG"
-                onClick={() => interactive && onAction("AirflowBatch")}
-              >
+              <div className="text-neutrals-medium flex flex-col items-center gap-0.5" title="Apache Airflow">
                 <SiApacheairflow size={16} />
                 <span className="font-sans text-[8px]">Airflow</span>
               </div>
             </div>
             {interactive && (
-              <div className="flex justify-center">
-                <CodeBtn onClick={() => onAction("AirflowBatchCode")} />
+              <div className="flex gap-1 justify-center flex-wrap">
+                <ActionBtn label="Create" onClick={() => onAction("CreateCustomers")} />
+                <CodeBtn onClick={() => onAction("CodeCustomers")} />
+              </div>
+            )}
+            {interactive && (
+              <div className="flex gap-1 justify-center">
+                <button
+                  onClick={(e) => { e.stopPropagation(); if (customersCreated) onAction("PreviewCustomers"); }}
+                  disabled={!customersCreated}
+                  className="text-[9px] text-neutrals-medium rounded px-1.5 py-0.5 font-sans leading-tight transition-colors duration-200 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed"
+                  style={{ border: "1px solid #474747" }}
+                  onMouseEnter={(e) => { if (customersCreated) (e.currentTarget.style.borderColor = "#F2561D"); }}
+                  onMouseLeave={(e) => (e.currentTarget.style.borderColor = "#474747")}
+                >
+                  Preview
+                </button>
               </div>
             )}
           </div>
@@ -431,7 +452,7 @@ export default function FraudDiagram({ onAction, interactive, metrics }: FraudDi
             interactive={interactive}
           />
           <DataNode
-            icon={<SiDelta size={20} className="text-brand-soft" />}
+            icon={<SiDelta size={50} className="text-brand-soft" />}
             label="Data Lake (Delta)"
             badge={metrics.gold_customers}
             peekId="GoldCustomers"
@@ -451,14 +472,14 @@ export default function FraudDiagram({ onAction, interactive, metrics }: FraudDi
         <div className="flex flex-col gap-2 shrink-0 w-[110px] justify-around py-2">
           <ReportCard
             icon={<RiDatabaseLine size={18} className="text-brand-contrast" />}
-            title="OpenMetadata"
+            title="Product Catalogue"
             subtitle="Data Catalogue"
             interactive={interactive}
             onClick={() => onAction("Catalogue")}
           />
           <ReportCard
-            icon={<SiDelta size={16} className="text-brand-soft" />}
-            title="SAS / Power BI"
+            icon={<SiDelta size={40} className="text-brand-soft" />}
+            title="Consumers"
             subtitle="Reports &amp; Dashboards"
             interactive={interactive}
             onClick={() => onAction("ReportView")}

@@ -21,7 +21,24 @@
       "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:3000/fraud)",
       "Bash(pkill -f \"next dev\")",
       "Bash(echo \"exit: $?\")",
-      "Bash(node -e ' *)"
+      "Bash(node -e ' *)",
+      "Bash(git check-ignore *)",
+      "Bash(git push *)",
+      "Bash(git rm *)",
+      "Bash(git ls-remote *)",
+      "Bash(git filter-branch *)",
+      "Bash(git stash *)",
+      "Bash(FILTER_BRANCH_SQUELCH_WARNING=1 git filter-branch --index-filter 'git rm -r --cached --ignore-unmatch frontend/node_modules/' --prune-empty -- db846f1..HEAD)",
+      "WebFetch(domain:docs.ezmeral.hpe.com)",
+      "Bash(npx next *)",
+      "Bash(npx --no-install tsc --noEmit -p .)",
+      "Bash(/Users/erdincka/Applications/catchx/frontend/node_modules/.bin/tsc --noEmit -p /Users/erdincka/Applications/catchx/frontend)",
+      "Bash(echo \"EXIT=$?\")",
+      "Bash(python -c ' *)",
+      "Bash(uv run --with fastapi --with httpx --with pydantic python -c ' *)",
+      "Bash(uv run --with fastapi --with httpx --with pydantic --with 'uvicorn[standard]' --with country-converter --with deltalake --with faker --with geopy --with jinja2 --with minio --with pandas --with pyarrow --with pycountry --with 'pyiceberg[hive,pandas,s3fs]' --with pymysql --with python-multipart --with requests --with sqlalchemy python -c ' *)",
+      "Bash(./node_modules/.bin/tsc --noEmit -p .)",
+      "Bash(python3 -c \"import ast; ast.parse\\(open\\('/Users/erdincka/Applications/catchx/backend/routes/code.py'\\).read\\(\\)\\); print\\('OK'\\)\")"
     ]
   }
 }

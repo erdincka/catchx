@@ -23,6 +23,8 @@ def write(cluster_name: str, tier: str, tablename: str, records: list) -> bool:
     import pyarrow as pa
 
     catalog = get_catalog(cluster_name)
+    catalog_path = f"{MOUNT_PATH}/{cluster_name}{BASEDIR}"
+    expected_location = f"file://{catalog_path}/{tier}/{tablename}"
 
     try:
         if (tier,) not in catalog.list_namespaces():
@@ -32,13 +34,42 @@ def write(cluster_name: str, tier: str, tablename: str, records: list) -> bool:
 
         if records:
             schema = pa.Table.from_pylist(records).schema
+            is_new = table_identifier not in catalog.list_tables(tier)
 
-            if table_identifier not in catalog.list_tables(tier):
-                catalog.create_table(table_identifier, schema=schema)
+            if is_new:
+                catalog.create_table(table_identifier, schema=schema, location=expected_location)
+                new_records = records
+            else:
+                existing_table = catalog.load_table(table_identifier)
+                if existing_table.location() != expected_location:
+                    # Catalog entry points to old location — purge and recreate at correct path
+                    logger.warning(
+                        "Migrating %s.%s: %s → %s",
+                        tier, tablename, existing_table.location(), expected_location,
+                    )
+                    try:
+                        catalog.purge_table(table_identifier)
+                    except Exception:
+                        catalog.drop_table(table_identifier)
+                    catalog.create_table(table_identifier, schema=schema, location=expected_location)
+                    new_records = records
+                else:
+                    # Correct location — deduplicate by _id before appending
+                    existing = existing_table.scan(selected_fields=["_id"]).to_pandas()
+                    existing_ids = set(existing["_id"].tolist()) if not existing.empty else set()
+                    new_records = [r for r in records if r.get("_id") not in existing_ids]
 
-            table = catalog.load_table(table_identifier)
-            table.append(pa.Table.from_pylist(records))
-            logger.info("Wrote %d records to %s.%s", len(records), tier, tablename)
+            if new_records:
+                catalog.load_table(table_identifier).append(pa.Table.from_pylist(new_records))
+                skipped = len(records) - len(new_records)
+                logger.info(
+                    "Wrote %d records to %s.%s%s",
+                    len(new_records), tier, tablename,
+                    f" ({skipped} duplicates skipped)" if skipped else "",
+                )
+            else:
+                logger.info("All %d records already exist in %s.%s — nothing written", len(records), tier, tablename)
+
             return True
 
     except Exception as error:

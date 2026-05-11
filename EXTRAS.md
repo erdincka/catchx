@@ -1,4 +1,4 @@
-## Nifi, Airflow and Spark (optional)
+# Nifi, Airflow and Spark (optional)
 
 Setup Airflow and Spark packages if you plan to use Airflow
 
@@ -12,7 +12,8 @@ Setup Airflow and Spark packages if you plan to use Airflow
 
 `export SPARK_HOME=/opt/mapr/spark/spark-3.3.3`
 
-### Run these as mapr user
+## Run these as mapr user
+
 `ssh-keygen -t rsa -P '' -f ~/.ssh/id_rsa`
 `ssh-copy-id <worker_host>`
 

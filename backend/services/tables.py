@@ -1,5 +1,6 @@
 import logging
 import os
+from typing import Optional
 
 from config import MOUNT_PATH
 from store import ClusterConfig
@@ -22,7 +23,7 @@ def get_connection(config: ClusterConfig):
         f"password={config.password};"
         "ssl=true;"
         "sslCA=/opt/mapr/conf/ssl_truststore.pem;"
-        "sslTargetNameOverride=node1.mapr.com"
+        f"sslTargetNameOverride={config.host}"
     )
 
     try:
@@ -56,7 +57,7 @@ async def upsert_documents(config: ClusterConfig, table_path: str, docs: list) -
     return success
 
 
-async def get_documents(config: ClusterConfig, table_path: str, limit: int | None = None) -> list:
+async def get_documents(config: ClusterConfig, table_path: str, limit: Optional[int]) -> list:
     conn = get_connection(config)
     if conn is None:
         return []
@@ -73,7 +74,7 @@ async def get_documents(config: ClusterConfig, table_path: str, limit: int | Non
         return []
 
 
-async def delta_table_get(cluster_name: str, table_path: str, query: str | None = None):
+async def delta_table_get(cluster_name: str, table_path: str, query: Optional[str] = None):
     import pandas as pd
     from deltalake import DeltaTable
 

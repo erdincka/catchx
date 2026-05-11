@@ -1,15 +1,15 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useCluster } from "@/contexts/ClusterContext";
+import { useSettings } from "@/contexts/SettingsContext";
 import { NexusGlobalNav } from "@/components/nexus-core-components";
-import { MonitoringTicker } from "@/components/MonitoringPanel";
 import {
-  RiLinkM,
-  RiSettings3Line,
+  RiCheckDoubleLine,
+  RiErrorWarningLine,
   RiWifiOffLine,
-  RiPulseLine,
 } from "@remixicon/react";
 
 interface HeaderProps {
@@ -18,8 +18,8 @@ interface HeaderProps {
 }
 
 const NAV_ITEMS = [
-  { id: "mesh",  label: "Data Mesh" },
-  { id: "fraud", label: "Fraud Domain" },
+  { id: "mesh",  label: "Enterprise Mesh" },
+  { id: "fraud", label: "Fraud & Risk Domain" },
 ];
 
 const ROUTE_MAP: Record<string, string> = {
@@ -27,26 +27,32 @@ const ROUTE_MAP: Record<string, string> = {
   fraud: "/fraud",
 };
 
-export default function Header({ onConnectClick, onSettingsClick }: HeaderProps) {
+export default function Header({ onConnectClick: _onConnectClick, onSettingsClick: _onSettingsClick }: HeaderProps) {
   const router = useRouter();
-  const {
-    clusterInfo,
-    demoMode, setDemoMode,
-    monitorActive, setMonitorActive,
-    host, user, pass,
-  } = useCluster();
+  const [mounted, setMounted] = useState(false);
+  const { clusterInfo, host, user, pass } = useCluster();
+  const { settings, isReady, services } = useSettings();
+
+  useEffect(() => { setMounted(true); }, []);
 
   function openMCS() {
-    if (!host) return;
-    window.open(`https://${user}:${pass}@${host}:8443/app/mcs/`, "_blank");
+    const h = settings?.cluster_host || host;
+    if (!h) return;
+    const u = settings?.credentials.cluster_user || user;
+    const p = settings?.credentials.cluster_pass || pass;
+    window.open(`https://${u}:${p}@${h}:8443/app/mcs/`, "_blank");
   }
+
+  const configuredHost = settings?.cluster_host || host;
+  const clusterName = clusterInfo?.name ?? (configuredHost ? configuredHost : null);
+
+  const servicesProbed = Object.keys(services).length > 0;
+  const someServicesFailed = servicesProbed && Object.values(services).some((s) => s.status !== "good");
 
   const leftSlot = (
     <div className="flex items-center gap-3">
       <div>
-        <div className="font-serif text-[22px] text-white leading-none tracking-tight">
-          NexMesh
-        </div>
+        <div className="font-sans font-semibold text-xl text-white leading-none">NexMesh</div>
         <div className="font-sans font-light text-[10px] text-neutrals-medium leading-none mt-0.5 uppercase tracking-[0.2em]">
           Nexus Data Mesh
         </div>
@@ -57,89 +63,59 @@ export default function Header({ onConnectClick, onSettingsClick }: HeaderProps)
   const rightSlot = (
     <div className="flex items-center gap-4">
 
-      {/* Live metric ticker — only when monitoring */}
-      <AnimatePresence>
-        {monitorActive && (
-          <motion.div
-            initial={{ opacity: 0, x: 10 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: 10 }}
-            transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
-          >
-            <MonitoringTicker />
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Toggles — only when cluster is connected */}
-      <AnimatePresence>
-        {clusterInfo && (
-          <motion.div
-            className="flex items-center gap-3"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.2 }}
-          >
-            <Toggle label="Live"    value={demoMode}      onChange={setDemoMode} />
-            {demoMode && (
-              <Toggle label="Monitor" value={monitorActive} onChange={setMonitorActive} />
-            )}
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Cluster status */}
-      <AnimatePresence mode="wait">
-        {clusterInfo ? (
-          <motion.button
-            key="connected"
-            onClick={openMCS}
-            className="flex items-center gap-2 font-sans font-light text-xs tracking-wide group"
-            title="Open Management Console"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-          >
-            <span className="w-2 h-2 rounded-full bg-status-good shrink-0 status-pulse-dot" />
-            <span className="text-brand-contrast group-hover:text-white transition-colors duration-200">
-              {clusterInfo.name}
-            </span>
-          </motion.button>
-        ) : (
-          <motion.span
-            key="disconnected"
-            className="flex items-center gap-1.5 text-status-failed text-xs font-sans font-light"
-            title="Cluster not connected"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-          >
-            <RiWifiOffLine size={14} />
-            Not connected
-          </motion.span>
-        )}
-      </AnimatePresence>
-
-      {/* Analytics icon — subtle indicator when monitoring is active */}
-      {monitorActive && (
-        <RiPulseLine size={16} className="text-brand-vivid animate-pulse" />
+      {/* Readiness status — four states; mounted guard prevents SSR/client mismatch */}
+      {mounted && (
+        <AnimatePresence mode="wait">
+          {isReady ? (
+            <motion.button
+              key="ready"
+              onClick={openMCS}
+              className="flex items-center gap-2 font-sans font-light text-xs tracking-wide group"
+              title="Open Management Console"
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            >
+              <span className="w-2 h-2 rounded-full bg-status-good shrink-0 status-pulse-dot" />
+              <span className="text-brand-contrast group-hover:text-white transition-colors duration-200">
+                {clusterName ?? "Ready"}
+              </span>
+            </motion.button>
+          ) : someServicesFailed ? (
+            <motion.button
+              key="degraded"
+              onClick={() => router.push("/settings")}
+              className="flex items-center gap-1.5 text-status-degraded text-xs font-sans font-light hover:text-white transition-colors duration-200"
+              title="Some services unreachable — open Settings"
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            >
+              <RiErrorWarningLine size={14} />
+              {clusterName ?? "Not ready"}
+            </motion.button>
+          ) : configuredHost ? (
+            <motion.button
+              key="configured"
+              onClick={() => router.push("/settings")}
+              className="flex items-center gap-1.5 text-neutrals-medium text-xs font-sans font-light hover:text-white transition-colors duration-200"
+              title="Probes not run — open Settings to verify"
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            >
+              <RiCheckDoubleLine size={14} />
+              {clusterName}
+            </motion.button>
+          ) : (
+            <motion.button
+              key="disconnected"
+              onClick={() => router.push("/settings")}
+              className="flex items-center gap-1.5 text-status-failed text-xs font-sans font-light hover:text-white transition-colors duration-200"
+              title="No cluster configured — open Settings"
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            >
+              <RiWifiOffLine size={14} />
+              Not configured
+            </motion.button>
+          )}
+        </AnimatePresence>
       )}
 
-      <button
-        onClick={onConnectClick}
-        title="Connect to Data Fabric cluster"
-        className="text-neutrals-light hover:text-brand-vivid transition-colors duration-200 p-1"
-      >
-        <RiLinkM size={20} />
-      </button>
-      <button
-        onClick={onSettingsClick}
-        title="Settings"
-        className="text-neutrals-light hover:text-brand-vivid transition-colors duration-200 p-1"
-      >
-        <RiSettings3Line size={20} />
-      </button>
     </div>
   );
 
@@ -153,30 +129,3 @@ export default function Header({ onConnectClick, onSettingsClick }: HeaderProps)
   );
 }
 
-function Toggle({
-  label,
-  value,
-  onChange,
-}: {
-  label: string;
-  value: boolean;
-  onChange: (v: boolean) => void;
-}) {
-  return (
-    <label className="flex items-center gap-2 cursor-pointer select-none">
-      <span className="font-sans text-[11px] text-neutrals-medium uppercase tracking-[0.15em]">
-        {label}
-      </span>
-      <div
-        className="relative w-9 h-5 rounded-full transition-colors duration-200"
-        style={{ background: value ? "#F2561D" : "#474747" }}
-        onClick={() => onChange(!value)}
-      >
-        <div
-          className="absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform duration-200"
-          style={{ transform: value ? "translateX(18px)" : "translateX(2px)" }}
-        />
-      </div>
-    </label>
-  );
-}

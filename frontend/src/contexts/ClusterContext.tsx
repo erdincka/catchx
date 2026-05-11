@@ -69,16 +69,23 @@ function save(key: string, value: unknown) {
 }
 
 export function ClusterProvider({ children }: { children: React.ReactNode }) {
-  const [host, _setHost] = useState(() => load("mapr_host", ""));
-  const [user, _setUser] = useState(() => load("mapr_user", ""));
-  const [pass, _setPass] = useState(() => load("mapr_pass", ""));
-  const [clusterInfo, _setClusterInfo] = useState<ClusterInfo | null>(() =>
-    load("cluster_info", null)
-  );
-  const [demoMode, _setDemoMode] = useState(() => load("demo_mode", false));
-  const [monitorActive, setMonitorActive] = useState(false);
+  const [host, _setHost] = useState("");
+  const [user, _setUser] = useState("");
+  const [pass, _setPass] = useState("");
+  const [clusterInfo, _setClusterInfo] = useState<ClusterInfo | null>(null);
+  const [demoMode, _setDemoMode] = useState(true);
+  const [monitorActive, setMonitorActive] = useState(true);
   const [metrics, _setMetrics] = useState<Record<MetricKey, number>>(defaultMetrics);
-  const [settings, _setSettings] = useState<Settings>(() => load("settings", defaultSettings));
+  const [settings, _setSettings] = useState<Settings>(defaultSettings);
+
+  // Hydrate from sessionStorage after mount to avoid SSR/client mismatch
+  useEffect(() => {
+    _setHost(load("mapr_host", ""));
+    _setUser(load("mapr_user", ""));
+    _setPass(load("mapr_pass", ""));
+    _setClusterInfo(load("cluster_info", null));
+    _setSettings(load("settings", defaultSettings));
+  }, []);
 
   const setHost = useCallback((v: string) => { _setHost(v); save("mapr_host", v); }, []);
   const setUser = useCallback((v: string) => { _setUser(v); save("mapr_user", v); }, []);
@@ -94,6 +101,21 @@ export function ClusterProvider({ children }: { children: React.ReactNode }) {
   const setSettings = useCallback((patch: Partial<Settings>) => {
     _setSettings((prev) => { const next = { ...prev, ...patch }; save("settings", next); return next; });
   }, []);
+
+  // Auto-fetch cluster info when host is known but clusterInfo not yet populated
+  useEffect(() => {
+    if (!host || clusterInfo) return;
+    fetch("/api/cluster/info", {
+      headers: { "X-Mapr-Host": host, "X-Mapr-User": user, "X-Mapr-Pass": pass },
+    })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (d?.status === "ok" && d.cluster?.name) {
+          setClusterInfo({ name: d.cluster.name, ip: d.cluster.ip ?? host, version: d.cluster.version });
+        }
+      })
+      .catch(() => {});
+  }, [host, user, pass, clusterInfo, setClusterInfo]);
 
   // Polling timer for monitoring
   useEffect(() => {

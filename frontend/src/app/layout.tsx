@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
-import { Poppins, Instrument_Serif } from "next/font/google";
+import { Poppins, Instrument_Serif, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { ClusterProvider } from "@/contexts/ClusterContext";
+import { SettingsProvider } from "@/contexts/SettingsContext";
 import { ToastProvider } from "@/contexts/ToastContext";
 
 const poppins = Poppins({
@@ -18,20 +19,33 @@ const instrumentSerif = Instrument_Serif({
   display: "swap",
 });
 
+const jetbrainsMono = JetBrains_Mono({
+  variable: "--font-jetbrains-mono",
+  subsets: ["latin"],
+  weight: ["400", "500", "600"],
+  display: "swap",
+});
+
 export const metadata: Metadata = {
-  title: "NexMesh — Nexus Data Mesh",
-  description: "NexMesh — Hybrid Data Mesh powered by HPE Data Fabric",
+  title: "NexMesh — HPE Data Fabric Capability Tour",
+  description: "End-to-end demo of HPE Ezmeral Data Fabric — Iceberg, Polaris, Spark, Flink, MCP, Grafana.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en-GB" className={`${poppins.variable} ${instrumentSerif.variable}`}>
+    <html
+      lang="en-GB"
+      data-scroll-behavior="smooth"
+      className={`${poppins.variable} ${instrumentSerif.variable} ${jetbrainsMono.variable}`}
+    >
       <body>
-        <ClusterProvider>
-          <ToastProvider>
-            {children}
-          </ToastProvider>
-        </ClusterProvider>
+        <SettingsProvider>
+          <ClusterProvider>
+            <ToastProvider>
+              {children}
+            </ToastProvider>
+          </ClusterProvider>
+        </SettingsProvider>
       </body>
     </html>
   );

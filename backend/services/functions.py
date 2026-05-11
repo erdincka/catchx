@@ -2,6 +2,7 @@ import logging
 import os
 import random
 from functools import lru_cache
+from typing import Optional
 
 import pandas as pd
 
@@ -9,14 +10,14 @@ from config import (
     BASEDIR, MOUNT_PATH, VOLUME_BRONZE, VOLUME_SILVER, VOLUME_GOLD,
     TABLE_CUSTOMERS, TABLE_TRANSACTIONS, TABLE_PROFILES, TRANSACTION_CATEGORIES,
 )
-from store import ClusterConfig, get_cluster_name
+from store import ClusterConfig, get_cluster_name, ensure_cluster_name
 from services import tables, iceberger
 from services.mock import dummy_fraud_score
 
 logger = logging.getLogger("functions")
 
 
-def get_customer_id(config: ClusterConfig, from_account: str) -> str | None:
+def get_customer_id(config: ClusterConfig, from_account: str) -> Optional[str]:
     cluster_name = get_cluster_name(config)
     found = iceberger.find_by_field(
         cluster_name=cluster_name,
@@ -43,7 +44,7 @@ async def upsert_profile(config: ClusterConfig, transaction: dict):
 
 
 async def refine_transactions(config: ClusterConfig) -> dict:
-    cluster_name = get_cluster_name(config)
+    cluster_name = await ensure_cluster_name(config)
     if not cluster_name:
         return {"status": "error", "message": "Cluster not connected"}
 
@@ -71,20 +72,17 @@ async def refine_transactions(config: ClusterConfig) -> dict:
 async def refine_customers(config: ClusterConfig) -> dict:
     import country_converter as coco
 
-    cluster_name = get_cluster_name(config)
+    cluster_name = await ensure_cluster_name(config)
     if not cluster_name:
         return {"status": "error", "message": "Cluster not connected"}
 
     silver_table = f"{BASEDIR}/{VOLUME_SILVER}/{TABLE_CUSTOMERS}"
 
-    if not os.path.lexists(f"{MOUNT_PATH}/{cluster_name}{BASEDIR}/{VOLUME_BRONZE}/{TABLE_CUSTOMERS}"):
-        return {"status": "error", "message": f"Input table not found: {TABLE_CUSTOMERS} in {VOLUME_BRONZE}"}
-
     cc = coco.CountryConverter()
     df = iceberger.find_all(cluster_name, VOLUME_BRONZE, TABLE_CUSTOMERS)
 
     if df.empty:
-        return {"status": "error", "message": "No customers found in bronze tier"}
+        return {"status": "error", "message": "No customers found in bronze tier — ingest customers first"}
 
     df.drop_duplicates(subset="_id", keep="last", ignore_index=True, inplace=True)
     df["country"] = cc.pandas_convert(df["country_code"], src="ISO2", to="name_short")
@@ -111,7 +109,7 @@ async def refine_customers(config: ClusterConfig) -> dict:
 
 
 async def create_golden(config: ClusterConfig) -> dict:
-    cluster_name = get_cluster_name(config)
+    cluster_name = await ensure_cluster_name(config)
     if not cluster_name:
         return {"status": "error", "message": "Cluster not connected"}
 
@@ -150,7 +148,7 @@ async def create_golden(config: ClusterConfig) -> dict:
 
 
 async def fraud_detection(config: ClusterConfig) -> dict:
-    cluster_name = get_cluster_name(config)
+    cluster_name = await ensure_cluster_name(config)
     if not cluster_name:
         return {"status": "error", "message": "Cluster not connected"}
 
@@ -185,6 +183,7 @@ async def fraud_detection(config: ClusterConfig) -> dict:
 async def delete_volumes_and_streams(config: ClusterConfig) -> dict:
     import shutil
     import httpx
+    import settings as settings_module
     from config import VOLUME_BRONZE, VOLUME_SILVER, VOLUME_GOLD, STREAM_INCOMING, STREAM_CHANGELOG
 
     cluster_name = get_cluster_name(config)
@@ -193,7 +192,7 @@ async def delete_volumes_and_streams(config: ClusterConfig) -> dict:
 
     for vol in [VOLUME_BRONZE, VOLUME_SILVER, VOLUME_GOLD]:
         URL = f"https://{config.host}:8443/rest/volume/remove?name={vol}"
-        async with httpx.AsyncClient(verify=False) as client:
+        async with httpx.AsyncClient(verify=settings_module.ssl_verify()) as client:
             try:
                 response = await client.post(URL, auth=auth)
                 res = response.json()
@@ -206,7 +205,7 @@ async def delete_volumes_and_streams(config: ClusterConfig) -> dict:
 
     for stream in [STREAM_INCOMING, STREAM_CHANGELOG]:
         URL = f"https://{config.host}:8443/rest/stream/delete?path={BASEDIR}/{stream}"
-        async with httpx.AsyncClient(verify=False) as client:
+        async with httpx.AsyncClient(verify=settings_module.ssl_verify()) as client:
             try:
                 response = await client.post(URL, auth=auth)
                 res = response.json()

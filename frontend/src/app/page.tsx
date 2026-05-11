@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import Header from "@/components/Header";
@@ -12,24 +12,17 @@ import DataExplorer, { ExplorerFilesystem } from "@/components/DataExplorer";
 import { NexusSectionDivider } from "@/components/nexus-core-components";
 import { useCluster } from "@/contexts/ClusterContext";
 import { useToast } from "@/contexts/ToastContext";
-import { RiUploadLine } from "@remixicon/react";
 
 export default function MeshPage() {
   const router = useRouter();
   const { host, user, pass, clusterInfo, settings } = useCluster();
   const { notify } = useToast();
 
-  const [showConnect,  setShowConnect]  = useState(false);
+  const [showConnect, setShowConnect] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
-  const [explorer,     setExplorer]     = useState<{ title: string; path: string; output: string } | null>(null);
+  const [explorer, setExplorer] = useState<{ title: string; path: string; output: string } | null>(null);
 
-  // Auto-open connect dialog on first visit if no cluster stored
-  useEffect(() => {
-    if (!host) {
-      const timer = setTimeout(() => setShowConnect(true), 600);
-      return () => clearTimeout(timer);
-    }
-  }, []);
+  // No auto-popup — the "Not connected" indicator in the header is sufficient
 
   function handleRegion(id: string) {
     switch (id) {
@@ -37,29 +30,26 @@ export default function MeshPage() {
         router.push("/fraud");
         break;
       case "NFS":
-        notify("NFS: click the upload button to copy customers.csv to the mount path.", "info");
+        notify("NFS mount — use the NFS Upload button to copy customers.csv into the cluster.", "info");
         break;
       case "S3": {
-        const s3 = settings.s3Server || "localhost:9000";
-        window.open(`http://${s3}`, "_blank");
+        const ep = settings.s3Server || host;
+        if (ep) window.open(`http://${ep}:9000`, "_blank");
+        else notify("Configure cluster host in Settings to open the Object Store console.", "warning");
         break;
       }
       case "IAM":
-        if (host) window.open(`https://${host}:8443/app/dfui/#/login`, "_blank");
-        else notify("Connect to a cluster first.", "warning");
+        if (host) window.open(`https://${host}:8443/app/mcs/`, "_blank");
+        else notify("Configure cluster host in Settings first.", "warning");
         break;
       case "Policies":
-      case "Edge":
-        notify(`${id}: informational — no action configured.`, "info");
+        notify("Data Policies: governance rules are enforced at platform level across all domains.", "info");
         break;
-      case "Catalogue": {
-        const url = settings.catalogueUrl;
-        if (!url) notify("Set Catalogue URL in Settings.", "warning");
-        else window.open(url, "_blank");
+      case "Catalogue":
+        notify("Data Catalogue: schema registry and lineage available via the Polaris REST catalog.", "info");
         break;
-      }
       default:
-        if (id) notify(`${id}: not configured yet.`, "info");
+        if (id) notify(`${id}: hover to learn about this domain.`, "info");
     }
   }
 
@@ -120,45 +110,20 @@ export default function MeshPage() {
           style={{ paddingLeft: 0 }}
         />
         <p className="font-sans font-light text-sm text-neutrals-medium mt-2 tracking-wide max-w-2xl">
-          Seven autonomous data domains connected via Global Namespace, unified by platform-level governance,
-          security, and observability. Hover any domain to learn its purpose. Click <span className="text-brand-vivid font-medium">Fraud</span> to explore the live pipeline.
+          Eight autonomous data domains unified by the Data Fabric platform — Global Namespace, governed access,
+          and integrated NFS and S3 sources. Hover any domain to learn its data products.{" "}
+          Click <span className="text-brand-vivid font-medium">Fraud & Risk</span> to explore the live pipeline.
         </p>
       </motion.div>
 
-      <main className="flex-1 overflow-hidden relative">
-        <MeshDiagram onRegionClick={handleRegion}>
-          {/* External integration upload buttons */}
-          {settings.nfsPath && (
-            <button
-              onClick={handleNfsUpload}
-              title="Upload Customers via NFS"
-              className="absolute top-[84px] left-2 flex items-center gap-1.5 font-sans text-[10px] text-neutrals-light hover:text-brand-vivid rounded px-2.5 py-1.5 transition-colors duration-200 z-20 uppercase tracking-wider"
-              style={{ background: "#121212", border: "1px solid #474747" }}
-              onMouseEnter={(e) => (e.currentTarget.style.borderColor = "#F2561D")}
-              onMouseLeave={(e) => (e.currentTarget.style.borderColor = "#474747")}
-            >
-              <RiUploadLine size={11} /> NFS Upload
-            </button>
-          )}
-          {settings.s3Server && (
-            <button
-              onClick={handleS3Upload}
-              title="Upload Transactions to S3"
-              className="absolute top-[84px] right-2 flex items-center gap-1.5 font-sans text-[10px] text-neutrals-light hover:text-brand-vivid rounded px-2.5 py-1.5 transition-colors duration-200 z-20 uppercase tracking-wider"
-              style={{ background: "#121212", border: "1px solid #474747" }}
-              onMouseEnter={(e) => (e.currentTarget.style.borderColor = "#F2561D")}
-              onMouseLeave={(e) => (e.currentTarget.style.borderColor = "#474747")}
-            >
-              <RiUploadLine size={11} /> S3 Upload
-            </button>
-          )}
-        </MeshDiagram>
+      <main className="flex-1 h-0 overflow-hidden relative">
+        <MeshDiagram onRegionClick={handleRegion} />
       </main>
 
       <Footer onVolumeExplore={handleVolumeExplore} />
 
       {/* Modals & panels */}
-      {showConnect  && <ConnectDialog onClose={() => setShowConnect(false)} />}
+      {showConnect && <ConnectDialog onClose={() => setShowConnect(false)} />}
       {showSettings && <SettingsDialog onClose={() => setShowSettings(false)} />}
 
       <DataExplorer
