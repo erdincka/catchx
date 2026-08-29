@@ -234,7 +234,7 @@ async def _configure_client_stream(host: str, user: str, password: str) -> Async
         if proc.returncode != 0:
             yield _sse("configure", "error", stdout.decode(errors="replace")[:300])
         else:
-            yield _sse("configure", "check", "MapR client configured")
+            yield _sse("configure", "check", "Data Fabric client configured")
     except asyncio.TimeoutError:
         yield _sse("configure", "error", "configure.sh timed out (90s)")
     except Exception as e:
@@ -253,8 +253,8 @@ async def _configure_client_stream(host: str, user: str, password: str) -> Async
     except Exception as e:
         yield _sse("keycreds", "error", str(e)[:200])
 
-    # Step 6: Create MapR login ticket
-    yield _sse("ticket", "running", "Creating MapR login ticket…")
+    # Step 6: Create the Data Fabric login ticket
+    yield _sse("ticket", "running", "Creating the Data Fabric login ticket…")
     try:
         proc2 = await asyncio.create_subprocess_exec(
             "maprlogin", "password", "-user", user,
@@ -299,7 +299,7 @@ def _sse_response(gen) -> StreamingResponse:
 
 @router.post("/configure")
 async def configure_client(config: ClusterConfig = Depends(get_cluster_config)):
-    """Stage 1 — configure the MapR client and mount the global namespace."""
+    """Stage 1 — configure the Data Fabric client and mount the global namespace."""
     return _sse_response(_configure_client_stream(config.host, config.user, config.password))
 
 

@@ -15,8 +15,7 @@ It is presented live to customers. That shapes every decision here:
   more visible.
 - **It must not break on stage.** Prefer a clear error and a recoverable state
   over a clever optimisation.
-- **It must be honest.** Do not show a feature that does nothing. Several
-  services were removed precisely because they only lit up a status dot.
+- **It must be honest.** Do not show a feature that does nothing.
 
 ## Non-negotiables
 
@@ -25,7 +24,7 @@ It is presented live to customers. That shapes every decision here:
    sends no auth headers. Never reintroduce a second store — a split between
    browser state and this file is what made "configured" in the UI mean nothing
    on the server.
-2. **Never block the event loop.** The MapR OJAI, pyiceberg, deltalake and
+2. **Never block the event loop.** The OJAI, pyiceberg, deltalake and
    Kafka clients are all synchronous. Anything touching them goes through
    `to_thread` (see `backend/asyncutil.py`). Marking a function `async def`
    around blocking I/O freezes the whole API, including the metrics poll that
@@ -34,8 +33,7 @@ It is presented live to customers. That shapes every decision here:
    PEP 604 unions at runtime. Add `from __future__ import annotations` when
    using `list[str]`-style annotations.
 4. **Credentials never go in URLs** — not in query strings, not as
-   `user:pass@host`. Both existed here before and both leak into logs and
-   browser history.
+   `user:pass@host`.
 5. **No shell strings built from caller input.** `/api/data/fs/list` takes a
    caller-supplied path; it uses `create_subprocess_exec` with the path as an
    argv element and confines it to the NFS mount.
@@ -104,9 +102,7 @@ Only three, deliberately:
 | S3 object store | 9000 | yes |
 | Data Fabric MCP | 5679 | optional |
 
-Grafana, OpenTSDB, Fluentd, Livy and an external Iceberg catalog were removed —
-nothing used them. Telemetry comes from the cluster's own REST API. **Do not
-add a service dependency without a code path that needs it.**
+External Iceberg catalog is removed for simplicity, sqlite catalog lives in the global namespace so is accessible to any client. Telemetry comes from the cluster's own REST API. **Do not add a service dependency without a code path that needs it.**
 
 ## Development
 
@@ -118,7 +114,7 @@ the *remote* host, so sync source in instead:
 docker --context <ctx> compose up -d --build
 ```
 
-**Recreating the backend container drops its MapR client config and `/mapr`
+**Recreating the backend container drops its Data Fabric client config and `/mapr`
 NFS mount**, which then needs `POST /api/cluster/configure` again. For
 iteration, copy source into the running container and let the watchers reload —
 much faster, and the mount survives.
@@ -138,7 +134,7 @@ edit failed.
   to a single store are fine and are ~5x faster.
 - **Table creation is visible over NFS slightly before the directory entry is.**
   Do not gate on `os.path.lexists` right after a write; read the table instead.
-- **MapR clusters use wildcard certs** (`CN=*.example.com`), which an IP can
+- **HPE Data Fabric clusters use wildcard certs** (`CN=*.example.com`), which an IP can
   never match. `tables.resolve_target_name` handles this for OJAI; prefer a
   hostname for the cluster where possible.
 - **Metrics tier counts are cached** (`COUNT_TTL`) and invalidated by

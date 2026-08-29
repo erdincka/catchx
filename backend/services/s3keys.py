@@ -4,7 +4,7 @@ API reference:
   GET https://<host>:8443/rest/s3keys/generate
   GET https://<host>:8443/rest/s3keys/list
 
-Both endpoints accept HTTP Basic auth with MapR cluster credentials.
+Both endpoints accept HTTP Basic auth with Data Fabric cluster credentials.
 """
 
 from __future__ import annotations

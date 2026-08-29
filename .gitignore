@@ -50,6 +50,9 @@ data/settings.json
 # NiceGUI leftover
 .nicegui/
 
+# Local agent config (machine-specific paths and permissions)
+.claude/
+
 # Editor / OS
 .DS_Store
 .vscode/

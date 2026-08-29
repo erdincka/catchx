@@ -95,7 +95,7 @@ export const PIPELINE: PipelineStep[] = [
     n: 2,
     title: "Publish to the stream",
     blurb: "Push transactions onto a Kafka-compatible fabric stream",
-    capability: "MapR Streams",
+    capability: "HPE Data Fabric Streams",
     detail:
       "Transactions are produced to a Data Fabric stream using the standard Kafka " +
       "producer API — the same client code you would write for Kafka, with the stream " +

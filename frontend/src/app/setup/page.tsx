@@ -248,7 +248,7 @@ export default function SetupPage() {
         <Card>
           <CardHeader
             title="3 · Configure the client"
-            description="Point this container's MapR client at your cluster and mount the global namespace."
+            description="Point this container's Data Fabric client at your cluster and mount the global namespace."
           />
           <div className="p-4">
             <SetupStage

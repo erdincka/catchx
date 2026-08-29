@@ -14,7 +14,7 @@ export const CONFIGURE_STEPS: Array<[string, string]> = [
   ["ssl",      "Fetch the SSL truststore"],
   ["configure","Run configure.sh"],
   ["keycreds", "Copy key credentials"],
-  ["ticket",   "Create a MapR login ticket"],
+  ["ticket",   "Create a Data Fabric login ticket"],
   ["nfs",      "Mount /mapr over NFS"],
 ];
 

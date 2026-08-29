@@ -1,6 +1,6 @@
-"""MapR DocumentDB (OJAI) and Delta Lake I/O.
+"""HPE Data Fabric DocumentDB (OJAI) and Delta Lake I/O.
 
-The MapR OJAI client and deltalake are synchronous, blocking libraries. Every
+The OJAI client and deltalake are synchronous, blocking libraries. Every
 public coroutine here therefore hands the blocking work to a worker thread via
 `to_thread` so the event loop stays free — without that, a single
 ingest or consolidate freezes the whole API, including the metrics poll that
@@ -57,7 +57,7 @@ def _cert_common_name(host: str) -> Optional[str]:
 def resolve_target_name(config: ClusterConfig) -> str:
     """TLS name to present to the OJAI endpoint.
 
-    MapR clusters typically use a wildcard certificate (CN=*.example.com). An
+    Data Fabric clusters typically use a wildcard certificate (CN=*.example.com). An
     IP address can never match one, so connecting by IP fails the gRPC hostname
     check unless we override the name. Order of preference:
 

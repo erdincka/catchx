@@ -1,7 +1,7 @@
 # CatchX — HPE Data Fabric demo.
 #
 # Two services on a shared network. The backend holds every Data Fabric
-# dependency (MapR client libs from the pacc base image); the frontend is
+# dependency (Data Fabric client libs from the pacc base image); the frontend is
 # pure UI and proxies /api/* to the backend via next.config.ts rewrites.
 #
 #   docker compose up -d --build

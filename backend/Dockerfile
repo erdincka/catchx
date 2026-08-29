@@ -1,4 +1,3 @@
-# FROM erdincka/dfclient
 FROM maprtech/pacc:8.0.0_10.0.0_ubuntu20_yarn_hbase_hive_spark_streams_fuse
 
 # --- Build for dfclient

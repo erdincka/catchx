@@ -1,6 +1,6 @@
 """Async helpers with a Python 3.8 fallback.
 
-The MapR PACC base image ships Python 3.8, which predates `asyncio.to_thread`
+The Data Fabric PACC base image ships Python 3.8, which predates `asyncio.to_thread`
 (3.9). Everything in services/ offloads blocking client libraries through this
 shim, so keep it importable on 3.8 — swapping in `asyncio.to_thread` directly
 would break the container at import time.

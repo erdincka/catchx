@@ -41,7 +41,7 @@ MAX_DEPTH = 2
 # that the demo talks to the fabric through standard clients.
 LIBRARY_MARKERS = [
     ("confluent_kafka", "Kafka client"),
-    ("mapr.ojai", "MapR OJAI"),
+    ("mapr.ojai", "Data Fabric OJAI"),
     ("pyiceberg", "Apache Iceberg"),
     ("deltalake", "Delta Lake"),
     ("minio", "S3 / MinIO"),

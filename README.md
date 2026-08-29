@@ -73,8 +73,7 @@ and SSH access to the node you point the app at.
 | SSH | 22 | yes — for client configuration |
 | Data Fabric MCP | 5679 | no |
 
-Nothing else. No Grafana, OpenTSDB, Fluentd, Livy or external Iceberg catalog —
-the demo used none of them. Stream throughput and consumer lag come from the
+Nothing else. Stream throughput and consumer lag come from the
 cluster's own REST API, and the Iceberg catalog is a SQL catalog stored in the
 global namespace.
 
@@ -107,7 +106,7 @@ Or build them yourself:
 docker compose up -d --build
 ```
 
-The backend image is large (~5 GB) — it is built on the MapR PACC base image,
+The backend image is large (~5 GB) — it is built on the Data Fabric PACC base image,
 which carries the full client stack. The first pull takes a while.
 
 Open <http://localhost:3000> and work down the **Setup** page:
@@ -122,7 +121,7 @@ Open <http://localhost:3000> and work down the **Setup** page:
 
 Then open **Pipeline** and run the six steps.
 
-Prefer a hostname over an IP address: MapR clusters usually carry a wildcard
+Prefer a hostname over an IP address: Data Fabric clusters usually carry a wildcard
 certificate that an IP can never match. The app detects this and works around it
 for DocumentDB, but a hostname avoids the problem entirely.
 
@@ -169,7 +168,7 @@ want settings to persist across restarts.
 
 - The backend container performs the NFS mount itself. Do not bind-mount the
   host's `/mapr` over it.
-- Recreating the backend container drops the MapR client configuration and the
+- Recreating the backend container drops the Data Fabric client configuration and the
   mount; re-run **Configure the client** afterwards.
 - Generating customers appends, so running it repeatedly grows the dataset.
 - Light and dark themes follow your system setting; the toggle in the header

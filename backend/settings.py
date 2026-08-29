@@ -75,7 +75,7 @@ class FeatureFlags(BaseModel):
 class Settings(BaseModel):
     cluster_host: str = ""
     # TLS name presented to the DocumentDB (OJAI) endpoint on :5678.
-    # MapR clusters usually carry a wildcard cert (CN=*.example.com), which an
+    # Data Fabric clusters usually carry a wildcard cert (CN=*.example.com), which an
     # IP address can never match — leave empty to auto-detect from the cluster's
     # own certificate, or set it explicitly for unusual PKI setups.
     ojai_target_name: str = ""
