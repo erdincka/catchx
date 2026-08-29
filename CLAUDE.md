@@ -140,6 +140,30 @@ edit failed.
 - **Metrics tier counts are cached** (`COUNT_TTL`) and invalidated by
   `monitoring.invalidate()`. Any new route that writes data must call `_touch`.
 
+## Deferred cleanup
+
+Do these the next time something already requires rebuilding and verifying the
+backend image — they are not worth a rebuild-and-verify cycle of their own.
+
+**Unused Python dependencies in `backend/requirements.txt`.** Each has zero
+imports; they are leftovers from features that were removed:
+
+| Package | Was for |
+|---------|---------|
+| `geopy` | location enrichment, gone |
+| `jinja2` | NiFi template rendering, gone |
+| `pymysql` | the MySQL/Hive path, replaced by Delta Lake in the gold tier |
+| `requests` | appears only in a logger name and a docstring, never imported |
+
+Drop all four together, then run the end-to-end check below. `requests` is the
+one to watch: `config.py` silences its logger, which implies something pulls it
+in transitively — that is fine, it just should not be a direct pin. Keep
+`sqlalchemy`: pyiceberg's `SqlCatalog` needs it, even though nothing imports it
+here directly.
+
+Expect only a small size win. The backend image is dominated by the PACC base
+image, not by these.
+
 ## Testing against a cluster
 
 There is no test suite. Verify by running the pipeline end to end:
