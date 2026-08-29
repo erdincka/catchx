@@ -5,7 +5,7 @@ ezua:
     istioGateway: "istio-system/ezaf-gateway"
 
 backend:
-  image: erdincka/catchx-backend:latest
+  image: ghcr.io/erdincka/catchx-backend:1.0.0
 
 frontend:
-  image: erdincka/catchx-frontend:latest
+  image: ghcr.io/erdincka/catchx-frontend:1.0.0

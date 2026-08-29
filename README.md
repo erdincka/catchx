@@ -93,9 +93,22 @@ See [EXTRAS.md](./EXTRAS.md) for optional cluster extras.
 
 ## Run it
 
+Pull the published images:
+
+```bash
+git clone https://github.com/erdincka/catchx
+cd catchx
+docker compose up -d
+```
+
+Or build them yourself:
+
 ```bash
 docker compose up -d --build
 ```
+
+The backend image is large (~5 GB) — it is built on the MapR PACC base image,
+which carries the full client stack. The first pull takes a while.
 
 Open <http://localhost:3000> and work down the **Setup** page:
 
@@ -147,7 +160,8 @@ takes about a minute.
 ## Deploying on Kubernetes
 
 A Helm chart is in `helm/`, running the same two images
-(`erdincka/catchx-backend`, `erdincka/catchx-frontend`) in one pod. The backend
+(`ghcr.io/erdincka/catchx-backend`, `ghcr.io/erdincka/catchx-frontend`) in one
+pod. The backend
 needs `SYS_ADMIN` for the NFS mount, and a volume mounted at `/app/data` if you
 want settings to persist across restarts.
 

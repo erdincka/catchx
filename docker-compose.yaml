@@ -14,7 +14,7 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    image: erdincka/catchx-backend
+    image: ghcr.io/erdincka/catchx-backend:latest
     container_name: catchx-backend
     restart: unless-stopped
     # Required: /api/cluster/setup runs configure.sh and mounts the cluster's
@@ -44,7 +44,7 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-    image: erdincka/catchx-frontend
+    image: ghcr.io/erdincka/catchx-frontend:latest
     container_name: catchx-frontend
     restart: unless-stopped
     ports:
