@@ -1,11 +1,11 @@
 ezua:
   domainName: "${DOMAIN_NAME}"
   virtualService:
-    endpoint: "nexmesh.${DOMAIN_NAME}"
+    endpoint: "catchx.${DOMAIN_NAME}"
     istioGateway: "istio-system/ezaf-gateway"
 
 backend:
-  image: erdincka/nexmesh-backend:latest
+  image: erdincka/catchx-backend:latest
 
 frontend:
-  image: erdincka/nexmesh-frontend:latest
+  image: erdincka/catchx-frontend:latest

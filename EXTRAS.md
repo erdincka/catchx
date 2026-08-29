@@ -1,6 +1,14 @@
-# Nifi, Airflow and Spark (optional)
+# Optional cluster extras
 
-Setup Airflow and Spark packages if you plan to use Airflow
+**None of this is required to run CatchX.** The demo needs only the cluster REST
+API, the Data Access Gateway, NFS and the object store — see the prerequisites
+in [README.md](./README.md). These notes are here for building on the demo, or
+for setting the cluster up in ways the demo does not require.
+
+## NiFi, Airflow and Spark
+
+Install Airflow and Spark packages if you want to drive the same pipeline from
+a scheduler rather than the app.
 
 `dnf install mapr-spark mapr-spark-master mapr-spark-historyserver mapr-spark-thriftserver`
 
@@ -34,12 +42,21 @@ maprcli node services -name airflow-webserver  -action restart -nodes `hostname 
 
 --- or airflow configures mapr/mapr as default user/password ---
 
-**NOTE: NiFi template is configured to use Mysql/MariaDB for Hive tables, though it is removed from the demo setup. TODO: update NiFi processor to use Deltalake in Gold tier, instead of the RDBMS (mysql).**
+> **Note:** earlier versions of this demo shipped a NiFi template and an Airflow
+> DAG that wrote Hive tables via MySQL/MariaDB. Both were removed — the pipeline
+> now writes Delta Lake directly to the gold tier, so an RDBMS is no longer part
+> of it. If you want to rebuild that integration, target the gold Delta tables
+> under `/catchx-demo/gold`.
 
 
-## Setting up NFSv4 (optional)
+## NFSv4 (optional)
 
-Change sectype to sys if not using Kerberos
+CatchX mounts the global namespace over **NFSv3** (`mapr-nfs`), which is what the
+client configuration step does by default. These notes cover NFSv4
+(`mapr-nfs4server`) if you would rather use it — you would need to change the
+mount options in `backend/routes/cluster.py` to match.
+
+Change sectype to sys if not using Kerberos.
 
 https://docs.ezmeral.hpe.com/datafabric/77/get_started/known_issues.html?#concept_kg5_cxs_zwb__section_w2t_ntm_n1c
 

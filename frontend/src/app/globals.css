@@ -1,215 +1,275 @@
-@import "highlight.js/styles/github-dark.css";
 @import "tailwindcss";
 
-@theme inline {
-  --color-brand-vivid:       #F2561D;
-  --color-brand-soft:        #D9704A;
-  --color-brand-contrast:    #008A8C;
-  --color-neutrals-light:    #BFBFBF;
-  --color-neutrals-medium:   #8C8C8C;
-  --color-neutrals-dark:     #474747;
-  --color-neutrals-deep:     #000000;
-  --color-neutrals-slate:    #64748B;
-  --color-status-good:       #008C48;
-  --color-status-failed:     #BF0300;
-  --color-status-degraded:   #F27D00;
-  --font-sans:  var(--font-poppins);
-  --font-serif: var(--font-instrument-serif);
-  --font-mono:  var(--font-jetbrains-mono);
+/* Theme is driven by a `.dark` class on <html> (set before paint in layout.tsx),
+   not by prefers-color-scheme alone, so the toggle can override the OS. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Semantic tokens.
+
+   Every colour used by the app is one of these. Components never hardcode a
+   hex value, so switching themes is a matter of redefining the variables —
+   and adding a new surface or state means adding it here once.
+   ───────────────────────────────────────────────────────────────────────────*/
+
+:root {
+  /* Surfaces, from furthest back to nearest front */
+  --bg:            #fbfbfa;
+  --bg-subtle:     #f2f3f2;
+  --surface:       #ffffff;
+  --surface-hover: #f6f7f6;
+  --surface-sunk:  #f2f3f2;
+
+  /* Lines */
+  --border:        #e2e5e3;
+  --border-strong: #cbd1cd;
+
+  /* Type */
+  --text:          #121615;
+  --text-muted:    #5c6663;
+  --text-subtle:   #8a9491;
+  --text-inverted: #ffffff;
+
+  /* Accent — HPE green, used sparingly for emphasis and active state */
+  --accent:        #01a982;
+  --accent-hover:  #018a6b;
+  --accent-soft:   #e6f6f1;
+  --accent-text:   #016b53;
+  --on-accent:     #ffffff;
+
+  /* Status */
+  --good:          #0f8a4f;
+  --good-soft:     #e6f4ec;
+  --warn:          #b26a00;
+  --warn-soft:     #fdf1e0;
+  --bad:           #c0392f;
+  --bad-soft:      #fbeceb;
+  --info:          #0b7285;
+  --info-soft:     #e4f2f5;
+
+  /* Medallion tiers — deliberately distinct from the accent so tier colour
+     never reads as "active" */
+  --bronze:        #b06f38;
+  --silver:        #6b7f89;
+  --gold:          #b08900;
+
+  --shadow-sm: 0 1px 2px rgb(18 22 21 / 0.05);
+  --shadow-md: 0 2px 8px rgb(18 22 21 / 0.07), 0 1px 2px rgb(18 22 21 / 0.04);
+  --shadow-lg: 0 12px 32px rgb(18 22 21 / 0.10), 0 2px 8px rgb(18 22 21 / 0.05);
+
+  --radius: 10px;
+
+  color-scheme: light;
 }
 
-/* ── Base ─────────────────────────────────────────────────────────────────── */
+.dark {
+  --bg:            #0c100f;
+  --bg-subtle:     #121817;
+  --surface:       #151c1a;
+  --surface-hover: #1b2321;
+  --surface-sunk:  #101614;
+
+  --border:        #26302d;
+  --border-strong: #3a4642;
+
+  --text:          #e9eeec;
+  --text-muted:    #9aa5a1;
+  --text-subtle:   #6d7975;
+  --text-inverted: #0c100f;
+
+  /* Lifted for contrast against dark surfaces */
+  --accent:        #2ad4a5;
+  --accent-hover:  #4fe0b7;
+  --accent-soft:   #0f2a24;
+  --accent-text:   #5ce0b8;
+  --on-accent:     #06231c;
+
+  --good:          #3dbd77;
+  --good-soft:     #0e2619;
+  --warn:          #e0a33a;
+  --warn-soft:     #2a1f0c;
+  --bad:           #ef6b5e;
+  --bad-soft:      #2c1512;
+  --info:          #3fb6cc;
+  --info-soft:     #0c2429;
+
+  --bronze:        #d08a4d;
+  --silver:        #9fb2bc;
+  --gold:          #d9ac2b;
+
+  --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.4);
+  --shadow-md: 0 2px 8px rgb(0 0 0 / 0.45), 0 1px 2px rgb(0 0 0 / 0.3);
+  --shadow-lg: 0 12px 32px rgb(0 0 0 / 0.55), 0 2px 8px rgb(0 0 0 / 0.4);
+
+  color-scheme: dark;
+}
+
+/* Expose the tokens as Tailwind utilities (bg-surface, text-muted, …).
+   `inline` keeps the var() reference in the output so the .dark override
+   applies at runtime rather than being baked in at build time. */
+@theme inline {
+  --color-bg:            var(--bg);
+  --color-bg-subtle:     var(--bg-subtle);
+  --color-surface:       var(--surface);
+  --color-surface-hover: var(--surface-hover);
+  --color-surface-sunk:  var(--surface-sunk);
+
+  --color-border:        var(--border);
+  --color-border-strong: var(--border-strong);
+
+  --color-text:          var(--text);
+  --color-muted:         var(--text-muted);
+  --color-subtle:        var(--text-subtle);
+  --color-inverted:      var(--text-inverted);
+
+  --color-accent:        var(--accent);
+  --color-accent-hover:  var(--accent-hover);
+  --color-accent-soft:   var(--accent-soft);
+  --color-accent-text:   var(--accent-text);
+  --color-on-accent:     var(--on-accent);
+
+  --color-good:          var(--good);
+  --color-good-soft:     var(--good-soft);
+  --color-warn:          var(--warn);
+  --color-warn-soft:     var(--warn-soft);
+  --color-bad:           var(--bad);
+  --color-bad-soft:      var(--bad-soft);
+  --color-info:          var(--info);
+  --color-info-soft:     var(--info-soft);
+
+  --color-bronze:        var(--bronze);
+  --color-silver:        var(--silver);
+  --color-gold:          var(--gold);
+
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: var(--font-jetbrains-mono), ui-monospace, "SFMono-Regular", Menlo, monospace;
+
+  --radius-base: var(--radius);
+}
+
+/* ── Base ───────────────────────────────────────────────────────────────────*/
 
 *,
 *::before,
-*::after {
-  box-sizing: border-box;
-}
+*::after { box-sizing: border-box; }
 
 html {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  text-rendering: optimizeLegibility;
   scroll-behavior: smooth;
 }
 
 body {
   margin: 0;
-  background: #000000;
-  color: #ffffff;
-  font-family: var(--font-poppins, var(--font-sans, Arial, sans-serif));
   min-height: 100dvh;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  font-size: 14px;
+  line-height: 1.55;
+  /* Tabular numerals keep live counters from jittering as digits change. */
+  font-variant-numeric: tabular-nums;
 }
 
-/* ── CSS Custom Properties (semantic aliases & design tokens) ─────────────── */
-
-:root {
-  --surface-card:         #121212;
-  --glass-nav:            rgba(0, 0, 0, 0.35);
-  --glass-dark:           rgba(18, 18, 18, 0.92);
-  --glass-subnav:         rgba(0, 0, 0, 0.30);
-
-  --radius-card:          10px;
-  --radius-ai:            22px;
-  --radius-status:        24px;
-  --radius-full:          9999px;
-  --radius-login:         80px;
+/* Suppress transitions during a theme swap so the whole page doesn't animate. */
+.theme-switching *,
+.theme-switching *::before,
+.theme-switching *::after {
+  transition: none !important;
 }
-
-/* ── Focus ring ───────────────────────────────────────────────────────────── */
 
 :focus-visible {
-  outline: 2px solid #F2561D;
+  outline: 2px solid var(--accent);
   outline-offset: 2px;
-  border-radius: 8px;
-}
-
-/* ── Scrollbars ───────────────────────────────────────────────────────────── */
-
-::-webkit-scrollbar        { width: 5px; height: 5px; }
-::-webkit-scrollbar-track  { background: #000000; }
-::-webkit-scrollbar-thumb  { background: #474747; border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: #F2561D; }
-
-/* ── Brand gradient (signature element) ──────────────────────────────────── */
-
-.nexus-gradient-h {
-  background: linear-gradient(90deg,
-    transparent 0%, #D9704A 20%, #F2561D 80%, transparent 100%
-  );
-}
-
-.nexus-gradient-v {
-  background: linear-gradient(180deg,
-    transparent 0%, #D9704A 20%, #F2561D 80%, transparent 100%
-  );
-}
-
-/* ── Glassmorphic containers ──────────────────────────────────────────────── */
-
-.nexus-glass {
-  background: var(--glass-dark);
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-}
-
-.nexus-glass-nav {
-  background: var(--glass-nav);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-}
-
-/* ── Dialog backdrop ──────────────────────────────────────────────────────── */
-
-.dialog-backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 50;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(0, 0, 0, 0.75);
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
-}
-
-/* ── Code highlight overrides ─────────────────────────────────────────────── */
-
-.hljs {
-  background: #0a0a0a !important;
   border-radius: 6px;
-  font-size: 0.78rem;
-  max-height: 70vh;
-  overflow: auto;
-  border: 1px solid #474747;
 }
 
-/* ── Toast notifications ──────────────────────────────────────────────────── */
-
-.toast-container {
-  position: fixed;
-  bottom: 1rem;
-  right: 1rem;
-  z-index: 200;
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
+::selection {
+  background: var(--accent);
+  color: var(--on-accent);
 }
 
-.toast {
-  padding: 0.75rem 1rem;
-  border-radius: 0.5rem;
-  color: white;
-  font-size: 0.875rem;
-  font-family: var(--font-sans);
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  min-width: 16rem;
-  max-width: 24rem;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+/* ── Scrollbars ─────────────────────────────────────────────────────────────*/
+
+::-webkit-scrollbar       { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: 999px;
+  border: 3px solid var(--bg);
 }
+::-webkit-scrollbar-thumb:hover { background: var(--text-subtle); }
 
-.toast-positive { background: rgba(0, 140, 72, 0.92); }
-.toast-negative { background: rgba(191, 3, 0, 0.92); }
-.toast-warning  { background: rgba(242, 125, 0, 0.92); }
-.toast-info     { background: rgba(0, 138, 140, 0.92); }
+/* ── Motion ─────────────────────────────────────────────────────────────────*/
 
-/* ── Skeleton loader ──────────────────────────────────────────────────────── */
-
-@keyframes nexus-shimmer {
-  0%   { background-position: -200% 0; }
-  100% { background-position:  200% 0; }
+@keyframes pulse-ring {
+  0%   { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 55%, transparent); }
+  70%  { box-shadow: 0 0 0 6px color-mix(in srgb, var(--accent) 0%, transparent); }
+  100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 0%, transparent); }
 }
+.pulse-ring { animation: pulse-ring 2s ease-out infinite; }
 
-.nexus-skeleton {
-  background: linear-gradient(
-    90deg,
-    #121212 25%, #1e1e1e 50%, #121212 75%
-  );
+@keyframes shimmer {
+  from { background-position: -200% 0; }
+  to   { background-position:  200% 0; }
+}
+.skeleton {
+  background: linear-gradient(90deg,
+    var(--surface-sunk) 25%, var(--surface-hover) 50%, var(--surface-sunk) 75%);
   background-size: 200% 100%;
-  animation: nexus-shimmer 1.5s ease-in-out infinite;
+  animation: shimmer 1.4s ease-in-out infinite;
+  border-radius: 6px;
 }
 
-/* ── Status pulse dot ─────────────────────────────────────────────────────── */
+@keyframes dash-flow { to { stroke-dashoffset: -16; } }
+.flowing { stroke-dasharray: 5 6; animation: dash-flow 0.9s linear infinite; }
 
-@keyframes status-pulse {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(0, 140, 72, 0.6); }
-  50%       { box-shadow: 0 0 0 4px rgba(0, 140, 72, 0); }
+@keyframes rise {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
-
-.status-pulse-dot {
-  animation: status-pulse 2s ease-in-out infinite;
-}
-
-/* ── Metric ticker entrance ───────────────────────────────────────────────── */
-
-@keyframes ticker-slide {
-  from { transform: translateY(4px); opacity: 0; }
-  to   { transform: translateY(0);   opacity: 1; }
-}
-
-.metric-tick {
-  animation: ticker-slide 0.3s ease-out both;
-}
-
-/* ── Flow pulse ───────────────────────────────────────────────────────────── */
-
-@keyframes flow-pulse {
-  0%, 100% { opacity: 0.3; }
-  50%       { opacity: 1; }
-}
-
-/* ── Reduced motion ───────────────────────────────────────────────────────── */
+.rise { animation: rise 0.25s ease-out both; }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
-  .nexus-skeleton { animation: none; background: #121212; }
+  .skeleton { animation: none; background: var(--surface-sunk); }
+  .flowing  { animation: none; }
 }
+
+/* ── Syntax highlighting ────────────────────────────────────────────────────
+   Token colours are defined against theme variables rather than importing a
+   fixed highlight.js stylesheet, so code follows light/dark like everything
+   else. Hues are chosen to stay legible on both surfaces.                    */
+
+:root {
+  --hl-keyword:  #a626a4;
+  --hl-string:   #0a7d3f;
+  --hl-number:   #b25000;
+  --hl-comment:  #8a9491;
+  --hl-function: #2a63c4;
+  --hl-builtin:  #0b7285;
+}
+
+.dark {
+  --hl-keyword:  #d79bf0;
+  --hl-string:   #7fd7a0;
+  --hl-number:   #f0b46a;
+  --hl-comment:  #6d7975;
+  --hl-function: #7cb6f7;
+  --hl-builtin:  #5fd2e0;
+}
+
+.hljs { color: var(--text); background: transparent; }
+.hljs-comment, .hljs-quote { color: var(--hl-comment); font-style: italic; }
+.hljs-keyword, .hljs-selector-tag, .hljs-literal, .hljs-type { color: var(--hl-keyword); }
+.hljs-string, .hljs-doctag, .hljs-regexp { color: var(--hl-string); }
+.hljs-number, .hljs-meta { color: var(--hl-number); }
+.hljs-title, .hljs-title.function_, .hljs-section { color: var(--hl-function); font-weight: 500; }
+.hljs-built_in, .hljs-attr, .hljs-variable, .hljs-params { color: var(--hl-builtin); }
+.hljs-emphasis { font-style: italic; }
+.hljs-strong { font-weight: 600; }

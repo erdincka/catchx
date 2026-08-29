@@ -1,21 +1,14 @@
 import type { Metadata } from "next";
-import { Poppins, Instrument_Serif, JetBrains_Mono } from "next/font/google";
+import { Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
-import { ClusterProvider } from "@/contexts/ClusterContext";
+import { ThemeProvider } from "@/contexts/ThemeContext";
+import { THEME_KEY } from "@/lib/theme";
 import { SettingsProvider } from "@/contexts/SettingsContext";
 import { ToastProvider } from "@/contexts/ToastContext";
 
-const poppins = Poppins({
-  variable: "--font-poppins",
+const inter = Inter({
+  variable: "--font-inter",
   subsets: ["latin"],
-  weight: ["300", "400", "500", "600", "700"],
-  display: "swap",
-});
-
-const instrumentSerif = Instrument_Serif({
-  variable: "--font-instrument-serif",
-  subsets: ["latin"],
-  weight: ["400"],
   display: "swap",
 });
 
@@ -27,25 +20,41 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "NexMesh — HPE Data Fabric Capability Tour",
-  description: "End-to-end demo of HPE Ezmeral Data Fabric — Iceberg, Polaris, Spark, Flink, MCP, Grafana.",
+  title: "CatchX — HPE Data Fabric",
+  description:
+    "An end-to-end fraud detection pipeline on HPE Ezmeral Data Fabric: streams, DocumentDB, Iceberg and Delta Lake across a bronze/silver/gold medallion architecture.",
 };
+
+/* Runs before first paint so the correct theme is on <html> immediately.
+   Without it the page paints light, then flips — obvious on a projector. */
+const themeBootstrap = `
+(function () {
+  try {
+    var c = localStorage.getItem(${JSON.stringify(THEME_KEY)});
+    var dark = c === "dark" || ((c === "system" || !c) &&
+      window.matchMedia("(prefers-color-scheme: dark)").matches);
+    if (dark) document.documentElement.classList.add("dark");
+  } catch (e) {}
+})();
+`;
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html
       lang="en-GB"
-      data-scroll-behavior="smooth"
-      className={`${poppins.variable} ${instrumentSerif.variable} ${jetbrainsMono.variable}`}
+      suppressHydrationWarning
+      className={`${inter.variable} ${jetbrainsMono.variable}`}
     >
       <body>
-        <SettingsProvider>
-          <ClusterProvider>
-            <ToastProvider>
-              {children}
-            </ToastProvider>
-          </ClusterProvider>
-        </SettingsProvider>
+        {/* First element in the body so the class lands before any content
+            paints. Next owns <head> in the App Router, so injecting there
+            fights its head reconciliation. */}
+        <script dangerouslySetInnerHTML={{ __html: themeBootstrap }} />
+        <ThemeProvider>
+          <SettingsProvider>
+            <ToastProvider>{children}</ToastProvider>
+          </SettingsProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

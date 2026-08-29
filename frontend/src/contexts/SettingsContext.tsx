@@ -1,39 +1,43 @@
 "use client";
 
 import React, {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useState,
+  createContext, useCallback, useContext, useEffect, useMemo, useState,
 } from "react";
-import type { Settings, ServiceMatrix } from "@/lib/settings";
+import { apiGet, apiPost, apiPut } from "@/lib/api";
+import type {
+  ClusterInfo, Readiness, ServiceMatrix, Settings,
+} from "@/lib/settings";
 
-export type ArtefactStatus = "ok" | "missing" | "error" | "unknown";
-
-export interface ReadinessArtefacts {
-  client_configured: boolean;
-  nfs_mounted: boolean;
-  volumes: Record<string, ArtefactStatus>;
-  streams: Record<string, ArtefactStatus>;
+interface SettingsEnvelope {
+  settings: Settings;
+  resolved_endpoints: Record<string, string>;
+  configured: boolean;
 }
 
 interface SettingsState {
   settings: Settings | null;
   resolvedEndpoints: Record<string, string>;
+  /** Backend has a host and a username persisted. */
+  configured: boolean;
+
   services: ServiceMatrix;
-  artefacts: ReadinessArtefacts | null;
-  loadingArtefacts: boolean;
-  isReady: boolean;
+  readiness: Readiness | null;
+  clusterInfo: ClusterInfo | null;
+
   loading: boolean;
   saving: boolean;
   testing: boolean;
+  checkingReadiness: boolean;
+
+  /** Everything the demo needs is configured, reachable and provisioned. */
+  ready: boolean;
+
   reload: () => Promise<void>;
   save: (next: Settings) => Promise<void>;
-  test: () => Promise<void>;
   resetDefaults: () => Promise<void>;
-  fetchArtefacts: () => Promise<void>;
+  testServices: () => Promise<void>;
+  refreshReadiness: () => Promise<void>;
+  refreshClusterInfo: () => Promise<void>;
 }
 
 const SettingsContext = createContext<SettingsState | null>(null);
@@ -41,109 +45,116 @@ const SettingsContext = createContext<SettingsState | null>(null);
 export function SettingsProvider({ children }: { children: React.ReactNode }) {
   const [settings, setSettings] = useState<Settings | null>(null);
   const [resolvedEndpoints, setResolvedEndpoints] = useState<Record<string, string>>({});
+  const [configured, setConfigured] = useState(false);
   const [services, setServices] = useState<ServiceMatrix>({});
-  const [artefacts, setArtefacts] = useState<ReadinessArtefacts | null>(null);
+  const [readiness, setReadiness] = useState<Readiness | null>(null);
+  const [clusterInfo, setClusterInfo] = useState<ClusterInfo | null>(null);
+
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
-  const [loadingArtefacts, setLoadingArtefacts] = useState(false);
+  const [checkingReadiness, setCheckingReadiness] = useState(false);
+
+  const absorb = useCallback((data: SettingsEnvelope) => {
+    setSettings(data.settings);
+    setResolvedEndpoints(data.resolved_endpoints ?? {});
+    setConfigured(Boolean(data.configured));
+  }, []);
 
   const reload = useCallback(async () => {
     setLoading(true);
     try {
-      const r = await fetch("/api/settings");
-      if (!r.ok) throw new Error(`HTTP ${r.status}`);
-      const data = await r.json();
-      setSettings(data.settings as Settings);
-      setResolvedEndpoints(data.resolved_endpoints ?? {});
+      absorb(await apiGet<SettingsEnvelope>("/api/settings"));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [absorb]);
 
   const save = useCallback(async (next: Settings) => {
     setSaving(true);
     try {
-      const r = await fetch("/api/settings", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(next),
-      });
-      if (!r.ok) throw new Error(`HTTP ${r.status}`);
-      const data = await r.json();
-      setSettings(data.settings as Settings);
-      setResolvedEndpoints(data.resolved_endpoints ?? {});
+      absorb(await apiPut<SettingsEnvelope>("/api/settings", next));
     } finally {
       setSaving(false);
     }
-  }, []);
+  }, [absorb]);
 
-  const test = useCallback(async () => {
+  const resetDefaults = useCallback(async () => {
+    setSaving(true);
+    try {
+      absorb(await apiPost<SettingsEnvelope>("/api/settings/reset"));
+      setServices({});
+      setReadiness(null);
+      setClusterInfo(null);
+    } finally {
+      setSaving(false);
+    }
+  }, [absorb]);
+
+  const testServices = useCallback(async () => {
     setTesting(true);
     try {
-      const r = await fetch("/api/settings/test", { method: "POST" });
-      if (!r.ok) throw new Error(`HTTP ${r.status}`);
-      const data = await r.json();
-      setServices((data.services ?? {}) as ServiceMatrix);
+      const d = await apiPost<{ services: ServiceMatrix }>("/api/settings/test");
+      setServices(d.services ?? {});
     } finally {
       setTesting(false);
     }
   }, []);
 
-  const resetDefaults = useCallback(async () => {
-    setSaving(true);
+  const refreshReadiness = useCallback(async () => {
+    setCheckingReadiness(true);
     try {
-      const r = await fetch("/api/settings/reset", { method: "POST" });
-      if (!r.ok) throw new Error(`HTTP ${r.status}`);
-      const data = await r.json();
-      setSettings(data.settings as Settings);
-      setResolvedEndpoints(data.resolved_endpoints ?? {});
-    } finally {
-      setSaving(false);
-    }
-  }, []);
-
-  const fetchArtefacts = useCallback(async () => {
-    setLoadingArtefacts(true);
-    try {
-      const r = await fetch("/api/cluster/readiness");
-      if (!r.ok) throw new Error(`HTTP ${r.status}`);
-      setArtefacts(await r.json() as ReadinessArtefacts);
+      setReadiness(await apiGet<Readiness>("/api/cluster/readiness"));
     } catch {
-      /* silent */
+      setReadiness(null);
     } finally {
-      setLoadingArtefacts(false);
+      setCheckingReadiness(false);
     }
   }, []);
 
-  // isReady: all service probes good AND all volumes/streams exist
-  const isReady = useMemo(() => {
-    if (!settings?.cluster_host) return false;
-    const svcValues = Object.values(services);
-    if (svcValues.length === 0) return false;
-    if (!svcValues.every((s) => s.status === "good")) return false;
-    if (!artefacts) return false;
-    return (
-      Object.values(artefacts.volumes).every((s) => s === "ok") &&
-      Object.values(artefacts.streams).every((s) => s === "ok")
-    );
-  }, [settings, services, artefacts]);
+  const refreshClusterInfo = useCallback(async () => {
+    try {
+      const d = await apiGet<{ status: string; cluster?: ClusterInfo }>("/api/cluster/info");
+      setClusterInfo(d.cluster && d.status !== "error" ? d.cluster : null);
+    } catch {
+      setClusterInfo(null);
+    }
+  }, []);
 
+  // Initial load.
   useEffect(() => {
-    reload().catch(() => {});
+    reload().catch(() => setLoading(false));
   }, [reload]);
 
-  return (
-    <SettingsContext.Provider
-      value={{
-        settings, resolvedEndpoints, services, artefacts, loadingArtefacts, isReady,
-        loading, saving, testing,
-        reload, save, test, resetDefaults, fetchArtefacts,
-      }}
-    >
-      {children}
-    </SettingsContext.Provider>
-  );
+  // Once a host is configured, fetch what depends on it. Probes are not run
+  // automatically — they are a deliberate action on the Setup page.
+  useEffect(() => {
+    if (!configured) return;
+    refreshClusterInfo();
+    refreshReadiness();
+  }, [configured, refreshClusterInfo, refreshReadiness]);
+
+  const ready = useMemo(() => {
+    if (!configured || !readiness) return false;
+    if (!readiness.nfs_mounted || !readiness.client_configured) return false;
+    const artefacts = [
+      ...Object.values(readiness.volumes ?? {}),
+      ...Object.values(readiness.streams ?? {}),
+    ];
+    if (artefacts.length === 0 || !artefacts.every((s) => s === "ok")) return false;
+    // Required services must be good; MCP is optional so it is not gating.
+    const required = ["cluster", "s3"];
+    return required.every((k) => services[k]?.status === "good");
+  }, [configured, readiness, services]);
+
+  const value: SettingsState = {
+    settings, resolvedEndpoints, configured,
+    services, readiness, clusterInfo,
+    loading, saving, testing, checkingReadiness, ready,
+    reload, save, resetDefaults, testServices, refreshReadiness, refreshClusterInfo,
+  };
+
+  return <SettingsContext.Provider value={value}>{children}</SettingsContext.Provider>;
 }
 
 export function useSettings(): SettingsState {

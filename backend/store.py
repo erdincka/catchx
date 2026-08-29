@@ -1,7 +1,18 @@
+"""Cluster connection config and in-memory cluster-info cache.
+
+Settings are the single source of truth: `ClusterConfig` is derived from the
+persisted settings file, never from request headers. The browser holds no
+credentials — it edits settings through /api/settings and everything else
+reads them server-side.
+"""
+
+from __future__ import annotations
+
 import logging
 from dataclasses import dataclass
 from typing import Optional
-from fastapi import Header, HTTPException
+
+from fastapi import HTTPException
 
 logger = logging.getLogger("store")
 
@@ -16,23 +27,29 @@ class ClusterConfig:
     password: str
 
 
-def get_cluster_config(
-    x_mapr_host: str = Header(default=""),
-    x_mapr_user: str = Header(default=""),
-    x_mapr_pass: str = Header(default=""),
-) -> ClusterConfig:
-    if x_mapr_host:
-        return ClusterConfig(host=x_mapr_host, user=x_mapr_user, password=x_mapr_pass)
-    # Fall back to server-side settings when no headers provided
-    import settings as s_mod
-    cfg = s_mod.load()
-    if cfg.cluster_host:
-        return ClusterConfig(
-            host=cfg.cluster_host,
-            user=cfg.credentials.cluster_user,
-            password=cfg.credentials.cluster_pass,
+def current_config() -> Optional[ClusterConfig]:
+    """Return the configured cluster, or None when settings are incomplete."""
+    import settings as settings_module
+
+    cfg = settings_module.load()
+    if not cfg.cluster_host or not cfg.credentials.cluster_user:
+        return None
+    return ClusterConfig(
+        host=cfg.cluster_host,
+        user=cfg.credentials.cluster_user,
+        password=cfg.credentials.cluster_pass,
+    )
+
+
+def get_cluster_config() -> ClusterConfig:
+    """FastAPI dependency — 400s with an actionable message when unconfigured."""
+    config = current_config()
+    if config is None:
+        raise HTTPException(
+            status_code=400,
+            detail="Cluster not configured — set the host and credentials on the Setup page.",
         )
-    raise HTTPException(status_code=400, detail="Cluster not configured — set cluster host in Settings or provide X-Mapr-Host header")
+    return config
 
 
 def cache_cluster_info(host: str, info: dict):

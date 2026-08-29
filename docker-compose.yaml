@@ -1,0 +1,78 @@
+# CatchX — HPE Data Fabric demo.
+#
+# Two services on a shared network. The backend holds every Data Fabric
+# dependency (MapR client libs from the pacc base image); the frontend is
+# pure UI and proxies /api/* to the backend via next.config.ts rewrites.
+#
+#   docker compose up -d --build
+#
+# Frontend: http://<host>:3000   Backend API docs: http://<host>:8000/docs
+
+services:
+  backend:
+    platform: linux/amd64        # pacc base image is amd64-only
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    image: erdincka/catchx-backend
+    container_name: catchx-backend
+    restart: unless-stopped
+    # Required: /api/cluster/setup runs configure.sh and mounts the cluster's
+    # global namespace with `mount -t nfs -o nfsvers=3 <ip>:/mapr /mapr` *inside* this
+    # container. Do not bind-mount the host's /mapr over it.
+    privileged: true
+    ports:
+      - "8000:8000"
+    environment:
+      MAPR_HOME: /opt/mapr
+      LD_LIBRARY_PATH: /opt/mapr/lib
+      CATCHX_DATA_DIR: /app/data
+    volumes:
+      # Persisted demo settings (settings.json). Named volume rather than a
+      # bind mount so this works against remote docker contexts too.
+      - catchx-data:/app/data
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+    networks:
+      - catchx-net
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    image: erdincka/catchx-frontend
+    container_name: catchx-frontend
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      BACKEND_URL: http://backend:8000
+      # `next dev` rejects cross-origin HMR and asset requests from hosts it
+      # does not know about. If you browse to this app by IP or hostname rather
+      # than localhost, add it here (comma separated), e.g.
+      #   ALLOWED_DEV_ORIGINS=10.0.0.5,catchx.example.com docker compose up -d
+      ALLOWED_DEV_ORIGINS: ${ALLOWED_DEV_ORIGINS:-localhost,127.0.0.1}
+      NEXT_TELEMETRY_DISABLED: "1"
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "-", "http://localhost:3000/"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+    networks:
+      - catchx-net
+
+networks:
+  catchx-net:
+    name: catchx-net
+
+volumes:
+  catchx-data:
+    name: catchx-data

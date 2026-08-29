@@ -6,6 +6,9 @@ Each probe returns a dict:
   detail     – human-readable summary (URL + status code / error)
   url        – the exact URL/address that was probed (for display in UI)
 
+CatchX depends on the cluster REST API (:8443) and the S3 object store (:9000);
+the Data Fabric MCP server (:5679) is optional. Nothing else is required.
+
 All probes run in parallel; total time is bounded by the slowest probe.
 Non-S3 HTTP probes include HTTP Basic auth with the cluster credentials.
 """
@@ -14,7 +17,6 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import socket
 import time
 from typing import Any
 
@@ -72,34 +74,6 @@ async def _http(
         return _result("failed", started, _classify(e, url), url)
 
 
-async def _tcp(host_port: str) -> dict[str, Any]:
-    started = time.monotonic()
-    if ":" not in host_port:
-        return _result("failed", started, "No port in address — check fluentd_host setting", host_port)
-    host, _, port_str = host_port.rpartition(":")
-    host = host.strip("[]")
-    try:
-        port = int(port_str)
-    except ValueError:
-        return _result("failed", started, f"Invalid port '{port_str}'", host_port)
-
-    try:
-        fut = asyncio.open_connection(host, port)
-        reader, writer = await asyncio.wait_for(fut, timeout=PROBE_TIMEOUT)
-        writer.close()
-        try:
-            await writer.wait_closed()
-        except Exception:
-            pass
-        return _result("good", started, f"TCP {host}:{port} reachable", host_port)
-    except (ConnectionRefusedError, socket.gaierror) as e:
-        return _result("failed", started, f"Connection failed — {e}", host_port)
-    except OSError as e:
-        return _result("failed", started, f"OS error — {e}", host_port)
-    except asyncio.TimeoutError:
-        return _result("failed", started, f"TCP connect timed out after {PROBE_TIMEOUT}s", host_port)
-
-
 # ── Per-service probes ─────────────────────────────────────────────────────────
 
 
@@ -133,40 +107,6 @@ async def probe_s3(endpoint: str) -> dict[str, Any]:
     return await _http(url)  # no Basic auth — S3 uses AWS SigV4
 
 
-async def probe_polaris(url: str, user: str, password: str) -> dict[str, Any]:
-    if not url or "{host}" in url:
-        return _result("failed", time.monotonic(), "Endpoint not resolved — set Cluster Host first", url)
-    probe_url = url.rstrip("/") + "/api/catalog/v1/config"
-    return await _http(probe_url, auth=(user, password) if user else None)
-
-
-async def probe_livy(url: str, user: str, password: str) -> dict[str, Any]:
-    if not url or "{host}" in url:
-        return _result("failed", time.monotonic(), "Endpoint not resolved — set Cluster Host first", url)
-    probe_url = url.rstrip("/") + "/sessions"
-    return await _http(probe_url, auth=(user, password) if user else None)
-
-
-async def probe_grafana(url: str, user: str, password: str) -> dict[str, Any]:
-    if not url or "{host}" in url:
-        return _result("failed", time.monotonic(), "Endpoint not resolved — set Cluster Host first", url)
-    probe_url = url.rstrip("/") + "/api/health"
-    return await _http(probe_url, auth=(user, password) if user else None)
-
-
-async def probe_opentsdb(url: str, user: str, password: str) -> dict[str, Any]:
-    if not url or "{host}" in url:
-        return _result("failed", time.monotonic(), "Endpoint not resolved — set Cluster Host first", url)
-    probe_url = url.rstrip("/") + "/api/version"
-    return await _http(probe_url, auth=(user, password) if user else None)
-
-
-async def probe_fluentd(host_port: str) -> dict[str, Any]:
-    if not host_port or "{host}" in host_port:
-        return _result("failed", time.monotonic(), "Endpoint not resolved — set Cluster Host first", host_port)
-    return await _tcp(host_port)
-
-
 async def probe_mcp(url: str, user: str, password: str) -> dict[str, Any]:
     if not url or "{host}" in url:
         return _result("failed", time.monotonic(), "Endpoint not resolved — set Cluster Host first", url)
@@ -182,20 +122,17 @@ async def probe_all() -> dict[str, dict[str, Any]]:
     s = settings_module.load()
     eps = settings_module.resolved_endpoints(s)
     creds = s.credentials
-    auth = (creds.cluster_user, creds.cluster_pass) if creds.cluster_user else None
     user = creds.cluster_user
     password = creds.cluster_pass
 
     tasks: dict[str, Any] = {
-        "cluster":  probe_cluster(s.cluster_host, user, password),
-        "s3":       probe_s3(eps["s3_endpoint"]),
-        "polaris":  probe_polaris(eps["polaris_url"], user, password),
-        "livy":     probe_livy(eps["livy_url"], user, password),
-        "grafana":  probe_grafana(eps["grafana_url"], user, password),
-        "opentsdb": probe_opentsdb(eps["opentsdb_url"], user, password),
-        "fluentd":  probe_fluentd(eps["fluentd_host"]),
-        "mcp":      probe_mcp(eps["mcp_server_url"], user, password),
+        "cluster": probe_cluster(s.cluster_host, user, password),
+        "s3":      probe_s3(eps["s3_endpoint"]),
     }
+    # MCP is optional — probing it while disabled would report a red service
+    # the demo does not actually require.
+    if s.flags.mcp_enabled:
+        tasks["mcp"] = probe_mcp(eps["mcp_server_url"], user, password)
 
     names = list(tasks.keys())
     results = await asyncio.gather(*tasks.values(), return_exceptions=True)

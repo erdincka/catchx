@@ -1,9 +1,10 @@
 import type { NextConfig } from "next";
 
 const isDev = process.env.NODE_ENV !== "production";
-const defaultDevOrigin = "nexmesh.demo.lon-pcai.twlon.com";
+// Set ALLOWED_DEV_ORIGINS to the host you browse to when it is not localhost.
+const defaultDevOrigins = ["localhost", "127.0.0.1"];
 const envOrigins = process.env.ALLOWED_DEV_ORIGINS?.split(",").map((origin) => origin.trim()).filter(Boolean);
-const allowedDevOrigins = envOrigins && envOrigins.length > 0 ? envOrigins : [defaultDevOrigin];
+const allowedDevOrigins = envOrigins && envOrigins.length > 0 ? envOrigins : defaultDevOrigins;
 
 const nextConfig: NextConfig = {
   // Dev-only: accept HMR/asset requests from allowed origins when proxied

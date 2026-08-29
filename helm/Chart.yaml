@@ -1,6 +1,6 @@
 apiVersion: v2
-appVersion: v0.0.1
-description: Demo for HPE Data Fabric.
-name: nexmesh
+appVersion: "1.0.0"
+description: CatchX — an end-to-end fraud detection pipeline demonstrating HPE Ezmeral Data Fabric streams, DocumentDB, Iceberg and Delta Lake.
+name: catchx
 type: application
-version: 0.0.1
+version: 1.0.0

@@ -58,3 +58,6 @@ data/settings.json
 # Logs
 *.log
 nohup*
+
+# Blog drafts — written for review, deliberately not published with the repo
+blog/

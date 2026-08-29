@@ -4,19 +4,21 @@ import asyncio
 import glob
 import logging
 import os
+import functools
 import subprocess
 from pathlib import Path
 from typing import AsyncGenerator
 
 import httpx
-from fastapi import APIRouter, Body, Depends
+from fastapi import APIRouter, Depends
 from fastapi.responses import StreamingResponse
 
 from config import (
     BASEDIR, VOLUME_BRONZE, VOLUME_SILVER, VOLUME_GOLD,
-    NEXMESH_VOL_PARENT, NEXMESH_VOL_BRONZE, NEXMESH_VOL_SILVER, NEXMESH_VOL_GOLD,
+    CATCHX_VOL_PARENT, CATCHX_VOL_BRONZE, CATCHX_VOL_SILVER, CATCHX_VOL_GOLD,
     STREAM_INCOMING, STREAM_CHANGELOG, TABLE_TRANSACTIONS,
 )
+from asyncutil import to_thread
 from store import ClusterConfig, cache_cluster_info, get_cached_cluster_info, get_cluster_config
 import settings as settings_module
 
@@ -101,7 +103,8 @@ async def get_readiness():
     user = s.credentials.cluster_user
     password = s.credentials.cluster_pass
 
-    client_configured = _check_mapr_client()
+    # _check_mapr_client shells out to maprlogin (up to 3s) — keep it off the loop.
+    client_configured = await to_thread(_check_mapr_client)
     nfs_mounted = _check_nfs()
 
     if host and user:
@@ -134,6 +137,16 @@ async def get_readiness():
 
 # ── Client configuration SSE ───────────────────────────────────────────────────
 
+async def _run(*args, **kwargs):
+    """subprocess.run on a worker thread.
+
+    These run inside an SSE generator; calling subprocess.run directly would
+    block the event loop for the full timeout, stalling every other request
+    and preventing this stream from flushing its own progress events.
+    """
+    return await to_thread(functools.partial(subprocess.run, *args, **kwargs))
+
+
 async def _configure_client_stream(host: str, user: str, password: str) -> AsyncGenerator[str, None]:
     # Step 0: Fetch cluster info (need name + IP)
     yield _sse("connect", "running", f"Connecting to {host}…")
@@ -160,13 +173,13 @@ async def _configure_client_stream(host: str, user: str, password: str) -> Async
     # Step 1: Ensure local user
     yield _sse("user", "running", f"Ensuring local user '{user}'…")
     try:
-        rc = subprocess.run(["id", user], capture_output=True).returncode
+        rc = (await _run(["id", user], capture_output=True)).returncode
         if rc != 0:
-            subprocess.run(
+            await _run(
                 ["useradd", "-u", "5000", "-U", "-m", "-d", f"/home/{user}", "-s", "/bin/bash", "-G", "sudo", user],
                 capture_output=True,
             )
-        subprocess.run(["chpasswd"], input=f"{user}:{password}\nroot:{password}", text=True)
+        await _run(["chpasswd"], input=f"{user}:{password}\nroot:{password}", text=True)
         yield _sse("user", "check", f"User '{user}' ready")
     except Exception as e:
         yield _sse("user", "error", str(e)[:200])
@@ -178,9 +191,9 @@ async def _configure_client_stream(host: str, user: str, password: str) -> Async
         ssh_dir.mkdir(exist_ok=True, mode=0o700)
         id_rsa = ssh_dir / "id_rsa"
         if not id_rsa.exists():
-            subprocess.run(["ssh-keygen", "-t", "rsa", "-b", "2048", "-f", str(id_rsa), "-q", "-N", ""])
-        subprocess.run(["ssh-keygen", "-f", str(ssh_dir / "known_hosts"), "-R", cluster_ip], capture_output=True)
-        r2 = subprocess.run(
+            await _run(["ssh-keygen", "-t", "rsa", "-b", "2048", "-f", str(id_rsa), "-q", "-N", ""])
+        await _run(["ssh-keygen", "-f", str(ssh_dir / "known_hosts"), "-R", cluster_ip], capture_output=True)
+        r2 = await _run(
             ["sshpass", "-p", password, "ssh-copy-id", "-o", "StrictHostKeyChecking=no", f"{user}@{cluster_ip}"],
             capture_output=True, text=True, timeout=20,
         )
@@ -194,7 +207,7 @@ async def _configure_client_stream(host: str, user: str, password: str) -> Async
     # Step 3: Fetch SSL truststore
     yield _sse("ssl", "running", "Fetching SSL truststore from cluster…")
     try:
-        r3 = subprocess.run(
+        r3 = await _run(
             ["scp", "-o", "StrictHostKeyChecking=no",
              f"{user}@{cluster_ip}:/opt/mapr/conf/ssl_truststore*", "/opt/mapr/conf/"],
             capture_output=True, text=True, timeout=20,
@@ -227,7 +240,7 @@ async def _configure_client_stream(host: str, user: str, password: str) -> Async
     yield _sse("keycreds", "running", "Copying key credentials…")
     try:
         for pattern in ["maprkeycreds.*", "maprtrustcreds.*", "maprhsm.conf"]:
-            subprocess.run(
+            await _run(
                 ["scp", "-o", "StrictHostKeyChecking=no",
                  f"{user}@{cluster_ip}:/opt/mapr/conf/{pattern}", "/opt/mapr/conf/"],
                 capture_output=True, timeout=15,
@@ -239,11 +252,14 @@ async def _configure_client_stream(host: str, user: str, password: str) -> Async
     # Step 6: Create MapR login ticket
     yield _sse("ticket", "running", "Creating MapR login ticket…")
     try:
-        proc2 = await asyncio.create_subprocess_shell(
-            f"echo '{password}' | maprlogin password -user {user}",
+        proc2 = await asyncio.create_subprocess_exec(
+            "maprlogin", "password", "-user", user,
+            stdin=asyncio.subprocess.PIPE,
             stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.STDOUT,
         )
-        stdout2, _ = await asyncio.wait_for(proc2.communicate(), timeout=20)
+        stdout2, _ = await asyncio.wait_for(
+            proc2.communicate(input=f"{password}\n".encode()), timeout=20
+        )
         if proc2.returncode != 0:
             yield _sse("ticket", "error", stdout2.decode(errors="replace")[:200])
         else:
@@ -251,13 +267,13 @@ async def _configure_client_stream(host: str, user: str, password: str) -> Async
     except Exception as e:
         yield _sse("ticket", "error", str(e)[:200])
 
-    # Step 7: Mount /mapr via NFS4
+    # Step 7: Mount /mapr via NFSv3
     yield _sse("nfs", "running", f"Mounting {cluster_ip}:/mapr…")
     try:
-        subprocess.run(["umount", "-l", "/mapr"], capture_output=True)
+        await _run(["umount", "-l", "/mapr"], capture_output=True)
         os.makedirs("/mapr", exist_ok=True)
         proc3 = await asyncio.create_subprocess_exec(
-            "mount", "-t", "nfs4", "-o", "proto=tcp,nolock,sec=sys", f"{cluster_ip}:/mapr", "/mapr",
+            "mount", "-t", "nfs", "-o", "nfsvers=3,proto=tcp,nolock,sec=sys", f"{cluster_ip}:/mapr", "/mapr",
             stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.STDOUT,
         )
         stdout3, _ = await asyncio.wait_for(proc3.communicate(), timeout=30)
@@ -269,17 +285,18 @@ async def _configure_client_stream(host: str, user: str, password: str) -> Async
         yield _sse("nfs", "error", str(e)[:200])
 
 
-@router.post("/client/configure")
-async def configure_client(
-    host: str = Body(...),
-    user: str = Body(...),
-    password: str = Body(...),
-):
+def _sse_response(gen) -> StreamingResponse:
     return StreamingResponse(
-        _configure_client_stream(host, user, password),
+        gen,
         media_type="text/event-stream",
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )
+
+
+@router.post("/configure")
+async def configure_client(config: ClusterConfig = Depends(get_cluster_config)):
+    """Stage 1 — configure the MapR client and mount the global namespace."""
+    return _sse_response(_configure_client_stream(config.host, config.user, config.password))
 
 
 # ── Artefact creation SSE ──────────────────────────────────────────────────────
@@ -300,111 +317,34 @@ async def _create_artefacts_stream(host: str, user: str, password: str) -> Async
     yield _sse("streams", "check" if ok else "error", msg)
 
 
-@router.post("/artefacts")
-async def create_artefacts(
-    host: str = Body(...),
-    user: str = Body(...),
-    password: str = Body(...),
-):
-    return StreamingResponse(
-        _create_artefacts_stream(host, user, password),
-        media_type="text/event-stream",
-        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
-    )
-
-
-# ── Legacy connect/info ────────────────────────────────────────────────────────
-
-@router.post("/connect")
-async def connect(
-    host: str = Body(...),
-    user: str = Body(...),
-    password: str = Body(...),
-):
-    auth = (user, password)
-    try:
-        async with httpx.AsyncClient(verify=settings_module.ssl_verify(), timeout=10) as client:
-            response = await client.get(f"https://{host}:8443/rest/dashboard/info", auth=auth)
-        if response.status_code != 200:
-            return {"status": "error", "message": f"HTTP {response.status_code}"}
-        data = response.json()
-        cluster = data["data"][0]["cluster"]
-        cache_cluster_info(host, cluster)
-        return {"status": "ok", "cluster": cluster}
-    except Exception as error:
-        logger.warning("Cluster connect error: %s", error)
-        return {"status": "error", "message": str(error)}
+@router.post("/provision")
+async def provision_artefacts(config: ClusterConfig = Depends(get_cluster_config)):
+    """Stage 2 — create the demo volumes, tables and streams."""
+    return _sse_response(_create_artefacts_stream(config.host, config.user, config.password))
 
 
 @router.get("/info")
 async def cluster_info(config: ClusterConfig = Depends(get_cluster_config)):
-    info = get_cached_cluster_info(config.host)
-    if info:
-        return {"status": "ok", "cluster": info}
-    return await connect(host=config.host, user=config.user, password=config.password)
-
-
-# ── Setup (full, legacy SSE) ───────────────────────────────────────────────────
-
-async def _setup_step_stream(host: str, user: str, password: str) -> AsyncGenerator[str, None]:
-    from services.mock import create_customers, create_transactions
-    config = ClusterConfig(host=host, user=user, password=password)
-    auth = (user, password)
-
-    yield _sse("clusterinfo", "running", f"Connecting to {host}…")
+    """Live cluster identity and health, from the cluster REST API."""
+    cached = get_cached_cluster_info(config.host)
     try:
-        async with httpx.AsyncClient(verify=settings_module.ssl_verify(), timeout=15) as client:
-            resp = await client.get(f"https://{host}:8443/rest/dashboard/info", auth=auth)
-        if resp.status_code == 401:
-            yield _sse("clusterinfo", "error", "Authentication failed — check username and password")
-            return
-        if resp.status_code != 200:
-            yield _sse("clusterinfo", "error", f"Cluster returned HTTP {resp.status_code}")
-            return
-        data = resp.json()
-        cluster = data["data"][0]["cluster"]
-        cache_cluster_info(host, cluster)
-        yield _sse("clusterinfo", "check", f"Connected to {cluster['name']}")
-    except Exception as e:
-        yield _sse("clusterinfo", "error", _classify_httpx_error(e, host))
-        return
-
-    # Client configuration delegated to new stream
-    async for chunk in _configure_client_stream(host, user, password):
-        yield chunk
-
-    yield _sse("createvolumes", "running", "Creating volumes and streams…")
-    try:
-        for fn in [_create_volumes, _create_tables, _create_streams]:
-            ok, msg = await fn(config)
-            if not ok:
-                yield _sse("createvolumes", "error", msg)
-                break
-        else:
-            yield _sse("createvolumes", "check", "Volumes and streams ready")
-    except Exception as e:
-        yield _sse("createvolumes", "error", f"Volume/stream setup failed: {e}")
-
-    yield _sse("mockdata", "running", "Generating mock data…")
-    try:
-        await create_customers(config)
-        await create_transactions(config)
-        yield _sse("mockdata", "check", "Mock data created")
-    except Exception as e:
-        yield _sse("mockdata", "error", f"Mock data failed: {e}")
-
-
-@router.post("/setup")
-async def setup_cluster(
-    host: str = Body(...),
-    user: str = Body(...),
-    password: str = Body(...),
-):
-    return StreamingResponse(
-        _setup_step_stream(host, user, password),
-        media_type="text/event-stream",
-        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
-    )
+        async with httpx.AsyncClient(verify=settings_module.ssl_verify(), timeout=10) as client:
+            response = await client.get(
+                f"https://{config.host}:8443/rest/dashboard/info",
+                auth=(config.user, config.password),
+            )
+        if response.status_code == 401:
+            return {"status": "error", "message": "Authentication failed — check the username and password."}
+        if response.status_code != 200:
+            return {"status": "error", "message": f"Cluster returned HTTP {response.status_code}"}
+        cluster = response.json()["data"][0]["cluster"]
+        cache_cluster_info(config.host, cluster)
+        return {"status": "ok", "cluster": cluster}
+    except Exception as error:
+        logger.warning("Cluster info error: %s", error)
+        if cached:
+            return {"status": "stale", "cluster": cached, "message": _classify_httpx_error(error, config.host)}
+        return {"status": "error", "message": _classify_httpx_error(error, config.host)}
 
 
 # ── Volume / table / stream creation helpers ───────────────────────────────────
@@ -438,10 +378,10 @@ async def _rest_post(host: str, auth: tuple, path: str, params: dict) -> dict:
 
 _VOLUMES = [
     # (cluster-unique volume name, mount path)
-    (NEXMESH_VOL_PARENT, BASEDIR),
-    (NEXMESH_VOL_BRONZE, f"{BASEDIR}/{VOLUME_BRONZE}"),
-    (NEXMESH_VOL_SILVER, f"{BASEDIR}/{VOLUME_SILVER}"),
-    (NEXMESH_VOL_GOLD,   f"{BASEDIR}/{VOLUME_GOLD}"),
+    (CATCHX_VOL_PARENT, BASEDIR),
+    (CATCHX_VOL_BRONZE, f"{BASEDIR}/{VOLUME_BRONZE}"),
+    (CATCHX_VOL_SILVER, f"{BASEDIR}/{VOLUME_SILVER}"),
+    (CATCHX_VOL_GOLD,   f"{BASEDIR}/{VOLUME_GOLD}"),
 ]
 
 _VOL_PARAMS = {
@@ -537,24 +477,6 @@ async def _create_streams(config: ClusterConfig) -> tuple[bool, str]:
             logger.error("create_streams error for %s: %s", stream, e)
             return False, f"Stream '{stream}': {e}"
     return True, "Streams ready"
-
-
-@router.post("/volumes")
-async def create_volumes_endpoint(config: ClusterConfig = Depends(get_cluster_config)):
-    ok, msg = await _create_volumes(config)
-    return {"status": "ok" if ok else "error", "message": msg}
-
-
-@router.post("/tables")
-async def create_tables_endpoint(config: ClusterConfig = Depends(get_cluster_config)):
-    ok, msg = await _create_tables(config)
-    return {"status": "ok" if ok else "error", "message": msg}
-
-
-@router.post("/streams")
-async def create_streams_endpoint(config: ClusterConfig = Depends(get_cluster_config)):
-    ok, msg = await _create_streams(config)
-    return {"status": "ok" if ok else "error", "message": msg}
 
 
 @router.delete("/cleanup")

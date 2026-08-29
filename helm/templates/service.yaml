@@ -1,9 +1,9 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "nexmesh.fullname" . }}
+  name: {{ include "catchx.fullname" . }}
   labels:
-    {{- include "nexmesh.labels" . | nindent 4 }}
+    {{- include "catchx.labels" . | nindent 4 }}
 spec:
   type: ClusterIP
   ports:
@@ -12,4 +12,4 @@ spec:
       protocol: TCP
       name: http
   selector:
-    {{- include "nexmesh.selectorLabels" . | nindent 4 }}
+    {{- include "catchx.selectorLabels" . | nindent 4 }}

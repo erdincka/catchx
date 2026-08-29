@@ -1,3 +1,12 @@
+"""Pipeline business logic: bronze → silver refinement, gold consolidation, fraud scoring.
+
+Blocking libraries (pyiceberg, pandas, deltalake) are pushed onto worker threads
+via `to_thread`; see services/tables.py for why that matters.
+"""
+
+from __future__ import annotations
+
+import asyncio
 import logging
 import os
 import random
@@ -9,15 +18,21 @@ import pandas as pd
 from config import (
     BASEDIR, MOUNT_PATH, VOLUME_BRONZE, VOLUME_SILVER, VOLUME_GOLD,
     TABLE_CUSTOMERS, TABLE_TRANSACTIONS, TABLE_PROFILES, TRANSACTION_CATEGORIES,
+    FRAUD_SCORE_THRESHOLD,
 )
+from asyncutil import to_thread
 from store import ClusterConfig, get_cluster_name, ensure_cluster_name
 from services import tables, iceberger
-from services.mock import dummy_fraud_score
 
 logger = logging.getLogger("functions")
 
 
 def get_customer_id(config: ClusterConfig, from_account: str) -> Optional[str]:
+    """Look up a single customer id by account number (one Iceberg scan per call).
+
+    Kept for reference and ad-hoc use — the ingestion path uses
+    `build_account_index` instead, which resolves every account in one scan.
+    """
     cluster_name = get_cluster_name(config)
     found = iceberger.find_by_field(
         cluster_name=cluster_name,
@@ -31,16 +46,50 @@ def get_customer_id(config: ClusterConfig, from_account: str) -> Optional[str]:
     return None
 
 
-async def upsert_profile(config: ClusterConfig, transaction: dict):
-    cluster_name = get_cluster_name(config)
-    profile = {
-        "_id": get_customer_id(config, transaction["receiver_account"]),
-        "score": await dummy_fraud_score(),
+def build_account_index(cluster_name: str) -> dict[str, str]:
+    """Map account_number → customer _id with a single scan of bronze customers.
+
+    Scanning once and indexing in memory replaces what was one full Iceberg
+    table scan per transaction — the difference between a demo that streams
+    and one that appears to hang.
+    """
+    df = iceberger.find_all(cluster_name, VOLUME_BRONZE, TABLE_CUSTOMERS)
+    if df.empty or "account_number" not in df.columns:
+        return {}
+    id_col = "_id" if "_id" in df.columns else "id"
+    if id_col not in df.columns:
+        return {}
+    return {
+        str(acct): str(cid)
+        for acct, cid in zip(df["account_number"], df[id_col])
+        if acct is not None and cid is not None
     }
-    if profile["_id"] is None:
-        return
+
+
+async def upsert_profiles(config: ClusterConfig, transactions: list[dict]) -> int:
+    """Score each transaction's receiver and write all profiles in one batch."""
+    cluster_name = await ensure_cluster_name(config)
+    if not cluster_name:
+        return 0
+
+    index = await to_thread(build_account_index, cluster_name)
+    if not index:
+        return 0
+
+    profiles: dict[str, dict] = {}
+    for txn in transactions:
+        customer_id = index.get(str(txn.get("receiver_account")))
+        if customer_id is None:
+            continue
+        # Last write wins, matching the previous per-record upsert behaviour.
+        profiles[customer_id] = {"_id": customer_id, "score": random.randint(0, 100)}
+
+    if not profiles:
+        return 0
+
     table_path = f"{BASEDIR}/{VOLUME_SILVER}/{TABLE_PROFILES}"
-    tables.upsert_document(config, table_path, profile)
+    await tables.upsert_documents(config, table_path, list(profiles.values()))
+    return len(profiles)
 
 
 async def refine_transactions(config: ClusterConfig) -> dict:
@@ -52,38 +101,32 @@ async def refine_transactions(config: ClusterConfig) -> dict:
     tablename = TABLE_TRANSACTIONS
     silver_table = f"{BASEDIR}/{VOLUME_SILVER}/{tablename}"
 
-    if not os.path.lexists(f"{MOUNT_PATH}/{cluster_name}{BASEDIR}/{tier}/{tablename}"):
-        return {"status": "error", "message": f"Input table not found: {tablename} in {tier}"}
-
     docs = await tables.get_documents(config, f"{BASEDIR}/{tier}/{tablename}", limit=None)
     df = pd.DataFrame.from_dict(docs)
     if df.empty:
-        return {"status": "error", "message": "No records found in bronze transactions"}
+        return {"status": "error", "message": "No transactions in the bronze tier — run Ingest first."}
 
-    df["category"] = df.apply(lambda _: random.choice(TRANSACTION_CATEGORIES), axis=1)
+    df["category"] = [random.choice(TRANSACTION_CATEGORIES) for _ in range(len(df))]
 
-    if await tables.upsert_documents(config, silver_table, df.to_dict("records")):
-        logger.info("Wrote %d records to %s", df.shape[0], silver_table)
-        return {"status": "ok", "count": df.shape[0]}
-    else:
+    if not await tables.upsert_documents(config, silver_table, df.to_dict("records")):
         return {"status": "error", "message": f"Failed to save records in {silver_table}"}
 
+    # Profiles are silver too, and building them here means bronze customers
+    # are already present to resolve accounts against.
+    profiles = await upsert_profiles(config, docs)
+    logger.info("Wrote %d records to %s (%d profiles)", df.shape[0], silver_table, profiles)
+    return {"status": "ok", "count": int(df.shape[0]), "profiles": profiles}
 
-async def refine_customers(config: ClusterConfig) -> dict:
+
+def _enrich_customers_blocking(cluster_name: str) -> pd.DataFrame:
+    """Country/subdivision enrichment and PII masking — pure CPU + Iceberg scan."""
     import country_converter as coco
 
-    cluster_name = await ensure_cluster_name(config)
-    if not cluster_name:
-        return {"status": "error", "message": "Cluster not connected"}
-
-    silver_table = f"{BASEDIR}/{VOLUME_SILVER}/{TABLE_CUSTOMERS}"
+    df = iceberger.find_all(cluster_name, VOLUME_BRONZE, TABLE_CUSTOMERS)
+    if df.empty:
+        return df
 
     cc = coco.CountryConverter()
-    df = iceberger.find_all(cluster_name, VOLUME_BRONZE, TABLE_CUSTOMERS)
-
-    if df.empty:
-        return {"status": "error", "message": "No customers found in bronze tier — ingest customers first"}
-
     df.drop_duplicates(subset="_id", keep="last", ignore_index=True, inplace=True)
     df["country"] = cc.pandas_convert(df["country_code"], src="ISO2", to="name_short")
 
@@ -100,12 +143,24 @@ async def refine_customers(config: ClusterConfig) -> dict:
     df["birthdate"] = "*" * 8
     df["current_location"] = "*" * 4
     df.rename(columns={"id": "_id"}, inplace=True)
+    return df
+
+
+async def refine_customers(config: ClusterConfig) -> dict:
+    cluster_name = await ensure_cluster_name(config)
+    if not cluster_name:
+        return {"status": "error", "message": "Cluster not connected"}
+
+    silver_table = f"{BASEDIR}/{VOLUME_SILVER}/{TABLE_CUSTOMERS}"
+    df = await to_thread(_enrich_customers_blocking, cluster_name)
+
+    if df.empty:
+        return {"status": "error", "message": "No customers in the bronze tier — run Ingest first."}
 
     if await tables.upsert_documents(config, silver_table, df.to_dict("records")):
         logger.info("Wrote %d customers to %s", df.shape[0], silver_table)
-        return {"status": "ok", "count": df.shape[0]}
-    else:
-        return {"status": "error", "message": f"Failed to save records in {silver_table}"}
+        return {"status": "ok", "count": int(df.shape[0])}
+    return {"status": "error", "message": f"Failed to save records in {silver_table}"}
 
 
 async def create_golden(config: ClusterConfig) -> dict:
@@ -117,128 +172,179 @@ async def create_golden(config: ClusterConfig) -> dict:
     customers_table = f"{BASEDIR}/{VOLUME_SILVER}/{TABLE_CUSTOMERS}"
     transactions_table = f"{BASEDIR}/{VOLUME_SILVER}/{TABLE_TRANSACTIONS}"
 
-    for path in [profile_table, customers_table, transactions_table]:
-        if not os.path.lexists(f"{MOUNT_PATH}/{cluster_name}{path}"):
-            return {"status": "error", "message": f"Input table not found: {path}"}
-
+    # Read the tables rather than stat-ing them first. Table creation is visible
+    # over NFS a moment before the directory entry is, so a stat immediately
+    # after Refine could report "missing" for a table that had just been written.
     profiles_df = pd.DataFrame.from_dict(await tables.get_documents(config, profile_table, limit=None))
     customers_df = pd.DataFrame.from_dict(await tables.get_documents(config, customers_table, limit=None))
     transactions_df = pd.DataFrame.from_dict(await tables.get_documents(config, transactions_table, limit=None))
 
-    if profiles_df.empty or customers_df.empty or transactions_df.empty:
-        return {"status": "error", "message": "Not all silver tables are populated"}
+    missing = [
+        name for name, df in (
+            ("profiles", profiles_df),
+            ("customers", customers_df),
+            ("transactions", transactions_df),
+        ) if df.empty
+    ]
+    if missing:
+        return {
+            "status": "error",
+            "message": f"Silver tier has no {', '.join(missing)} yet — run Refine first.",
+        }
 
     updated_customers = pd.merge(customers_df, profiles_df, on="_id", how="left").fillna({"score": 0})
     pii_cols = ["name", "birthdate", "current_location", "mail", "username", "address", "account_number", "ssn"]
     updated_customers.drop([c for c in pii_cols if c in updated_customers.columns], axis=1, inplace=True)
     updated_customers["score"] = pd.to_numeric(updated_customers["score"], errors="coerce").convert_dtypes()
 
-    transactions_df.drop([c for c in ["sender_account", "receiver_account"] if c in transactions_df.columns], axis=1, inplace=True)
+    transactions_df.drop(
+        [c for c in ["sender_account", "receiver_account"] if c in transactions_df.columns],
+        axis=1, inplace=True,
+    )
     transactions_df["fraud"] = False
 
-    results = {}
-    results["customers"] = await tables.delta_table_upsert(cluster_name, f"{BASEDIR}/{VOLUME_GOLD}/{TABLE_CUSTOMERS}", updated_customers)
-    results["transactions"] = await tables.delta_table_upsert(cluster_name, f"{BASEDIR}/{VOLUME_GOLD}/{TABLE_TRANSACTIONS}", transactions_df)
+    results = {
+        "customers": await tables.delta_table_upsert(
+            cluster_name, f"{BASEDIR}/{VOLUME_GOLD}/{TABLE_CUSTOMERS}", updated_customers
+        ),
+        "transactions": await tables.delta_table_upsert(
+            cluster_name, f"{BASEDIR}/{VOLUME_GOLD}/{TABLE_TRANSACTIONS}", transactions_df
+        ),
+    }
 
     if all(results.values()):
-        return {"status": "ok", "message": "Gold tier created"}
-    else:
-        failed = [k for k, v in results.items() if not v]
-        return {"status": "error", "message": f"Failed to write: {failed}"}
+        return {
+            "status": "ok",
+            "message": "Gold tier created",
+            "customers": int(updated_customers.shape[0]),
+            "transactions": int(transactions_df.shape[0]),
+        }
+    failed = [k for k, v in results.items() if not v]
+    return {"status": "error", "message": f"Failed to write: {failed}"}
 
 
 async def fraud_detection(config: ClusterConfig) -> dict:
+    """Score bronze transactions and write every flagged row in a single merge.
+
+    The scored rows are batched into one Delta upsert; writing them one at a
+    time meant a full Delta merge per flagged transaction.
+    """
     cluster_name = await ensure_cluster_name(config)
     if not cluster_name:
         return {"status": "error", "message": "Cluster not connected"}
 
-    input_table = f"{MOUNT_PATH}/{cluster_name}{BASEDIR}/{VOLUME_BRONZE}/{TABLE_TRANSACTIONS}"
     output_table = f"{BASEDIR}/{VOLUME_GOLD}/{TABLE_TRANSACTIONS}"
 
-    if not os.path.lexists(input_table):
-        return {"status": "error", "message": f"No transactions in bronze tier"}
+    records = await tables.get_documents(
+        config, f"{BASEDIR}/{VOLUME_BRONZE}/{TABLE_TRANSACTIONS}", limit=None
+    )
+    if not records:
+        return {"status": "error", "message": "No transactions in the bronze tier — run Ingest first."}
 
-    fraud_count = 0
-    non_fraud_count = 0
+    flagged = [r for r in records if random.randint(0, 100) > FRAUD_SCORE_THRESHOLD]
+    fraud_count = len(flagged)
+    non_fraud_count = len(records) - fraud_count
 
-    records = await tables.get_documents(config, f"{BASEDIR}/{VOLUME_BRONZE}/{TABLE_TRANSACTIONS}", limit=None)
+    if flagged:
+        df = pd.DataFrame.from_dict(flagged)
+        df["fraud"] = True
+        df.drop(
+            [c for c in ["sender_account", "receiver_account"] if c in df.columns],
+            axis=1, inplace=True,
+        )
+        if not await tables.delta_table_upsert(cluster_name, output_table, df):
+            return {"status": "error", "message": f"Failed to write flagged rows to {output_table}"}
 
-    for record in records:
-        score = await dummy_fraud_score()
-        if score > 85:
-            possible_fraud = pd.DataFrame.from_dict([record])
-            possible_fraud["fraud"] = True
-            possible_fraud.drop(
-                [c for c in ["sender_account", "receiver_account"] if c in possible_fraud.columns],
-                axis=1, inplace=True,
-            )
-            if await tables.delta_table_upsert(cluster_name, output_table, possible_fraud):
-                fraud_count += 1
-        else:
-            non_fraud_count += 1
+    return {
+        "status": "ok",
+        "fraud_count": fraud_count,
+        "non_fraud_count": non_fraud_count,
+        "scanned": len(records),
+    }
 
-    return {"status": "ok", "fraud_count": fraud_count, "non_fraud_count": non_fraud_count}
+
+def _purge_local_artefacts(cluster_name: str) -> list[str]:
+    import shutil
+
+    messages: list[str] = []
+    basedir = f"{MOUNT_PATH}/{cluster_name}{BASEDIR}"
+    try:
+        if os.path.exists(f"{basedir}/iceberg.db"):
+            catalog = iceberger.get_catalog(cluster_name)
+            for tier in [VOLUME_BRONZE, VOLUME_SILVER, VOLUME_GOLD]:
+                if (tier,) in catalog.list_namespaces():
+                    for tbl in catalog.list_tables(tier):
+                        try:
+                            catalog.purge_table(tbl)
+                        except Exception:
+                            pass
+                try:
+                    catalog.drop_namespace(tier)
+                except Exception:
+                    pass
+            os.unlink(f"{basedir}/iceberg.db")
+            messages.append("Iceberg tables purged")
+
+        if os.path.isdir(basedir):
+            shutil.rmtree(basedir, ignore_errors=True)
+            messages.append(f"{basedir} removed")
+    except Exception as e:
+        messages.append(f"Cleanup error: {e}")
+    return messages
 
 
 async def delete_volumes_and_streams(config: ClusterConfig) -> dict:
-    import shutil
     import httpx
     import settings as settings_module
-    from config import VOLUME_BRONZE, VOLUME_SILVER, VOLUME_GOLD, STREAM_INCOMING, STREAM_CHANGELOG
+    from config import (
+        STREAM_INCOMING, STREAM_CHANGELOG,
+        CATCHX_VOL_PARENT, CATCHX_VOL_BRONZE, CATCHX_VOL_SILVER, CATCHX_VOL_GOLD,
+    )
 
     cluster_name = get_cluster_name(config)
     auth = (config.user, config.password)
-    messages = []
+    messages: list[str] = []
 
-    for vol in [VOLUME_BRONZE, VOLUME_SILVER, VOLUME_GOLD]:
-        URL = f"https://{config.host}:8443/rest/volume/remove?name={vol}"
-        async with httpx.AsyncClient(verify=settings_module.ssl_verify()) as client:
-            try:
-                response = await client.post(URL, auth=auth)
-                res = response.json()
-                if res["status"] == "OK":
-                    messages.append(f"Volume '{vol}' deleted")
-                else:
-                    messages.append(f"{vol}: {res['errors'][0]['desc']}")
-            except Exception as e:
-                messages.append(f"Failed to delete {vol}: {e}")
+    # Volume *names* on the cluster, not the mount-path suffixes — cleanup used
+    # to ask for "bronze" while the volume is called "catchx-bronze", so every
+    # removal failed with "No such file or directory" and the demo could never
+    # be fully reset. Children first: the parent cannot go while they are under it.
+    volume_names = [CATCHX_VOL_BRONZE, CATCHX_VOL_SILVER, CATCHX_VOL_GOLD, CATCHX_VOL_PARENT]
 
-    for stream in [STREAM_INCOMING, STREAM_CHANGELOG]:
-        URL = f"https://{config.host}:8443/rest/stream/delete?path={BASEDIR}/{stream}"
-        async with httpx.AsyncClient(verify=settings_module.ssl_verify()) as client:
+    async with httpx.AsyncClient(verify=settings_module.ssl_verify(), timeout=30) as client:
+        for stream in [STREAM_INCOMING, STREAM_CHANGELOG]:
             try:
-                response = await client.post(URL, auth=auth)
+                response = await client.post(
+                    f"https://{config.host}:8443/rest/stream/delete",
+                    auth=auth, params={"path": f"{BASEDIR}/{stream}"},
+                )
                 res = response.json()
-                if res["status"] == "OK":
+                if res.get("status") == "OK":
                     messages.append(f"Stream '{stream}' deleted")
                 else:
-                    messages.append(f"Stream {stream}: {res['errors'][0]['desc']}")
+                    messages.append(f"Stream {stream}: {res.get('errors', [{}])[0].get('desc', 'unknown error')}")
             except Exception as e:
                 messages.append(f"Failed to delete stream {stream}: {e}")
 
-    if cluster_name:
-        basedir = f"{MOUNT_PATH}/{cluster_name}{BASEDIR}"
-        try:
-            if os.path.exists(f"{basedir}/iceberg.db"):
-                catalog = iceberger.get_catalog(cluster_name)
-                for tier in [VOLUME_BRONZE, VOLUME_SILVER, VOLUME_GOLD]:
-                    if (tier,) in catalog.list_namespaces():
-                        for tbl in catalog.list_tables(tier):
-                            try:
-                                catalog.purge_table(tbl)
-                            except Exception:
-                                pass
-                    try:
-                        catalog.drop_namespace(tier)
-                    except Exception:
-                        pass
-                os.unlink(f"{basedir}/iceberg.db")
-                messages.append("Iceberg tables purged")
+        for vol in volume_names:
+            try:
+                response = await client.post(
+                    f"https://{config.host}:8443/rest/volume/remove", auth=auth, params={"name": vol}
+                )
+                res = response.json()
+                if res.get("status") == "OK":
+                    messages.append(f"Volume '{vol}' deleted")
+                else:
+                    desc = res.get("errors", [{}])[0].get("desc", "unknown error")
+                    # A missing volume is a fine outcome for a cleanup.
+                    if "no such" in desc.lower() or "not found" in desc.lower():
+                        messages.append(f"Volume '{vol}' was not present")
+                    else:
+                        messages.append(f"{vol}: {desc}")
+            except Exception as e:
+                messages.append(f"Failed to delete {vol}: {e}")
 
-            if os.path.isdir(basedir):
-                shutil.rmtree(basedir, ignore_errors=True)
-                messages.append(f"{basedir} removed")
-        except Exception as e:
-            messages.append(f"Cleanup error: {e}")
+    if cluster_name:
+        messages += await to_thread(_purge_local_artefacts, cluster_name)
 
     return {"status": "ok", "messages": messages}

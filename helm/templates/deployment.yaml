@@ -1,18 +1,18 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "nexmesh.fullname" . }}
+  name: {{ include "catchx.fullname" . }}
   labels:
-    {{- include "nexmesh.labels" . | nindent 4 }}
+    {{- include "catchx.labels" . | nindent 4 }}
 spec:
   replicas: 1
   selector:
     matchLabels:
-      {{- include "nexmesh.selectorLabels" . | nindent 6 }}
+      {{- include "catchx.selectorLabels" . | nindent 6 }}
   template:
     metadata:
       labels:
-        {{- include "nexmesh.labels" . | nindent 8 }}
+        {{- include "catchx.labels" . | nindent 8 }}
     spec:
       containers:
         - name: backend

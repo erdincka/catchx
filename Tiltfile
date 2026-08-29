@@ -10,7 +10,7 @@ default_registry('registry.' + os.environ['DOMAIN'])
 
 # Backend Service
 docker_build(
-    'erdincka/nexmesh-backend',
+    'erdincka/catchx-backend',
     './backend',
     build_args={'MAPR_REPO': os.environ['MAPR_REPO']},
     live_update=[
@@ -22,7 +22,7 @@ docker_build(
 
 # Frontend (Next.js)
 docker_build(
-    'erdincka/nexmesh-frontend',
+    'erdincka/catchx-frontend',
     './frontend',
     live_update=[
         fall_back_on('frontend/Dockerfile'),
@@ -32,9 +32,9 @@ docker_build(
 
 k8s_yaml(helm(
     './helm/',
-    name="nexmesh",
+    name="catchx",
     namespace=os.environ['NAMESPACE'],
     set=[
-        'ezua.virtualService.endpoint=nexmesh.' + os.environ["DOMAIN"]
+        'ezua.virtualService.endpoint=catchx.' + os.environ["DOMAIN"]
     ],
 ))

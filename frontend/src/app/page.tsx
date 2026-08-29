@@ -1,140 +1,112 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { motion } from "framer-motion";
-import Header from "@/components/Header";
-import Footer from "@/components/Footer";
-import MeshDiagram from "@/components/MeshDiagram";
-import ConnectDialog from "@/components/ConnectDialog";
-import SettingsDialog from "@/components/SettingsDialog";
-import DataExplorer, { ExplorerFilesystem } from "@/components/DataExplorer";
-import { NexusSectionDivider } from "@/components/nexus-core-components";
-import { useCluster } from "@/contexts/ClusterContext";
-import { useToast } from "@/contexts/ToastContext";
+import Link from "next/link";
+import {
+  RiArrowRightLine, RiSettings3Line, RiGitBranchLine, RiShieldCheckLine,
+} from "@remixicon/react";
+import AppShell from "@/components/AppShell";
+import MeshDiagram from "@/components/diagrams/MeshDiagram";
+import { Button, Card, StatusDot } from "@/components/ui";
+import { useSettings } from "@/contexts/SettingsContext";
 
-export default function MeshPage() {
-  const router = useRouter();
-  const { host, user, pass, clusterInfo, settings } = useCluster();
-  const { notify } = useToast();
+const FLOW = [
+  { tier: "Source",  detail: "CSV written over NFS", colour: "var(--text-subtle)" },
+  { tier: "Stream",  detail: "Kafka-compatible", colour: "var(--info)" },
+  { tier: "Bronze",  detail: "DocumentDB + Iceberg", colour: "var(--bronze)" },
+  { tier: "Silver",  detail: "Enriched, PII masked", colour: "var(--silver)" },
+  { tier: "Gold",    detail: "Delta Lake product", colour: "var(--gold)" },
+];
 
-  const [showConnect, setShowConnect] = useState(false);
-  const [showSettings, setShowSettings] = useState(false);
-  const [explorer, setExplorer] = useState<{ title: string; path: string; output: string } | null>(null);
-
-  // No auto-popup — the "Not connected" indicator in the header is sufficient
-
-  function handleRegion(id: string) {
-    switch (id) {
-      case "Fraud":
-        router.push("/fraud");
-        break;
-      case "NFS":
-        notify("NFS mount — use the NFS Upload button to copy customers.csv into the cluster.", "info");
-        break;
-      case "S3": {
-        const ep = settings.s3Server || host;
-        if (ep) window.open(`http://${ep}:9000`, "_blank");
-        else notify("Configure cluster host in Settings to open the Object Store console.", "warning");
-        break;
-      }
-      case "IAM":
-        if (host) window.open(`https://${host}:8443/app/mcs/`, "_blank");
-        else notify("Configure cluster host in Settings first.", "warning");
-        break;
-      case "Policies":
-        notify("Data Policies: governance rules are enforced at platform level across all domains.", "info");
-        break;
-      case "Catalogue":
-        notify("Data Catalogue: schema registry and lineage available via the Polaris REST catalog.", "info");
-        break;
-      default:
-        if (id) notify(`${id}: hover to learn about this domain.`, "info");
-    }
-  }
-
-  async function handleNfsUpload() {
-    const name = clusterInfo?.name ?? "";
-    const r = await fetch(`/api/data/fs/nfs-upload?cluster=${name}`, {
-      method: "POST",
-      headers: { "X-Mapr-Host": host, "X-Mapr-User": user, "X-Mapr-Pass": pass },
-    });
-    const d = await r.json();
-    if (r.ok) notify(d.message ?? "Uploaded.", "positive");
-    else notify(d.detail ?? "Upload failed.", "negative");
-  }
-
-  async function handleS3Upload() {
-    const { s3Server, s3AccessKey, s3SecretKey } = settings;
-    if (!s3Server || !s3SecretKey) { notify("Configure S3 settings first.", "warning"); return; }
-    const r = await fetch(
-      `/api/data/s3/upload?s3_server=${s3Server}&access_key=${s3AccessKey}&secret_key=${s3SecretKey}`,
-      { method: "POST", headers: { "X-Mapr-Host": host, "X-Mapr-User": user, "X-Mapr-Pass": pass } }
-    );
-    const d = await r.json();
-    if (r.ok) notify(d.message ?? "Uploaded.", "positive");
-    else notify(d.detail ?? "Upload failed.", "negative");
-  }
-
-  async function handleVolumeExplore(label: string, path: string) {
-    setExplorer({ title: `Exploring: ${label}`, path, output: "Loading…" });
-    try {
-      const r = await fetch(`/api/data/fs/list?path=${encodeURIComponent(path)}`, {
-        headers: { "X-Mapr-Host": host, "X-Mapr-User": user, "X-Mapr-Pass": pass },
-      });
-      const data = await r.json();
-      const output = data.output ?? JSON.stringify(data, null, 2);
-      setExplorer({ title: `Exploring: ${label}`, path, output });
-    } catch (e) {
-      setExplorer({ title: `Exploring: ${label}`, path, output: String(e) });
-    }
-  }
+export default function OverviewPage() {
+  const { configured, ready } = useSettings();
 
   return (
-    <div className="flex flex-col h-screen bg-neutrals-deep">
-      <Header
-        onConnectClick={() => setShowConnect(true)}
-        onSettingsClick={() => setShowSettings(true)}
-      />
+    <AppShell>
+      <div className="max-w-[1200px] mx-auto px-4 py-6 flex flex-col gap-5">
+        {/* Hero */}
+        <div className="flex flex-wrap items-end justify-between gap-4">
+          <div className="max-w-2xl">
+            <h1 className="text-[22px] font-semibold tracking-tight text-text">
+              A hybrid data mesh on HPE Data Fabric
+            </h1>
+            <p className="text-[13px] text-muted mt-1.5 leading-relaxed">
+              CatchX implements one domain of a financial-services data mesh end to end:
+              fraud detection over streaming and batch data, using the fabric&apos;s own
+              streams, document store, table formats and global namespace. Nothing else
+              is required — no external catalog, metrics stack or log pipeline.
+            </p>
+          </div>
 
-      {/* Page hero label */}
-      <motion.div
-        className="shrink-0 px-8 pt-[88px] pb-2"
-        initial={{ opacity: 0, y: -8 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5, delay: 0.1, ease: [0.22, 1, 0.36, 1] }}
-      >
-        <NexusSectionDivider
-          // @ts-ignore
-          title="Nexus Hybrid Data Mesh"
-          style={{ paddingLeft: 0 }}
-        />
-        <p className="font-sans font-light text-sm text-neutrals-medium mt-2 tracking-wide max-w-2xl">
-          Eight autonomous data domains unified by the Data Fabric platform — Global Namespace, governed access,
-          and integrated NFS and S3 sources. Hover any domain to learn its data products.{" "}
-          Click <span className="text-brand-vivid font-medium">Fraud & Risk</span> to explore the live pipeline.
-        </p>
-      </motion.div>
+          <div className="flex items-center gap-2">
+            {configured ? (
+              <Link href="/pipeline">
+                <Button variant="primary" icon={<RiShieldCheckLine size={14} />}>
+                  Open the pipeline
+                </Button>
+              </Link>
+            ) : (
+              <Link href="/setup">
+                <Button variant="primary" icon={<RiSettings3Line size={14} />}>
+                  Set up a cluster
+                </Button>
+              </Link>
+            )}
+          </div>
+        </div>
 
-      <main className="flex-1 h-0 overflow-hidden relative">
-        <MeshDiagram onRegionClick={handleRegion} />
-      </main>
+        {/* Status strip */}
+        <Card className="px-3 py-2.5 flex flex-wrap items-center gap-x-5 gap-y-2">
+          <span className="flex items-center gap-2 text-[12px]">
+            <StatusDot tone={ready ? "good" : configured ? "warn" : "bad"} pulse={ready} />
+            <span className="text-muted">
+              {ready ? "Cluster ready" : configured ? "Setup incomplete" : "No cluster configured"}
+            </span>
+          </span>
+          <span className="h-4 w-px bg-border hidden sm:block" />
+          <span className="flex items-center gap-1.5 text-[12px] text-muted">
+            <RiGitBranchLine size={13} className="text-subtle" />
+            Medallion architecture, six steps
+          </span>
+          {!configured && (
+            <>
+              <div className="flex-1" />
+              <Link
+                href="/setup"
+                className="text-[12px] font-medium text-accent-text hover:underline flex items-center gap-1"
+              >
+                Configure now <RiArrowRightLine size={12} />
+              </Link>
+            </>
+          )}
+        </Card>
 
-      <Footer onVolumeExplore={handleVolumeExplore} />
+        {/* Flow summary */}
+        <div>
+          <h2 className="text-[11px] font-semibold uppercase tracking-[0.14em] text-subtle mb-2">
+            How data moves
+          </h2>
+          <div className="grid gap-2 grid-cols-2 sm:grid-cols-3 lg:grid-cols-5">
+            {FLOW.map((s, i) => (
+              <div
+                key={s.tier}
+                className="relative p-3 rounded-lg border border-border bg-surface overflow-hidden"
+              >
+                <span
+                  className="absolute left-0 top-0 bottom-0 w-[3px]"
+                  style={{ background: s.colour }}
+                  aria-hidden
+                />
+                <div className="text-[10px] font-mono text-subtle">{i + 1}</div>
+                <div className="text-[13px] font-semibold text-text mt-0.5">{s.tier}</div>
+                <div className="text-[11px] text-muted leading-snug mt-0.5">{s.detail}</div>
+              </div>
+            ))}
+          </div>
+        </div>
 
-      {/* Modals & panels */}
-      {showConnect && <ConnectDialog onClose={() => setShowConnect(false)} />}
-      {showSettings && <SettingsDialog onClose={() => setShowSettings(false)} />}
-
-      <DataExplorer
-        title={explorer?.title ?? ""}
-        isOpen={!!explorer}
-        onClose={() => setExplorer(null)}
-      >
-        {explorer && (
-          <ExplorerFilesystem path={explorer.path} output={explorer.output} />
-        )}
-      </DataExplorer>
-    </div>
+        {/* Mesh */}
+        <MeshDiagram />
+      </div>
+    </AppShell>
   );
 }

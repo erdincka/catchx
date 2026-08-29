@@ -1,83 +1,97 @@
 "use client";
 
-import { RiCloseLine } from "@remixicon/react";
-import { NexusSectionDivider } from "@/components/nexus-core-components";
+import React, { useMemo } from "react";
+import { EmptyState } from "@/components/ui";
 
-interface DataTableProps {
-  title: string;
-  records: Record<string, unknown>[];
-  onClose: () => void;
+/** Columns that read best first when present. */
+const PREFERRED = ["_id", "name", "amount", "fraud", "score", "category", "country"];
+
+function renderCell(v: unknown): { text: string; muted: boolean } {
+  if (v === null || v === undefined || v === "") return { text: "—", muted: true };
+  if (typeof v === "boolean") return { text: v ? "true" : "false", muted: false };
+  if (typeof v === "number") return { text: v.toLocaleString(), muted: false };
+  if (typeof v === "object") return { text: JSON.stringify(v), muted: true };
+  const s = String(v);
+  // Masked PII arrives as a run of asterisks — call it out rather than
+  // showing a meaningless string of stars.
+  if (/^\*+$/.test(s)) return { text: "masked", muted: true };
+  return { text: s, muted: false };
 }
 
-export default function DataTable({ title, records, onClose }: DataTableProps) {
-  if (!records.length) return null;
+export default function DataTable({
+  records,
+  total,
+  emptyHint,
+}: {
+  records: Record<string, unknown>[];
+  total?: number;
+  emptyHint?: string;
+}) {
+  const columns = useMemo(() => {
+    const seen = new Set<string>();
+    for (const row of records) for (const k of Object.keys(row)) seen.add(k);
+    const all = [...seen];
+    const first = PREFERRED.filter((c) => seen.has(c));
+    return [...first, ...all.filter((c) => !first.includes(c))];
+  }, [records]);
 
-  const columns = Object.keys(records[0]);
+  if (records.length === 0) {
+    return (
+      <EmptyState
+        title="No records"
+        hint={emptyHint ?? "This table exists but has no rows yet."}
+      />
+    );
+  }
 
   return (
-    <div className="dialog-backdrop" onClick={onClose}>
-      <div
-        className="w-full max-w-5xl rounded-lg flex flex-col max-h-[90vh]"
-        style={{
-          background: "rgba(18, 18, 18, 0.96)",
-          backdropFilter: "blur(24px)",
-          WebkitBackdropFilter: "blur(24px)",
-          border: "2px solid white",
-        }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 shrink-0">
-          <div className="flex items-center gap-3">
-            <span className="font-sans font-bold text-sm text-white">{title}</span>
-            <span className="font-sans font-light text-xs text-neutrals-medium">{records.length} records</span>
-          </div>
-          <button
-            onClick={onClose}
-            className="text-neutrals-medium hover:text-white transition-colors duration-200 p-1"
-          >
-            <RiCloseLine size={20} />
-          </button>
-        </div>
-
-        <NexusSectionDivider style={{ paddingLeft: 20, marginBottom: 0 }} />
-
-        <div className="overflow-auto flex-1">
-          <table className="w-full text-xs border-collapse">
-            <thead>
-              <tr className="sticky top-0" style={{ background: "#121212" }}>
-                {columns.map((col) => (
-                  <th
-                    key={col}
-                    className="text-left px-3 py-2.5 font-sans font-medium text-neutrals-light whitespace-nowrap uppercase tracking-wider text-[10px]"
-                    style={{ borderBottom: "1px solid #474747" }}
-                  >
-                    {col}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {records.map((row, i) => (
-                <tr
-                  key={i}
-                  style={{ background: i % 2 === 0 ? "#000000" : "#121212" }}
+    <div className="flex flex-col min-h-0">
+      <div className="overflow-auto flex-1 min-h-0">
+        <table className="w-full border-collapse text-[12px]">
+          <thead className="sticky top-0 z-10">
+            <tr>
+              {columns.map((c) => (
+                <th
+                  key={c}
+                  scope="col"
+                  className="text-left font-semibold text-subtle whitespace-nowrap
+                             px-3 py-2 bg-surface-sunk border-b border-border
+                             text-[10.5px] uppercase tracking-[0.08em]"
                 >
-                  {columns.map((col) => (
-                    <td
-                      key={col}
-                      className="px-3 py-1.5 font-sans font-light text-neutrals-light max-w-xs truncate"
-                      style={{ borderBottom: "1px solid #1a1a1a" }}
-                      title={String(row[col] ?? "")}
-                    >
-                      {String(row[col] ?? "")}
-                    </td>
-                  ))}
-                </tr>
+                  {c}
+                </th>
               ))}
-            </tbody>
-          </table>
-        </div>
+            </tr>
+          </thead>
+          <tbody>
+            {records.map((row, i) => (
+              <tr key={i} className="hover:bg-surface-hover transition-colors">
+                {columns.map((c) => {
+                  const { text, muted } = renderCell(row[c]);
+                  return (
+                    <td
+                      key={c}
+                      title={text}
+                      className={
+                        "px-3 py-1.5 border-b border-border whitespace-nowrap max-w-[22rem] truncate " +
+                        (muted ? "text-subtle italic" : "text-text")
+                      }
+                    >
+                      {text}
+                    </td>
+                  );
+                })}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <div className="shrink-0 px-3 py-2 border-t border-border text-[11px] text-muted">
+        Showing {records.length.toLocaleString()}
+        {typeof total === "number" && total > records.length
+          ? ` of ${total.toLocaleString()} rows`
+          : records.length === 1 ? " row" : " rows"}
       </div>
     </div>
   );

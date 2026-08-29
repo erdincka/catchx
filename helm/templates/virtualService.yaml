@@ -1,9 +1,9 @@
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
-  name: {{ include "nexmesh.fullname" . }}
+  name: {{ include "catchx.fullname" . }}
   labels:
-    {{- include "nexmesh.labels" . | nindent 4 }}
+    {{- include "catchx.labels" . | nindent 4 }}
 spec:
   gateways:
     - {{ .Values.ezua.virtualService.istioGateway }}
@@ -17,6 +17,6 @@ spec:
         uri: /
       route:
         - destination:
-            host: {{ include "nexmesh.fullname" . }}.{{ .Release.Namespace }}.svc.cluster.local
+            host: {{ include "catchx.fullname" . }}.{{ .Release.Namespace }}.svc.cluster.local
             port:
               number: 3000
