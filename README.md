@@ -1,6 +1,6 @@
-# CatchX — a fraud detection pipeline on HPE Ezmeral Data Fabric
+# CatchX — a fraud detection pipeline on HPE Data Fabric
 
-An end-to-end demo of the HPE Ezmeral Data Fabric: transactions arrive on a
+An end-to-end demo of the HPE Data Fabric: transactions arrive on a
 stream, customers arrive as a CSV, and both move through a bronze → silver →
 gold medallion architecture into a shareable data product with suspected fraud
 flagged.
@@ -14,6 +14,19 @@ is the data platform, not the algorithm. The tools were chosen for how simply
 they demonstrate the fabric, not to constrain what you would use in production —
 Data Fabric speaks standard protocols, so the same code works with your own
 choice of engine.
+
+![The Fraud & Risk pipeline: live record counts read from the cluster at every tier](docs/images/screenshot-pipeline.png)
+
+<table>
+<tr>
+<td width="50%"><img src="docs/images/screenshot-overview.png" alt="The overview page: one domain of a financial-services data mesh, and the fabric capabilities beneath it"></td>
+<td width="50%"><img src="docs/images/screenshot-setup.png" alt="The setup page probing the cluster for the services the demo needs"></td>
+</tr>
+<tr>
+<td><em>Fraud &amp; Risk is one domain of a mesh; the platform underneath is shared.</em></td>
+<td><em>Setup probes the cluster and reports what is missing, rather than failing later.</em></td>
+</tr>
+</table>
 
 ## What it demonstrates
 
@@ -31,7 +44,7 @@ choice of engine.
 
 ### A Data Fabric cluster
 
-You need a running HPE Ezmeral Data Fabric cluster (7.x or later) that this app
+You need a running HPE Data Fabric cluster (7.x or later) that this app
 can reach. The demo creates and destroys its own volumes, tables and streams, so
 **use a lab or demo cluster, not production.**
 
@@ -129,11 +142,46 @@ Backend API docs: <http://localhost:8000/docs>.
 
 ## The pipeline
 
-```
-customers.csv ─────[batch]─────► Iceberg (bronze) ─────┐
-                                                       ├──► silver ──► Delta Lake (gold)
-transactions.csv ──[stream]──► DocumentDB (bronze) ────┘                     │
-                                                                      flagged fraud
+```mermaid
+flowchart LR
+    csv["customers.csv<br/><i>NFS</i>"]
+    tcsv["transactions.csv<br/><i>NFS</i>"]
+    stream["incoming<br/><i>Stream · Kafka API</i>"]
+
+    subgraph b ["BRONZE"]
+        bt["transactions<br/><i>DocumentDB</i>"]
+        bc["customers<br/><i>Iceberg</i>"]
+    end
+    subgraph s2 ["SILVER"]
+        st["transactions<br/><i>DocumentDB</i>"]
+        sc["customers<br/><i>DocumentDB</i>"]
+        sp["profiles<br/><i>risk scores</i>"]
+    end
+    subgraph g ["GOLD"]
+        gc["customers<br/><i>Delta Lake</i>"]
+        gt["transactions<br/><i>Delta Lake</i>"]
+        gf["flagged<br/><i>suspected fraud</i>"]
+    end
+
+    tcsv --> stream --> bt
+    csv --> bc
+    bt --> st --> sp
+    bc --> sc
+    st --> gt
+    sc --> gc
+    sp --> gf
+
+    classDef bz fill:#fff7ed,stroke:#c2410c,color:#431407;
+    classDef sv fill:#f8fafc,stroke:#475569,color:#0f172a;
+    classDef gd fill:#fefce8,stroke:#a16207,color:#422006;
+    classDef src fill:#f1f5f9,stroke:#94a3b8,color:#0f172a;
+    class bt,bc bz;
+    class st,sc,sp sv;
+    class gc,gt,gf gd;
+    class csv,tcsv,stream src;
+    style b fill:#ffffff,stroke:#fdba74,stroke-width:1px,color:#9a3412;
+    style s2 fill:#ffffff,stroke:#cbd5e1,stroke-width:1px,color:#334155;
+    style g fill:#ffffff,stroke:#fde047,stroke-width:1px,color:#854d0e;
 ```
 
 1. **Generate** — write customer and transaction CSVs into the global namespace
