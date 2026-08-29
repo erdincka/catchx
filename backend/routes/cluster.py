@@ -6,6 +6,7 @@ import logging
 import os
 import functools
 import subprocess
+import time
 from pathlib import Path
 from typing import AsyncGenerator
 
@@ -14,12 +15,15 @@ from fastapi import APIRouter, Depends
 from fastapi.responses import StreamingResponse
 
 from config import (
-    BASEDIR, VOLUME_BRONZE, VOLUME_SILVER, VOLUME_GOLD,
+    BASEDIR, MOUNT_PATH, VOLUME_BRONZE, VOLUME_SILVER, VOLUME_GOLD,
     CATCHX_VOL_PARENT, CATCHX_VOL_BRONZE, CATCHX_VOL_SILVER, CATCHX_VOL_GOLD,
     STREAM_INCOMING, STREAM_CHANGELOG, TABLE_TRANSACTIONS,
 )
 from asyncutil import to_thread
-from store import ClusterConfig, cache_cluster_info, get_cached_cluster_info, get_cluster_config
+from store import (
+    ClusterConfig, cache_cluster_info, ensure_cluster_name,
+    get_cached_cluster_info, get_cluster_config,
+)
 import settings as settings_module
 
 logger = logging.getLogger("routes.cluster")
@@ -301,11 +305,37 @@ async def configure_client(config: ClusterConfig = Depends(get_cluster_config)):
 
 # ── Artefact creation SSE ──────────────────────────────────────────────────────
 
+async def _await_namespace(cluster_name: str, timeout: float = 30.0) -> bool:
+    """Wait until a freshly created volume is visible through the NFS mount.
+
+    A volume exists on the cluster before the NFS client can see its mount
+    point, so provisioning used to report success while the very next write
+    failed with ENOENT. Waiting here means "Provision succeeded" actually
+    implies the demo can write.
+    """
+    from asyncutil import to_thread
+
+    target = f"{MOUNT_PATH}/{cluster_name}{BASEDIR}"
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        if await to_thread(os.path.isdir, target):
+            return True
+        await asyncio.sleep(1.0)
+    return False
+
+
 async def _create_artefacts_stream(host: str, user: str, password: str) -> AsyncGenerator[str, None]:
     config = ClusterConfig(host=host, user=user, password=password)
 
     yield _sse("volumes", "running", "Creating data lake volumes…")
     ok, msg = await _create_volumes(config)
+    if ok:
+        cluster_name = await ensure_cluster_name(config)
+        if cluster_name and not await _await_namespace(cluster_name):
+            ok, msg = False, (
+                f"Volumes created, but {MOUNT_PATH}/{cluster_name}{BASEDIR} is not visible "
+                "over NFS yet. Re-run client configuration, then provision again."
+            )
     yield _sse("volumes", "check" if ok else "error", msg)
 
     yield _sse("tables", "running", "Creating binary tables…")
