@@ -10,7 +10,7 @@ minio==7.2.10
 pandas>=2.0.0
 pyarrow>=14.0.0
 pycountry>=24.6.1
-pyiceberg[hive,pandas,s3fs]
+pyiceberg[sql-sqlite,pandas]
 pymysql>=1.1.1
 python-multipart>=0.0.9
 requests>=2.32.4

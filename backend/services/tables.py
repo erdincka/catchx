@@ -13,6 +13,7 @@ import logging
 import os
 import re
 import subprocess
+import time
 from concurrent.futures import ThreadPoolExecutor
 from typing import Optional
 
@@ -153,7 +154,19 @@ WRITE_CONCURRENCY = 8
 
 
 def _upsert_documents_blocking(config: ClusterConfig, table_path: str, docs: list) -> bool:
-    """Write documents through one store handle, several requests in flight."""
+    """Write documents through one store handle, several requests in flight.
+
+    The first row is written on its own before the pool starts. A table is
+    created lazily on first write, and firing eight concurrent writes at a
+    table that does not exist yet loses a batch of them to "DocumentStore not
+    found" and err 19 — intermittently, and only on the first run after a
+    reset, which is the worst way for a demo to fail. Warming the table with
+    one serial write removes that race.
+
+    Anything that still fails is retried once, serially, before the batch is
+    reported as failed: a handful of transient errors should not discard an
+    otherwise good write of several hundred rows.
+    """
     if not docs:
         return True
 
@@ -166,28 +179,56 @@ def _upsert_documents_blocking(config: ClusterConfig, table_path: str, docs: lis
         logger.warning("get_or_create_store failed for %s: %s", table_path, error)
         return False
 
-    failures = 0
+    last_error: list = [None]
 
     def _write(row) -> bool:
         try:
             store.insert_or_replace(conn.new_document(dictionary=row))
             return True
         except Exception as error:
-            logger.warning("upsert error for %s: %s", table_path, error)
+            last_error[0] = error
+            logger.debug("upsert error for %s: %s", table_path, error)
             return False
 
-    workers = min(WRITE_CONCURRENCY, len(docs))
+    # Warm the table before going parallel; this write also forces creation.
+    #
+    # A volume that was only just provisioned needs a few seconds before
+    # DocumentDB will serve it — until then both reads and writes fail with
+    # err 19. Back off across roughly fifteen seconds rather than giving up,
+    # so a reset followed immediately by a demo run just works.
+    for delay in (0, 0.5, 1, 2, 4, 8):
+        if delay:
+            time.sleep(delay)
+        if _write(docs[0]):
+            break
+    else:
+        logger.warning("Could not write to %s: %s", table_path, last_error[0])
+        return False
+
+    rest = docs[1:]
+    if not rest:
+        return True
+
+    failed: list = []
+    workers = min(WRITE_CONCURRENCY, len(rest))
     if workers <= 1:
-        return all(_write(row) for row in docs)
+        failed = [r for r in rest if not _write(r)]
+    else:
+        with ThreadPoolExecutor(max_workers=workers) as pool:
+            for row, ok in zip(rest, pool.map(_write, rest)):
+                if not ok:
+                    failed.append(row)
 
-    with ThreadPoolExecutor(max_workers=workers) as pool:
-        for ok in pool.map(_write, docs):
-            if not ok:
-                failures += 1
+    if failed:
+        logger.info("Retrying %d/%d writes for %s", len(failed), len(docs), table_path)
+        still_failed = [r for r in failed if not _write(r)]
+        if still_failed:
+            logger.warning(
+                "%d/%d writes failed for %s after retry", len(still_failed), len(docs), table_path
+            )
+            return False
 
-    if failures:
-        logger.warning("%d/%d writes failed for %s", failures, len(docs), table_path)
-    return failures == 0
+    return True
 
 
 # Public alias: ingestion calls this directly from inside a worker thread so the
@@ -200,19 +241,31 @@ async def upsert_documents(config: ClusterConfig, table_path: str, docs: list) -
 
 
 def _get_documents_blocking(config: ClusterConfig, table_path: str, limit: Optional[int]) -> list:
+    """Read documents, retrying briefly on error.
+
+    A just-provisioned volume serves err 19 for a few seconds. Without a retry
+    the read returns empty and the caller reports "no records", which sends the
+    presenter back to re-run a step that had in fact worked.
+    """
     conn = get_connection(config)
     if conn is None:
         return []
-    try:
-        store = conn.get_or_create_store(table_path)
-        query = conn.new_query()
-        if limit:
-            query = query.limit(limit)
-        query = query.build()
-        return [dict(doc) for doc in store.find(query)]
-    except Exception as error:
-        logger.warning("get_documents error for %s: %s", table_path, error)
-        return []
+
+    last_error = None
+    for delay in (0, 0.5, 2):
+        if delay:
+            time.sleep(delay)
+        try:
+            store = conn.get_or_create_store(table_path)
+            query = conn.new_query()
+            if limit:
+                query = query.limit(limit)
+            return [dict(doc) for doc in store.find(query.build())]
+        except Exception as error:
+            last_error = error
+
+    logger.warning("get_documents error for %s: %s", table_path, last_error)
+    return []
 
 
 async def get_documents(config: ClusterConfig, table_path: str, limit: Optional[int]) -> list:
