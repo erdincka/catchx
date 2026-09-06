@@ -106,6 +106,64 @@ def resolve_target_name(config: ClusterConfig) -> str:
     return resolved
 
 
+# Substrings that mean "this channel is gone", not "this request was bad".
+# A cached connection survives the gateway it was opened against, so without
+# dropping it here every later call fails with the same refusal until the
+# backend process is restarted — which used to be the only way back.
+_DEAD_CHANNEL_MARKERS = (
+    "failed to connect to all addresses",
+    "connection refused",
+    "connection reset",
+    "socket closed",
+    "channel closed",
+    "unavailable",
+    "transport",
+)
+
+# err 19 is ENODEV from the gateway's own MapR client. It survives a client
+# reconnect because the stale state is on the gateway, so the only useful
+# thing to tell the presenter is how to restart it.
+_STALE_GATEWAY_MARKER = "err code = 19"
+
+_last_error: Optional[str] = None
+
+
+def _is_dead_channel(error: Exception) -> bool:
+    text = str(error).lower()
+    return any(marker in text for marker in _DEAD_CHANNEL_MARKERS)
+
+
+def _note_error(error: Exception) -> None:
+    """Remember the last OJAI failure so callers can explain it."""
+    global _last_error
+    _last_error = str(error)
+
+
+def explain_last_error() -> str:
+    """A presenter-facing next step for the last OJAI failure, or "".
+
+    Errors in this demo are meant to say what to do next, and err 19 is the
+    one case where the answer is neither "retry" nor "run an earlier step".
+    """
+    if _last_error and _STALE_GATEWAY_MARKER in _last_error:
+        return (
+            " DocumentDB is refusing writes with err 19, which means the Data Access "
+            "Gateway is holding stale references — usually after volumes were removed "
+            "and recreated. Restart it on the cluster with: maprcli node services "
+            "-name data-access-gateway -action restart -nodes <node>"
+        )
+    return ""
+
+
+def reset_connections() -> None:
+    """Drop every cached OJAI connection; the next call opens a fresh one."""
+    _connections.clear()
+
+
+def drop_connection(host: str) -> None:
+    _connections.pop(host, None)
+
+
 def get_connection(config: ClusterConfig):
     if config.host in _connections:
         return _connections[config.host]
@@ -170,23 +228,38 @@ def _upsert_documents_blocking(config: ClusterConfig, table_path: str, docs: lis
     if not docs:
         return True
 
-    conn = get_connection(config)
-    if conn is None:
-        return False
-    try:
-        store = conn.get_or_create_store(table_path)
-    except Exception as error:
-        logger.warning("get_or_create_store failed for %s: %s", table_path, error)
-        return False
-
+    state: dict = {"conn": None, "store": None}
     last_error: list = [None]
 
+    def _open() -> bool:
+        """(Re)open the connection and the store handle for this table."""
+        conn = get_connection(config)
+        if conn is None:
+            return False
+        try:
+            state["conn"] = conn
+            state["store"] = conn.get_or_create_store(table_path)
+            return True
+        except Exception as error:
+            last_error[0] = error
+            _note_error(error)
+            if _is_dead_channel(error):
+                drop_connection(config.host)
+            logger.debug("get_or_create_store failed for %s: %s", table_path, error)
+            return False
+
     def _write(row) -> bool:
+        store, conn = state["store"], state["conn"]
+        if store is None:
+            return False
         try:
             store.insert_or_replace(conn.new_document(dictionary=row))
             return True
         except Exception as error:
             last_error[0] = error
+            _note_error(error)
+            if _is_dead_channel(error):
+                drop_connection(config.host)
             logger.debug("upsert error for %s: %s", table_path, error)
             return False
 
@@ -195,10 +268,14 @@ def _upsert_documents_blocking(config: ClusterConfig, table_path: str, docs: lis
     # A volume that was only just provisioned needs a few seconds before
     # DocumentDB will serve it — until then both reads and writes fail with
     # err 19. Back off across roughly fifteen seconds rather than giving up,
-    # so a reset followed immediately by a demo run just works.
+    # so a reset followed immediately by a demo run just works. The store is
+    # reopened on each attempt: when the failure was the channel rather than
+    # the table, retrying against the dead handle would never recover.
     for delay in (0, 0.5, 1, 2, 4, 8):
         if delay:
             time.sleep(delay)
+        if not _open():
+            continue
         if _write(docs[0]):
             break
     else:
@@ -221,6 +298,9 @@ def _upsert_documents_blocking(config: ClusterConfig, table_path: str, docs: lis
 
     if failed:
         logger.info("Retrying %d/%d writes for %s", len(failed), len(docs), table_path)
+        # Reopen first: if the batch failed because the channel dropped, every
+        # serial retry against the old handle would fail the same way.
+        _open()
         still_failed = [r for r in failed if not _write(r)]
         if still_failed:
             logger.warning(
@@ -247,14 +327,15 @@ def _get_documents_blocking(config: ClusterConfig, table_path: str, limit: Optio
     the read returns empty and the caller reports "no records", which sends the
     presenter back to re-run a step that had in fact worked.
     """
-    conn = get_connection(config)
-    if conn is None:
-        return []
-
     last_error = None
     for delay in (0, 0.5, 2):
         if delay:
             time.sleep(delay)
+        # Fetched inside the loop so a connection dropped after a dead channel
+        # is rebuilt on the next attempt rather than retried against.
+        conn = get_connection(config)
+        if conn is None:
+            continue
         try:
             store = conn.get_or_create_store(table_path)
             query = conn.new_query()
@@ -263,6 +344,9 @@ def _get_documents_blocking(config: ClusterConfig, table_path: str, limit: Optio
             return [dict(doc) for doc in store.find(query.build())]
         except Exception as error:
             last_error = error
+            _note_error(error)
+            if _is_dead_channel(error):
+                drop_connection(config.host)
 
     logger.warning("get_documents error for %s: %s", table_path, last_error)
     return []
@@ -286,6 +370,10 @@ def _count_documents_blocking(config: ClusterConfig, table_path: str) -> int:
         query = conn.new_query().select("_id").build()
         return sum(1 for _ in store.find(query))
     except Exception as error:
+        _note_error(error)
+        if _is_dead_channel(error):
+            # Counting runs on the metrics poll, so the next tick reconnects.
+            drop_connection(config.host)
         logger.warning("count_documents error for %s: %s", table_path, error)
         return 0
 

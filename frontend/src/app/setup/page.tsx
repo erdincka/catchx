@@ -469,7 +469,7 @@ export default function SetupPage() {
         onClose={() => setConfirmCleanup(false)}
         size="md"
         title="Delete all demo data?"
-        description="This removes the demo volumes, streams and tables from the cluster."
+        description="This removes the demo tables, streams and generated files from the cluster."
         footer={
           <>
             <Button size="sm" onClick={() => setConfirmCleanup(false)}>Cancel</Button>
@@ -480,10 +480,12 @@ export default function SetupPage() {
         }
       >
         <div className="px-5 py-4 text-[12.5px] text-muted leading-relaxed">
-          Every volume, stream and table created under{" "}
-          <Code>{draft.targets.base_volume}</Code> will be deleted from the cluster,
-          along with the generated source files. Your saved connection settings are kept
-          so you can run the demo again from step 4.
+          Every stream, table and generated file under{" "}
+          <Code>{draft.targets.base_volume}</Code> will be deleted from the cluster.
+          The four volumes are kept: removing and recreating a volume leaves the Data
+          Access Gateway holding a stale reference to it, and DocumentDB then fails
+          every call until the gateway is restarted. Your saved connection settings are
+          kept, so you can run the demo again from step 4.
         </div>
       </Dialog>
     </AppShell>

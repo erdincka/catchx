@@ -109,7 +109,7 @@ async def refine_transactions(config: ClusterConfig) -> dict:
     df["category"] = [random.choice(TRANSACTION_CATEGORIES) for _ in range(len(df))]
 
     if not await tables.upsert_documents(config, silver_table, df.to_dict("records")):
-        return {"status": "error", "message": f"Failed to save records in {silver_table}"}
+        return {"status": "error", "message": f"Failed to save records in {silver_table}" + tables.explain_last_error()}
 
     # Profiles are silver too, and building them here means bronze customers
     # are already present to resolve accounts against.
@@ -160,7 +160,7 @@ async def refine_customers(config: ClusterConfig) -> dict:
     if await tables.upsert_documents(config, silver_table, df.to_dict("records")):
         logger.info("Wrote %d customers to %s", df.shape[0], silver_table)
         return {"status": "ok", "count": int(df.shape[0])}
-    return {"status": "error", "message": f"Failed to save records in {silver_table}"}
+    return {"status": "error", "message": f"Failed to save records in {silver_table}" + tables.explain_last_error()}
 
 
 async def create_golden(config: ClusterConfig) -> dict:
@@ -263,15 +263,23 @@ async def fraud_detection(config: ClusterConfig) -> dict:
     }
 
 
-def _purge_local_artefacts(cluster_name: str) -> list[str]:
+def _purge_local_artefacts(cluster_name: str, remove_volumes: bool) -> list[str]:
+    """Remove the demo's files from the global namespace.
+
+    With `remove_volumes` false the tier mount points are left alone and only
+    their contents go: the volumes stay, which is what keeps a reset from
+    poisoning the Data Access Gateway (see `cleanup`).
+    """
     import shutil
 
     messages: list[str] = []
     basedir = f"{MOUNT_PATH}/{cluster_name}{BASEDIR}"
+    tiers = [VOLUME_BRONZE, VOLUME_SILVER, VOLUME_GOLD]
+
     try:
         if os.path.exists(f"{basedir}/iceberg.db"):
             catalog = iceberger.get_catalog(cluster_name)
-            for tier in [VOLUME_BRONZE, VOLUME_SILVER, VOLUME_GOLD]:
+            for tier in tiers:
                 if (tier,) in catalog.list_namespaces():
                     for tbl in catalog.list_tables(tier):
                         try:
@@ -282,18 +290,74 @@ def _purge_local_artefacts(cluster_name: str) -> list[str]:
                     catalog.drop_namespace(tier)
                 except Exception:
                     pass
+            # Close the catalog before unlinking its file, or NFS keeps it
+            # alive as a .nfs* placeholder for as long as the process runs.
+            iceberger.reset_catalog(cluster_name)
             os.unlink(f"{basedir}/iceberg.db")
             messages.append("Iceberg tables purged")
 
-        if os.path.isdir(basedir):
+        if not os.path.isdir(basedir):
+            return messages
+
+        if remove_volumes:
             shutil.rmtree(basedir, ignore_errors=True)
             messages.append(f"{basedir} removed")
+            return messages
+
+        # Keep the volume mount points, clear everything inside them.
+        removed = 0
+        for parent in [basedir] + [f"{basedir}/{t}" for t in tiers]:
+            if not os.path.isdir(parent):
+                continue
+            for entry in os.listdir(parent):
+                target = f"{parent}/{entry}"
+                if parent == basedir and entry in tiers:
+                    continue  # a tier volume's mount point — leave it in place
+                try:
+                    if os.path.isdir(target) and not os.path.islink(target):
+                        shutil.rmtree(target, ignore_errors=True)
+                    else:
+                        # Tables and streams surface as links to mapr::table::…
+                        os.unlink(target)
+                    removed += 1
+                except Exception:
+                    pass
+        if removed:
+            messages.append(f"{removed} file(s) removed under {basedir}")
+
     except Exception as e:
         messages.append(f"Cleanup error: {e}")
     return messages
 
 
-async def delete_volumes_and_streams(config: ClusterConfig) -> dict:
+# Tables the demo creates. The JSON ones appear on first write; the "-binary"
+# pair is created by provisioning. Both are removed by name, because a
+# DocumentDB table is a link in the namespace rather than a directory tree.
+_DEMO_TABLES = [
+    f"{VOLUME_BRONZE}/{TABLE_TRANSACTIONS}",
+    f"{VOLUME_BRONZE}/{TABLE_TRANSACTIONS}-binary",
+    f"{VOLUME_SILVER}/{TABLE_TRANSACTIONS}",
+    f"{VOLUME_SILVER}/{TABLE_TRANSACTIONS}-binary",
+    f"{VOLUME_SILVER}/{TABLE_CUSTOMERS}",
+    f"{VOLUME_SILVER}/{TABLE_PROFILES}",
+]
+
+
+async def cleanup_demo_data(config: ClusterConfig, remove_volumes: bool = False) -> dict:
+    """Reset the demo so it can be run again.
+
+    Tables, streams and files go; **the four volumes stay**. That is not
+    tidiness, it is the difference between a reset that works and one that
+    breaks the next run: deleting a volume and recreating it at the same path
+    leaves the Data Access Gateway holding a stale inode for it, and every
+    subsequent OJAI call fails with `err code = 19` ("No such device") until
+    the gateway itself is restarted. Deleting and recreating a *table* at the
+    same path is fine, so the reset works entirely at that level.
+
+    `remove_volumes=True` is the full teardown for when the demo is finished
+    with the cluster. It is not the between-runs path, and the response says
+    so, because provisioning again afterwards walks into exactly that problem.
+    """
     import httpx
     import settings as settings_module
     from config import (
@@ -305,46 +369,72 @@ async def delete_volumes_and_streams(config: ClusterConfig) -> dict:
     auth = (config.user, config.password)
     messages: list[str] = []
 
-    # Volume *names* on the cluster, not the mount-path suffixes — cleanup used
-    # to ask for "bronze" while the volume is called "catchx-bronze", so every
-    # removal failed with "No such file or directory" and the demo could never
-    # be fully reset. Children first: the parent cannot go while they are under it.
-    volume_names = [CATCHX_VOL_BRONZE, CATCHX_VOL_SILVER, CATCHX_VOL_GOLD, CATCHX_VOL_PARENT]
+    async def _post(client, path: str, params: dict) -> dict:
+        response = await client.post(
+            f"https://{config.host}:8443/rest/{path}", auth=auth, params=params
+        )
+        return response.json()
+
+    def _absent(desc: str) -> bool:
+        low = desc.lower()
+        return "no such" in low or "not found" in low or "does not exist" in low
 
     async with httpx.AsyncClient(verify=settings_module.ssl_verify(), timeout=30) as client:
         for stream in [STREAM_INCOMING, STREAM_CHANGELOG]:
             try:
-                response = await client.post(
-                    f"https://{config.host}:8443/rest/stream/delete",
-                    auth=auth, params={"path": f"{BASEDIR}/{stream}"},
-                )
-                res = response.json()
+                res = await _post(client, "stream/delete", {"path": f"{BASEDIR}/{stream}"})
                 if res.get("status") == "OK":
                     messages.append(f"Stream '{stream}' deleted")
                 else:
-                    messages.append(f"Stream {stream}: {res.get('errors', [{}])[0].get('desc', 'unknown error')}")
+                    desc = res.get("errors", [{}])[0].get("desc", "unknown error")
+                    if not _absent(desc):
+                        messages.append(f"Stream {stream}: {desc}")
             except Exception as e:
                 messages.append(f"Failed to delete stream {stream}: {e}")
 
-        for vol in volume_names:
+        for table in _DEMO_TABLES:
             try:
-                response = await client.post(
-                    f"https://{config.host}:8443/rest/volume/remove", auth=auth, params={"name": vol}
-                )
-                res = response.json()
+                res = await _post(client, "table/delete", {"path": f"{BASEDIR}/{table}"})
                 if res.get("status") == "OK":
-                    messages.append(f"Volume '{vol}' deleted")
+                    messages.append(f"Table '{table}' deleted")
                 else:
                     desc = res.get("errors", [{}])[0].get("desc", "unknown error")
-                    # A missing volume is a fine outcome for a cleanup.
-                    if "no such" in desc.lower() or "not found" in desc.lower():
-                        messages.append(f"Volume '{vol}' was not present")
-                    else:
-                        messages.append(f"{vol}: {desc}")
+                    if not _absent(desc):
+                        messages.append(f"Table {table}: {desc}")
             except Exception as e:
-                messages.append(f"Failed to delete {vol}: {e}")
+                messages.append(f"Failed to delete table {table}: {e}")
+
+        if remove_volumes:
+            # Children first: the parent cannot go while they are mounted under it.
+            for vol in [CATCHX_VOL_BRONZE, CATCHX_VOL_SILVER, CATCHX_VOL_GOLD, CATCHX_VOL_PARENT]:
+                try:
+                    res = await _post(client, "volume/remove", {"name": vol})
+                    if res.get("status") == "OK":
+                        messages.append(f"Volume '{vol}' deleted")
+                    else:
+                        desc = res.get("errors", [{}])[0].get("desc", "unknown error")
+                        messages.append(
+                            f"Volume '{vol}' was not present" if _absent(desc) else f"{vol}: {desc}"
+                        )
+                except Exception as e:
+                    messages.append(f"Failed to delete {vol}: {e}")
 
     if cluster_name:
-        messages += await to_thread(_purge_local_artefacts, cluster_name)
+        messages += await to_thread(_purge_local_artefacts, cluster_name, remove_volumes)
 
-    return {"status": "ok", "messages": messages}
+    # A dropped table invalidates whatever the OJAI client had cached for it.
+    tables.reset_connections()
+
+    result = {"status": "ok", "messages": messages, "volumes_removed": remove_volumes}
+    if remove_volumes:
+        result["warning"] = (
+            "Volumes were removed. Provisioning them again leaves the Data Access "
+            "Gateway with stale references, so DocumentDB will fail with err 19 "
+            "until it is restarted: "
+            "maprcli node services -name data-access-gateway -action restart -nodes <node>"
+        )
+    return result
+
+
+# Kept so existing callers and older bookmarks keep working.
+delete_volumes_and_streams = cleanup_demo_data

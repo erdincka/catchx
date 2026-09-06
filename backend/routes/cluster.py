@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import AsyncGenerator
 
 import httpx
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from fastapi.responses import StreamingResponse
 
 from config import (
@@ -379,6 +379,18 @@ async def cluster_info(config: ClusterConfig = Depends(get_cluster_config)):
 
 # ── Volume / table / stream creation helpers ───────────────────────────────────
 
+def _already_present(desc: str) -> bool:
+    """Does this REST error mean "it is already there" rather than a failure?
+
+    The cluster does not phrase this consistently: a table reports "already
+    exists" but a volume reports "Volume name catchx-demo, already in use."
+    Matching only on "exist" made provisioning report a red error for the
+    normal case, since the reset now deliberately leaves the volumes behind.
+    """
+    low = desc.lower()
+    return "exist" in low or "already in use" in low
+
+
 def _rest_ok(data: dict, label: str) -> bool:
     """Return True if the REST response is OK or the resource already exists."""
     status = data.get("status")
@@ -387,7 +399,7 @@ def _rest_ok(data: dict, label: str) -> bool:
     if status == "ERROR":
         errors = data.get("errors", [])
         descs = [e.get("desc", "") for e in errors]
-        if any("exist" in d.lower() for d in descs):
+        if any(_already_present(d) for d in descs):
             logger.info("%s already exists", label)
             return True
         logger.error("%s failed: %s", label, "; ".join(descs))
@@ -433,7 +445,7 @@ async def _create_volumes(config: ClusterConfig) -> tuple[bool, str]:
                 continue
             if status == "ERROR":
                 descs = [e.get("desc", "") for e in data.get("errors", [])]
-                if any("exist" in d.lower() for d in descs):
+                if any(_already_present(d) for d in descs):
                     # Volume name exists — verify it's mounted at OUR path
                     check = await _check_volume_path(config.host, mount_path, config.user, config.password)
                     if check == "ok":
@@ -510,6 +522,14 @@ async def _create_streams(config: ClusterConfig) -> tuple[bool, str]:
 
 
 @router.delete("/cleanup")
-async def cleanup(config: ClusterConfig = Depends(get_cluster_config)):
-    from services.functions import delete_volumes_and_streams
-    return await delete_volumes_and_streams(config)
+async def cleanup(
+    # The default keeps the four volumes and clears only what is inside them.
+    # Removing and recreating a volume leaves the Data Access Gateway holding a
+    # stale reference to it, and DocumentDB then fails every call with err 19
+    # until the gateway is restarted — so the between-runs reset must not do it.
+    remove_volumes: bool = Query(default=False),
+    config: ClusterConfig = Depends(get_cluster_config),
+):
+    """Reset the demo. Tables, streams and files go; volumes stay by default."""
+    from services.functions import cleanup_demo_data
+    return await cleanup_demo_data(config, remove_volumes=remove_volumes)
