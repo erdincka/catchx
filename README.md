@@ -40,12 +40,65 @@ choice of engine.
 | S3 object store | Access keys generated through the cluster API |
 | Data Fabric MCP | Optional discovery of the fabric's agent-callable tools |
 
+## Watch it run
+
+Six clips, one capability each, recorded against a live cluster.
+
+### One namespace, ordinary files
+
+Generation writes straight to `/mapr` over NFS — no upload, no staging area. The
+browser at the bottom of the page runs `ls` against the mount, so the same
+`catchx-demo` directory shows CSV files, an Iceberg catalog, the tier volumes,
+and streams and tables as `mapr::table::` entries alongside them.
+
+![Generating source data, then browsing /mapr/df.lab/catchx-demo over NFS](docs/videos/catchx-01-global-namespace.gif)
+
+### Streams, spoken as Kafka
+
+Transactions are produced to a fabric stream with the standard Kafka producer.
+The stream node picks up the count from the cluster's own REST API.
+
+![Publishing transactions to a fabric stream and watching the count arrive](docs/videos/catchx-02-streams.gif)
+
+### Two ingestion paths, one tier
+
+Transactions are consumed from the stream into a DocumentDB JSON table;
+customers are batch-loaded into Iceberg. Both land in bronze, and both are read
+back from the cluster.
+
+![Ingesting into DocumentDB and Iceberg, then reading bronze customers back](docs/videos/catchx-03-bronze-documentdb-iceberg.gif)
+
+### Enrichment and masking in the silver tier
+
+Customers gain country and ISO 3166-2 subdivision codes; birthdate and location
+come back **masked**. The same records were fully visible in bronze a moment
+earlier — the tier boundary is where that changes.
+
+![Refining to silver, showing masked birthdate and location alongside added subdivision codes](docs/videos/catchx-04-silver-enrich-mask.gif)
+
+### A shareable gold data product
+
+Silver is merged into Delta Lake tables, then every transaction is scored and
+the suspected ones are flagged in a single Delta merge. The flagged view carries
+no account numbers — direct identifiers are dropped on the way into gold.
+
+![Consolidating to Delta Lake and flagging suspected fraud](docs/videos/catchx-05-gold-delta-fraud.gif)
+
+### The code that actually ran
+
+Every step has a `</>` button. It shows the function that ran and follows the
+call chain down to the fabric client itself — `confluent_kafka.Producer` for the
+stream, `mapr.ojai.storage.ConnectionFactory` for DocumentDB. Nothing in the
+path is bespoke.
+
+![Opening the code viewer and following the call chain to the Kafka and OJAI clients](docs/videos/catchx-06-code-viewer.gif)
+
 ## Prerequisites
 
 ### A Data Fabric cluster
 
 You need a running HPE Data Fabric cluster (7.x or later) that this app
-can reach. The demo creates and destroys its own volumes, tables and streams, so
+can reach. The demo creates and destroys its own tables, streams and files, so
 **use a lab or demo cluster, not production.**
 
 Required packages on the cluster:
@@ -200,9 +253,46 @@ Click any populated node in the diagram to inspect its records, or the `</>`
 button on a step to see the code that ran, including the fabric client calls it
 makes.
 
+## Resetting between runs
+
 Everything lives under `/catchx-demo` on the cluster. **Delete demo data** on
-the Setup page removes it all so you can run again from step 4. A full clean run
-takes about a minute.
+the Setup page removes the streams, tables and generated files, and leaves the
+four volumes in place — after which the demo runs again from step 4.
+
+The volumes stay deliberately. Deleting a volume and recreating one at the same
+path leaves the Data Access Gateway holding a stale reference to it, and every
+DocumentDB call then fails with `err code = 19` ("No such device") until the
+gateway is restarted. Dropping and recreating a *table* has no such effect, so
+the reset works entirely at that level.
+
+If you do remove the volumes — `DELETE /api/cluster/cleanup?remove_volumes=true`,
+or by hand on the cluster — then restart the gateway before running the demo
+again:
+
+```bash
+maprcli node services -name data-access-gateway -action restart -nodes <node>
+```
+
+## How long a run takes
+
+Measured against a single-node Data Fabric 8.1.0 cluster, with the app on a
+separate host 0.6 ms away:
+
+| | UI defaults (200 customers, 100 transactions) | 500 transactions |
+|---|---|---|
+| Reset and provision | 27 s | 21 s |
+| Generate and publish | 1 s | 1 s |
+| Ingest to bronze | 19 s | 47 s |
+| Refine to silver | 58 s | 86 s |
+| Consolidate and detect | 8 s | 7 s |
+| **Total** | **1 m 53 s** | **2 m 42 s** |
+
+Almost all of it is DocumentDB writes, which cost roughly one round trip per
+document; the app issues eight at a time to compensate. Everything else — the
+stream, Iceberg, Delta — is fast enough not to notice. If a run is dramatically
+slower than this, check that the Data Access Gateway is not logging at `debug`:
+its default log4j2 configuration writes every gRPC frame and every document
+payload to disk, which dominates the cost of each write.
 
 ## Deploying on Kubernetes
 

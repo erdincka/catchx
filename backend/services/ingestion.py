@@ -66,7 +66,8 @@ async def ingest_transactions(config: ClusterConfig) -> dict:
         return {
             "status": "error",
             "message": f"Could not write to {output_table}. The messages were left on "
-                       "the stream, so this step can be retried.",
+                       "the stream, so this step can be retried."
+                       + tables.explain_last_error(),
         }
 
     logger.info("Saved %d transactions to %s", len(parsed), output_table)

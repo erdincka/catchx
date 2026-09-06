@@ -139,30 +139,31 @@ edit failed.
   hostname for the cluster where possible.
 - **Metrics tier counts are cached** (`COUNT_TTL`) and invalidated by
   `monitoring.invalidate()`. Any new route that writes data must call `_touch`.
-
-## Deferred cleanup
-
-Do these the next time something already requires rebuilding and verifying the
-backend image — they are not worth a rebuild-and-verify cycle of their own.
-
-**Unused Python dependencies in `backend/requirements.txt`.** Each has zero
-imports; they are leftovers from features that were removed:
-
-| Package | Was for |
-|---------|---------|
-| `geopy` | location enrichment, gone |
-| `jinja2` | NiFi template rendering, gone |
-| `pymysql` | the MySQL/Hive path, replaced by Delta Lake in the gold tier |
-| `requests` | appears only in a logger name and a docstring, never imported |
-
-Drop all four together, then run the end-to-end check below. `requests` is the
-one to watch: `config.py` silences its logger, which implies something pulls it
-in transitively — that is fine, it just should not be a direct pin. Keep
-`sqlalchemy`: pyiceberg's `SqlCatalog` needs it, even though nothing imports it
-here directly.
-
-Expect only a small size win. The backend image is dominated by the PACC base
-image, not by these.
+- **Never delete and recreate a volume in the reset path.** The Data Access
+  Gateway keeps its own MapR client handle for a path; remove a volume and
+  create one at the same mount point and every OJAI call then fails with
+  `syncPut() … No such device (19)` — permanently, not for a settling period.
+  Reconnecting the client does not help, because the stale state is on the
+  gateway; only restarting the gateway clears it. `dbshell`, a fresh process,
+  writes to the same table fine, which is the quickest way to confirm it.
+  Dropping and recreating a *table* at the same path is safe, so
+  `functions.cleanup_demo_data` works entirely at table level and leaves the
+  four volumes alone.
+- **The OJAI connection cache must be invalidated on channel errors.**
+  `tables._connections` is keyed by host and lives for the process. When a
+  connection dies — a gateway restart, a network blip — every later call fails
+  with "failed to connect to all addresses" until the cache is cleared. The
+  write and read paths reopen through `_open()` / `get_connection()` on each
+  retry and call `drop_connection` when `_is_dead_channel` matches, so retries
+  can actually recover.
+- **`iceberger.get_catalog` is cached per cluster.** Each `SqlCatalog` builds a
+  SQLAlchemy engine and holds the SQLite catalog file open. Building one per
+  call leaked a connection on every metrics poll, and unlinking the open file
+  over NFS left a `.nfs*` placeholder instead of deleting it. Cleanup calls
+  `reset_catalog` before removing `iceberg.db`.
+- **The cluster is not always the app's fault.** A Data Access Gateway left at
+  `<Root level="debug">` in `log4j2.xml` logs every gRPC frame and document
+  payload, which dominates OJAI write latency. Check it before optimising code.
 
 ## Testing against a cluster
 
@@ -183,5 +184,12 @@ POST /api/data/fraud
 DELETE /api/cluster/cleanup      # reset and repeat
 ```
 
-A full clean run takes roughly a minute. If a step takes dramatically longer,
-suspect a per-record round trip that should be batched.
+A full clean run at these defaults takes about **1 m 50 s**, most of it
+DocumentDB writes. Verified against Data Fabric 8.1.0 on 2026-09-06. If a step
+takes dramatically longer, suspect a per-record round trip that should be
+batched — or a Data Access Gateway logging at `debug`.
+
+The run above is also the regression test for the reset path: `cleanup` followed
+immediately by `provision` and a second full run must succeed **without
+restarting anything on the cluster.** If DocumentDB starts returning err 19,
+something has gone back to removing volumes.

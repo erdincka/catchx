@@ -5,70 +5,63 @@ API, the Data Access Gateway, NFS and the object store — see the prerequisites
 in [README.md](./README.md). These notes are here for building on the demo, or
 for setting the cluster up in ways the demo does not require.
 
-## NiFi, Airflow and Spark
+## Driving the pipeline from a scheduler
 
-Install Airflow and Spark packages if you want to drive the same pipeline from
-a scheduler rather than the app.
-
-`dnf install mapr-spark mapr-spark-master mapr-spark-historyserver mapr-spark-thriftserver`
-
-`dnf install mapr-airflow-webserver mapr-airflow-scheduler mapr-airflow mapr-nifi`
-
-`cp /opt/mapr/spark/spark-3.3.3/conf/workers.template /opt/mapr/spark/spark-3.3.3/conf/workers`
-
-`/opt/mapr/server/configure.sh -R`
-
-`export SPARK_HOME=/opt/mapr/spark/spark-3.3.3`
-
-## Run these as mapr user
-
-`ssh-keygen -t rsa -P '' -f ~/.ssh/id_rsa`
-`ssh-copy-id <worker_host>`
-
-As root:
-
-`$SPARK_HOME/sbin/start-workers.sh`
-
-
-`/opt/mapr/nifi/nifi-1.19.1/bin/nifi.sh set-single-user-credentials admin <your password>`
-
-
-`airflow users  create --role Admin --username admin --email admin --firstname admin --lastname admin --password <your password>`
-
+Install the Spark and Airflow packages if you want to run the same steps from a
+scheduler rather than from the app. The gold tier is Delta Lake in the global
+namespace, so anything Delta-aware can read it — target
+`/catchx-demo/gold` directly.
 
 ```bash
-maprcli node services -name airflow-webserver  -action restart -nodes `hostname -f`
+dnf install mapr-spark mapr-spark-master mapr-spark-historyserver mapr-spark-thriftserver
+dnf install mapr-airflow-webserver mapr-airflow-scheduler mapr-airflow mapr-nifi
+
+cp /opt/mapr/spark/spark-3.3.3/conf/workers.template /opt/mapr/spark/spark-3.3.3/conf/workers
+/opt/mapr/server/configure.sh -R
+export SPARK_HOME=/opt/mapr/spark/spark-3.3.3
 ```
 
---- or airflow configures mapr/mapr as default user/password ---
+As the `mapr` user, so the master can reach its workers:
 
-> **Note:** earlier versions of this demo shipped a NiFi template and an Airflow
-> DAG that wrote Hive tables via MySQL/MariaDB. Both were removed — the pipeline
-> now writes Delta Lake directly to the gold tier, so an RDBMS is no longer part
-> of it. If you want to rebuild that integration, target the gold Delta tables
-> under `/catchx-demo/gold`.
+```bash
+ssh-keygen -t rsa -P '' -f ~/.ssh/id_rsa
+ssh-copy-id <worker_host>
+```
 
+Then, as root:
 
-## NFSv4 (optional)
+```bash
+$SPARK_HOME/sbin/start-workers.sh
+```
+
+Set the NiFi and Airflow credentials before first use:
+
+```bash
+/opt/mapr/nifi/nifi-1.19.1/bin/nifi.sh set-single-user-credentials admin <your password>
+airflow users create --role Admin --username admin --email admin \
+  --firstname admin --lastname admin --password <your password>
+maprcli node services -name airflow-webserver -action restart -nodes $(hostname -f)
+```
+
+Airflow otherwise configures `mapr`/`mapr` as its default account.
+
+## NFSv4
 
 CatchX mounts the global namespace over **NFSv3** (`mapr-nfs`), which is what the
-client configuration step does by default. These notes cover NFSv4
-(`mapr-nfs4server`) if you would rather use it — you would need to change the
-mount options in `backend/routes/cluster.py` to match.
+client configuration step does. To use NFSv4 (`mapr-nfs4server`) instead, change
+the mount options in `backend/routes/cluster.py` to match, and set `sectype` to
+`sys` if you are not using Kerberos.
 
-Change sectype to sys if not using Kerberos.
+See the [known issues](https://docs.ezmeral.hpe.com/datafabric/77/get_started/known_issues.html?#concept_kg5_cxs_zwb__section_w2t_ntm_n1c)
+for the NFSv4 caveats.
 
-https://docs.ezmeral.hpe.com/datafabric/77/get_started/known_issues.html?#concept_kg5_cxs_zwb__section_w2t_ntm_n1c
+### An external NFS server
 
+Without Kerberos or ID mapping. `no_root_squash` lets root on the client act as
+root on the server — do not use it in production. `insecure` allows client port
+numbers above 1024, without which you get "operation not permitted".
 
-### External NFS Server
-
-Not using Kerberos and ID Mapping
-
-`no_root_squash` allows root user in client to act like root user in server (do not use in production).
-`insecure` enables use of port numbers above 1024 for clients - otherwise you'll get 'operation not permitted' errors.
-
-`/etc/exports` file content:
+`/etc/exports`:
 
 ```bash
 /export	*(rw,fsid=0,sec=sys,insecure_locks,insecure,no_subtree_check,sync,no_root_squash)
@@ -77,13 +70,15 @@ Not using Kerberos and ID Mapping
 /export/server *(rw,sec=sys,nohide,insecure_locks,insecure,no_subtree_check,sync,no_root_squash)
 ```
 
-You should create bind mounts for users & server psudo paths:
+Create bind mounts for the pseudo paths:
 
 ```bash
 mount --bind /home /export/users/
 mount --bind /srv /export/server/
 ```
 
-And test it:
+And test:
 
-`mount -t nfs4 -o proto=tcp,nolock,sec=sys <nfs-server-ip>:/ /mnt/`
+```bash
+mount -t nfs4 -o proto=tcp,nolock,sec=sys <nfs-server-ip>:/ /mnt/
+```

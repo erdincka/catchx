@@ -6,17 +6,47 @@ from config import BASEDIR, MOUNT_PATH
 logger = logging.getLogger("iceberger")
 
 
+# One catalog per cluster, reused. Each SqlCatalog builds its own SQLAlchemy
+# engine and holds the SQLite file open; building a fresh one per call meant
+# the metrics poll leaked a connection every fifteen seconds for the length of
+# a demo, and left the deleted catalog silly-renamed to .nfs* on cleanup.
+_catalogs: dict = {}
+
+
 def get_catalog(cluster_name: str):
     from pyiceberg.catalog.sql import SqlCatalog
 
+    if cluster_name in _catalogs:
+        return _catalogs[cluster_name]
+
     catalog_path = f"{MOUNT_PATH}/{cluster_name}{BASEDIR}"
-    return SqlCatalog(
+    catalog = SqlCatalog(
         "default",
         **{
             "uri": f"sqlite:///{catalog_path}/iceberg.db",
             "warehouse": f"file://{catalog_path}",
         },
     )
+    _catalogs[cluster_name] = catalog
+    return catalog
+
+
+def reset_catalog(cluster_name: str = "") -> None:
+    """Close and forget cached catalogs.
+
+    Must be called before the catalog file is deleted: SQLite keeps it open,
+    and unlinking an open file over NFS leaves a .nfs* placeholder behind
+    rather than removing it.
+    """
+    names = [cluster_name] if cluster_name else list(_catalogs)
+    for name in names:
+        catalog = _catalogs.pop(name, None)
+        if catalog is None:
+            continue
+        try:
+            catalog.engine.dispose()
+        except Exception as error:
+            logger.debug("Catalog dispose failed for %s: %s", name, error)
 
 
 def write(cluster_name: str, tier: str, tablename: str, records: list) -> bool:
