@@ -38,6 +38,12 @@ database and no time-series store anywhere in this demo.
 
 There is almost no fraud detection in it, which is the point.
 
+I wrote about the same platform from the other direction in
+[Deciding what crosses the link](https://erdincka.github.io/2026/09/deciding-what-crosses-the-link/),
+which takes one workload across two sites and asks what is worth moving. This
+one stays on a single cluster and asks the opposite question: how many
+different engines can you serve from it before you start deploying things?
+
 ---
 
 ## The shape of the thing
