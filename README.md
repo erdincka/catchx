@@ -1,5 +1,7 @@
 # CatchX — a fraud detection pipeline on HPE Data Fabric
 
+> **Prerequisites** — requires [HPE Data Fabric](https://www.hpe.com/us/en/products/software/data-fabric-software.html).
+
 An end-to-end demo of the HPE Data Fabric: transactions arrive on a
 stream, customers arrive as a CSV, and both move through a bronze → silver →
 gold medallion architecture into a shareable data product with suspected fraud
